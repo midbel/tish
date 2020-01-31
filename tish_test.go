@@ -26,24 +26,32 @@ func TestWords(t *testing.T) {
 			Words: []string{"echo", "foo"},
 		},
 		{
-			Input: "echo \"foobar\"",
+			Input: `echo "foobar"`,
 			Words: []string{"echo", "foobar"},
 		},
 		{
-			Input: "echo 'foobar'",
+			Input: `echo 'foobar'`,
 			Words: []string{"echo", "foobar"},
 		},
 		{
-			Input: "echo 'PWD=$PWD'",
+			Input: `echo 'PWD=$PWD'`,
 			Words: []string{"echo", "PWD=$PWD"},
 		},
 		{
-			Input: "echo \"foo bar\"",
+			Input: `echo "foo bar"`,
 			Words: []string{"echo", "foo bar"},
 		},
 		{
-			Input: "echo \"foo bar\" \"foo\\\" bar\"",
+			Input: `echo "foo bar" "foo\" bar"`,
 			Words: []string{"echo", "foo bar", "foo\" bar"},
+		},
+		{
+			Input: `echo prefix" between "suffix`,
+			Words: []string{"echo", "prefix between suffix"},
+		},
+		{
+			Input: `echo prefix' between 'suffix`,
+			Words: []string{"echo", "prefix between suffix"},
 		},
 	}
 	for i, d := range data {
