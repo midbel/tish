@@ -17,20 +17,36 @@ func TestWords(t *testing.T) {
 			Input: `echo foo bar`,
 			Words: []string{"echo", "foo", "bar"},
 		},
+		{
+			Input: `echo fo\o`,
+			Words: []string{"echo", "foo"},
+		},
+		{
+			Input: "echo \"foobar\"",
+			Words: []string{"echo", "foobar"},
+		},
+		{
+			Input: "echo 'foobar'",
+			Words: []string{"echo", "foobar"},
+		},
+		{
+			Input: "echo \"foo bar\"",
+			Words: []string{"echo", "foo bar"},
+		},
 	}
 	for i, d := range data {
 		s := NewScanner(d.Input)
 		for tok, j := s.Scan(), 0; tok.Type != EOS; tok = s.Scan() {
 			if j > len(d.Words) {
-				t.Errorf("%d) too many tokens generated! want %d, got %d", i, len(d.Words), j)
+				t.Errorf("%d) too many tokens generated! want %d, got %d", i+1, len(d.Words), j)
 				break
 			}
 			if tok.Type != Word {
-				t.Errorf("%d) unexpected token type", i)
+				t.Errorf("%d) unexpected token type", i+1)
 				break
 			}
 			if tok.Literal != d.Words[j] {
-				t.Errorf("%d) unexpected token! want %q, got %q", i, d.Words[j], tok.Literal)
+				t.Errorf("%d) unexpected token! want %q, got %q", i+1, d.Words[j], tok.Literal)
 				break
 			}
 			j++

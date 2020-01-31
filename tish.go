@@ -2,7 +2,7 @@ package tish
 
 import (
 	"bytes"
-  "unicode/utf8"
+	"unicode/utf8"
 )
 
 const (
@@ -20,59 +20,96 @@ const (
 )
 
 const (
-  EOS rune = -(iota+1)
-  Word
-  Illegal
+	EOS rune = -(iota + 1)
+	Word
+	Illegal
 )
 
 type Token struct {
-  Literal string
-  Type    rune
+	Literal string
+	Type    rune
 }
 
 type Scanner struct {
-  buffer []byte
+	buffer []byte
 
-  char rune
-  curr int
-  next int
+	char rune
+	curr int
+	next int
 }
 
 func NewScanner(str string) *Scanner {
-  s := &Scanner{
-    buffer: []byte(str),
-  }
-  s.readRune()
-  return s
+	s := &Scanner{
+		buffer: []byte(str),
+	}
+	s.readRune()
+	return s
 }
 
 func (s *Scanner) Scan() Token {
-  var tok Token
-  if s.char == EOS {
-    tok.Type = EOS
-    return tok
-  }
+	var tok Token
+	if s.char == EOS {
+		tok.Type = EOS
+		return tok
+	}
 
-  s.skip(isBlank)
+	s.skip(isBlank)
 
-  var buf bytes.Buffer
-  for !isBlank(s.char) {
-    if s.char == backslash {
-      s.readRune()
-    }
-    buf.WriteRune(s.char)
-    s.readRune()
-  }
-  tok.Literal = buf.String()
-  tok.Type = Word
+	switch s.char {
+	case squote:
+		s.scanQuotedStrong(&tok)
+	case dquote:
+		s.scanQuotedWeak(&tok)
+	default:
+		s.scanWord(&tok)
+	}
+	s.readRune()
 
-  // s.readRune()
+	return tok
+}
 
-  return tok
+func (s *Scanner) scanQuotedWeak(tok *Token) {
+	s.readRune()
+
+	var buf bytes.Buffer
+	for s.char != dquote {
+		if s.char == backslash {
+			s.readRune()
+		}
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	tok.Literal = buf.String()
+	tok.Type = Word
+}
+
+func (s *Scanner) scanQuotedStrong(tok *Token) {
+	s.readRune()
+
+	var buf bytes.Buffer
+	for s.char != squote {
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	tok.Literal = buf.String()
+	tok.Type = Word
+}
+
+func (s *Scanner) scanWord(tok *Token) {
+	var buf bytes.Buffer
+	for !isBlank(s.char) {
+		if s.char == backslash {
+			s.readRune()
+		}
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	tok.Literal = buf.String()
+	tok.Type = Word
 }
 
 func (s *Scanner) readRune() {
-  if s.next >= len(s.buffer) {
+	if s.next >= len(s.buffer) {
 		s.char = EOS
 		return
 	}
@@ -89,7 +126,7 @@ func (s *Scanner) readRune() {
 }
 
 func (s *Scanner) unreadRune() {
-  if s.next <= 0 || s.char == 0 {
+	if s.next <= 0 || s.char == 0 {
 		return
 	}
 
@@ -98,7 +135,7 @@ func (s *Scanner) unreadRune() {
 }
 
 func (s *Scanner) peekRune() rune {
-  if s.next >= len(s.buffer) {
+	if s.next >= len(s.buffer) {
 		return EOS
 	}
 	r, n := utf8.DecodeRune(s.buffer[s.next:])
@@ -112,12 +149,12 @@ func (s *Scanner) peekRune() rune {
 	return r
 }
 
-func (s *Scanner) skip(fn func(rune)bool) {
-  for fn(s.char) {
-    s.readRune()
-  }
+func (s *Scanner) skip(fn func(rune) bool) {
+	for fn(s.char) {
+		s.readRune()
+	}
 }
 
 func isBlank(r rune) bool {
-  return r == space || r == tab || r == EOS
+	return r == space || r == tab || r == EOS
 }
