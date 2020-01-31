@@ -52,7 +52,7 @@ func (s *Scanner) Scan() Token {
 		tok.Type = EOS
 		return tok
 	}
-  tok.Type = Word
+	tok.Type = Word
 
 	s.skip(isBlank)
 
@@ -80,7 +80,7 @@ func (s *Scanner) scanQuotedWeak() string {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-  return buf.String()
+	return buf.String()
 }
 
 func (s *Scanner) scanQuotedStrong() string {
@@ -100,19 +100,19 @@ func (s *Scanner) scanWord() string {
 		if s.char == backslash {
 			s.readRune()
 		}
-    switch s.char {
-    case squote:
-      str := s.scanQuotedStrong()
-      buf.WriteString(str)
-    case dquote:
-      str := s.scanQuotedWeak()
-      buf.WriteString(str)
-    default:
-      if s.char == backslash {
-        s.readRune()
-      }
-      buf.WriteRune(s.char)
-    }
+		switch s.char {
+		case squote:
+			str := s.scanQuotedStrong()
+			buf.WriteString(str)
+		case dquote:
+			str := s.scanQuotedWeak()
+			buf.WriteString(str)
+		default:
+			if s.char == backslash {
+				s.readRune()
+			}
+			buf.WriteRune(s.char)
+		}
 		s.readRune()
 	}
 	return buf.String()

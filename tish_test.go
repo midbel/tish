@@ -1,75 +1,114 @@
 package tish
 
 import (
+	"fmt"
 	"testing"
 )
 
 func TestWords(t *testing.T) {
 	data := []struct {
 		Input string
-		Words []string
+		Words []Token
 	}{
 		{
 			Input: `echo`,
-			Words: []string{"echo"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+			},
 		},
 		{
 			Input: `echo foo bar`,
-			Words: []string{"echo", "foo", "bar"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foo", Type: Word},
+				{Literal: "bar", Type: Word},
+			},
 		},
 		{
 			Input: `echo foo\ bar`,
-			Words: []string{"echo", "foo bar"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foo bar", Type: Word},
+			},
 		},
 		{
 			Input: `echo fo\o`,
-			Words: []string{"echo", "foo"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foo", Type: Word},
+			},
 		},
 		{
 			Input: `echo "foobar"`,
-			Words: []string{"echo", "foobar"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foobar", Type: Word},
+			},
 		},
 		{
 			Input: `echo 'foobar'`,
-			Words: []string{"echo", "foobar"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foobar", Type: Word},
+			},
 		},
 		{
 			Input: `echo 'PWD=$PWD'`,
-			Words: []string{"echo", "PWD=$PWD"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "PWD=$PWD", Type: Word},
+			},
 		},
 		{
 			Input: `echo "foo bar"`,
-			Words: []string{"echo", "foo bar"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foo bar", Type: Word},
+			},
 		},
 		{
 			Input: `echo "foo bar" "foo\" bar"`,
-			Words: []string{"echo", "foo bar", "foo\" bar"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foo bar", Type: Word},
+				{Literal: "foo\" bar", Type: Word},
+			},
 		},
 		{
 			Input: `echo prefix" between "suffix`,
-			Words: []string{"echo", "prefix between suffix"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "prefix between suffix", Type: Word},
+			},
 		},
 		{
 			Input: `echo prefix' between 'suffix`,
-			Words: []string{"echo", "prefix between suffix"},
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "prefix between suffix", Type: Word},
+			},
 		},
 	}
 	for i, d := range data {
-		s := NewScanner(d.Input)
-		for tok, j := s.Scan(), 0; tok.Type != EOS; tok = s.Scan() {
-			if j > len(d.Words) {
-				t.Errorf("%d) too many tokens generated! want %d, got %d", i+1, len(d.Words), j)
-				break
-			}
-			if tok.Type != Word {
-				t.Errorf("%d) unexpected token type", i+1)
-				break
-			}
-			if tok.Literal != d.Words[j] {
-				t.Errorf("%d) unexpected token! want %q, got %q", i+1, d.Words[j], tok.Literal)
-				break
-			}
-			j++
+		if err := cmpTokens(d.Input, d.Words); err != nil {
+			t.Errorf("%d) error: %s", i+1, err)
 		}
 	}
+}
+
+func cmpTokens(str string, words []Token) error {
+	s := NewScanner(str)
+	for tok, j := s.Scan(), 0; tok.Type != EOS; tok = s.Scan() {
+		if j >= len(words) {
+			return fmt.Errorf("too many tokens generated! want %d, got %d", len(words), j)
+		}
+		if tok.Type != words[j].Type {
+			return fmt.Errorf("unexpected token type")
+		}
+		if tok.Literal != words[j].Literal {
+			return fmt.Errorf("unexpected token! want %q, got %q", words[j], tok.Literal)
+		}
+		j++
+	}
+	return nil
 }
