@@ -1,0 +1,39 @@
+package tish
+
+import (
+	"testing"
+)
+
+func TestWords(t *testing.T) {
+	data := []struct {
+		Input string
+		Words []string
+	}{
+		{
+			Input: `echo`,
+			Words: []string{"echo"},
+		},
+		{
+			Input: `echo foo bar`,
+			Words: []string{"echo", "foo", "bar"},
+		},
+	}
+	for i, d := range data {
+		s := NewScanner(d.Input)
+		for tok, j := s.Scan(), 0; tok.Type != EOS; tok = s.Scan() {
+			if j > len(d.Words) {
+				t.Errorf("%d) too many tokens generated! want %d, got %d", i, len(d.Words), j)
+				break
+			}
+			if tok.Type != Word {
+				t.Errorf("%d) unexpected token type", i)
+				break
+			}
+			if tok.Literal != d.Words[j] {
+				t.Errorf("%d) unexpected token! want %q, got %q", i, d.Words[j], tok.Literal)
+				break
+			}
+			j++
+		}
+	}
+}
