@@ -52,23 +52,24 @@ func (s *Scanner) Scan() Token {
 		tok.Type = EOS
 		return tok
 	}
+  tok.Type = Word
 
 	s.skip(isBlank)
 
 	switch s.char {
 	case squote:
-		s.scanQuotedStrong(&tok)
+		tok.Literal = s.scanQuotedStrong()
 	case dquote:
-		s.scanQuotedWeak(&tok)
+		tok.Literal = s.scanQuotedWeak()
 	default:
-		s.scanWord(&tok)
+		tok.Literal = s.scanWord()
 	}
 	s.readRune()
 
 	return tok
 }
 
-func (s *Scanner) scanQuotedWeak(tok *Token) {
+func (s *Scanner) scanQuotedWeak() string {
 	s.readRune()
 
 	var buf bytes.Buffer
@@ -79,11 +80,10 @@ func (s *Scanner) scanQuotedWeak(tok *Token) {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-	tok.Literal = buf.String()
-	tok.Type = Word
+  return buf.String()
 }
 
-func (s *Scanner) scanQuotedStrong(tok *Token) {
+func (s *Scanner) scanQuotedStrong() string {
 	s.readRune()
 
 	var buf bytes.Buffer
@@ -91,21 +91,31 @@ func (s *Scanner) scanQuotedStrong(tok *Token) {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-	tok.Literal = buf.String()
-	tok.Type = Word
+	return buf.String()
 }
 
-func (s *Scanner) scanWord(tok *Token) {
+func (s *Scanner) scanWord() string {
 	var buf bytes.Buffer
 	for !isBlank(s.char) {
 		if s.char == backslash {
 			s.readRune()
 		}
-		buf.WriteRune(s.char)
+    switch s.char {
+    case squote:
+      str := s.scanQuotedStrong()
+      buf.WriteString(str)
+    case dquote:
+      str := s.scanQuotedWeak()
+      buf.WriteString(str)
+    default:
+      if s.char == backslash {
+        s.readRune()
+      }
+      buf.WriteRune(s.char)
+    }
 		s.readRune()
 	}
-	tok.Literal = buf.String()
-	tok.Type = Word
+	return buf.String()
 }
 
 func (s *Scanner) readRune() {
