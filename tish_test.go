@@ -18,6 +18,10 @@ func TestWords(t *testing.T) {
 			Words: []string{"echo", "foo", "bar"},
 		},
 		{
+			Input: `echo foo\ bar`,
+			Words: []string{"echo", "foo bar"},
+		},
+		{
 			Input: `echo fo\o`,
 			Words: []string{"echo", "foo"},
 		},
@@ -30,8 +34,16 @@ func TestWords(t *testing.T) {
 			Words: []string{"echo", "foobar"},
 		},
 		{
+			Input: "echo 'PWD=$PWD'",
+			Words: []string{"echo", "PWD=$PWD"},
+		},
+		{
 			Input: "echo \"foo bar\"",
 			Words: []string{"echo", "foo bar"},
+		},
+		{
+			Input: "echo \"foo bar\" \"foo\\\" bar\"",
+			Words: []string{"echo", "foo bar", "foo\" bar"},
 		},
 	}
 	for i, d := range data {
