@@ -5,7 +5,61 @@ import (
 	"testing"
 )
 
-func TestWords(t *testing.T) {
+func TestScannerScan(t *testing.T) {
+	t.Run("words/simples", testWords)
+	t.Run("words/variables", testVariables)
+}
+
+func testVariables(t *testing.T) {
+	data := []struct {
+		Input string
+		Words []Token
+	}{
+		{
+			Input: `echo $PWD`,
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "PWD", Type: Variable},
+			},
+		},
+		{
+			Input: `echo $PWD2`,
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "PWD2", Type: Variable},
+			},
+		},
+		{
+			Input: `echo $OLD_PWD`,
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "OLD_PWD", Type: Variable},
+			},
+		},
+		{
+			// words: WL[Word(echo)], WL[Word(foobar)], WL[Word(home = ), Variable(HOME)]
+			Input: `echo foobar "home = $HOME"`,
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+				{Literal: "foobar", Type: Word},
+			},
+		},
+		{
+			// words: WL[Word(echo)], WL[Word(foo <), Variable(HOME), Word(> bar)]
+			Input: `echo foo" <$HOME> "bar`,
+			Words: []Token{
+				{Literal: "echo", Type: Word},
+			},
+		},
+	}
+	for i, d := range data {
+		if err := cmpTokens(d.Input, d.Words); err != nil {
+			t.Errorf("%d) error: %s", i+1, err)
+		}
+	}
+}
+
+func testWords(t *testing.T) {
 	data := []struct {
 		Input string
 		Words []Token
@@ -100,7 +154,7 @@ func cmpTokens(str string, words []Token) error {
 	s := NewScanner(str)
 	for tok, j := s.Scan(), 0; tok.Type != EOS; tok = s.Scan() {
 		if j >= len(words) {
-			return fmt.Errorf("too many tokens generated! want %d, got %d", len(words), j)
+			return fmt.Errorf("too many tokens generated! want %d, got %d", len(words), j+1)
 		}
 		if tok.Type != words[j].Type {
 			return fmt.Errorf("unexpected token type")

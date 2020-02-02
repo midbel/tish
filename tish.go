@@ -6,22 +6,24 @@ import (
 )
 
 const (
-	space     = ' '
-	tab       = '\t'
-	squote    = '\''
-	dquote    = '"'
-	backslash = '\\'
-	dollar    = '$'
-	newline   = '\n'
-	lparen    = '('
-	rparen    = ')'
-	lcurly    = '{'
-	rcurly    = '}'
+	space      = ' '
+	tab        = '\t'
+	squote     = '\''
+	dquote     = '"'
+	backslash  = '\\'
+	dollar     = '$'
+	newline    = '\n'
+	lparen     = '('
+	rparen     = ')'
+	lcurly     = '{'
+	rcurly     = '}'
+	underscore = '_'
 )
 
 const (
 	EOS rune = -(iota + 1)
 	Word
+	Variable
 	Illegal
 )
 
@@ -52,15 +54,22 @@ func (s *Scanner) Scan() Token {
 		tok.Type = EOS
 		return tok
 	}
-	tok.Type = Word
-
 	s.skip(isBlank)
 
+	tok.Type = Word
 	switch s.char {
 	case squote:
 		tok.Literal = s.scanQuotedStrong()
 	case dquote:
 		tok.Literal = s.scanQuotedWeak()
+	case dollar:
+		s.readRune()
+		if !isAlpha(s.char) {
+			tok.Type = Illegal
+			break
+		}
+		tok.Literal = s.scanVariable()
+		tok.Type = Variable
 	default:
 		tok.Literal = s.scanWord()
 	}
@@ -88,6 +97,15 @@ func (s *Scanner) scanQuotedStrong() string {
 
 	var buf bytes.Buffer
 	for s.char != squote {
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	return buf.String()
+}
+
+func (s *Scanner) scanVariable() string {
+	var buf bytes.Buffer
+	for isAlpha(s.char) || s.char == underscore {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
@@ -167,4 +185,16 @@ func (s *Scanner) skip(fn func(rune) bool) {
 
 func isBlank(r rune) bool {
 	return r == space || r == tab || r == EOS
+}
+
+func isLetter(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+
+func isDigit(r rune) bool {
+	return r >= '0' && r <= '9'
+}
+
+func isAlpha(r rune) bool {
+	return isLetter(r) || isDigit(r)
 }
