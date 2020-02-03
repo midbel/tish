@@ -21,11 +21,11 @@ const (
 )
 
 const (
-	EOS rune = -(iota + 1)
-	Literal
-	Variable
-	Illegal
-	EOW
+	tokEOS rune = -(iota + 1)
+	tokEOW
+	tokLit
+	tokVar
+	tokIllegal
 )
 
 type Token struct {
@@ -34,8 +34,8 @@ type Token struct {
 }
 
 var (
-	eofToken = Token{Type: EOS}
-	eowToken = Token{Type: EOW}
+	eosToken = Token{Type: tokEOS}
+	eowToken = Token{Type: tokEOW}
 )
 
 func (t Token) Equal(other Token) bool {
@@ -61,15 +61,15 @@ func NewScanner(str string) *Scanner {
 }
 
 func (s *Scanner) Scan() Token {
-	var tok Token
-	if s.char == EOS {
-		tok.Type = EOS
-		return tok
+	if s.char != tokEOS {
+		s.skip(isBlank)
 	}
-	s.skip(isBlank)
 
-	tok.Type = Literal
+	var tok Token
+	tok.Type = tokLit
 	switch s.char {
+	case tokEOS:
+		return eosToken
 	case squote:
 		tok.Literal = s.scanQuotedStrong()
 	case dquote:
@@ -77,11 +77,11 @@ func (s *Scanner) Scan() Token {
 	case dollar:
 		s.readRune()
 		if !isAlpha(s.char) {
-			tok.Type = Illegal
+			tok.Type = tokIllegal
 			break
 		}
 		tok.Literal = s.scanVariable()
-		tok.Type = Variable
+		tok.Type = tokVar
 	default:
 		tok.Literal = s.scanWord()
 	}
@@ -152,15 +152,15 @@ func (s *Scanner) scanWord() string {
 
 func (s *Scanner) readRune() {
 	if s.next >= len(s.buffer) {
-		s.char = EOS
+		s.char = tokEOS
 		return
 	}
 	r, n := utf8.DecodeRune(s.buffer[s.next:])
 	if r == utf8.RuneError {
 		if n == 0 {
-			s.char = EOS
+			s.char = tokEOS
 		} else {
-			s.char = Illegal
+			s.char = tokIllegal
 		}
 		s.next = len(s.buffer)
 	}
@@ -178,14 +178,14 @@ func (s *Scanner) unreadRune() {
 
 func (s *Scanner) peekRune() rune {
 	if s.next >= len(s.buffer) {
-		return EOS
+		return tokEOS
 	}
 	r, n := utf8.DecodeRune(s.buffer[s.next:])
 	if r == utf8.RuneError {
 		if n == 0 {
-			r = EOS
+			r = tokEOS
 		} else {
-			r = Illegal
+			r = tokIllegal
 		}
 	}
 	return r
@@ -198,7 +198,7 @@ func (s *Scanner) skip(fn func(rune) bool) {
 }
 
 func isBlank(r rune) bool {
-	return r == space || r == tab || r == EOS
+	return r == space || r == tab || r == tokEOS
 }
 
 func isLetter(r rune) bool {
