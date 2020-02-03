@@ -38,6 +38,8 @@ type Scanner struct {
 	char rune
 	curr int
 	next int
+
+	tmp bytes.Buffer
 }
 
 func NewScanner(str string) *Scanner {
@@ -79,41 +81,43 @@ func (s *Scanner) Scan() Token {
 }
 
 func (s *Scanner) scanQuotedWeak() string {
-	s.readRune()
+	defer s.tmp.Reset()
 
-	var buf bytes.Buffer
+	s.readRune()
 	for s.char != dquote {
 		if s.char == backslash {
 			s.readRune()
 		}
-		buf.WriteRune(s.char)
+		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
-	return buf.String()
+	return s.tmp.String()
 }
 
 func (s *Scanner) scanQuotedStrong() string {
-	s.readRune()
+	defer s.tmp.Reset()
 
-	var buf bytes.Buffer
+	s.readRune()
 	for s.char != squote {
-		buf.WriteRune(s.char)
+		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
-	return buf.String()
+	return s.tmp.String()
 }
 
 func (s *Scanner) scanVariable() string {
-	var buf bytes.Buffer
+	defer s.tmp.Reset()
+
 	for isAlpha(s.char) || s.char == underscore {
-		buf.WriteRune(s.char)
+		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
-	return buf.String()
+	return s.tmp.String()
 }
 
 func (s *Scanner) scanWord() string {
-	var buf bytes.Buffer
+	defer s.tmp.Reset()
+
 	for !isBlank(s.char) {
 		if s.char == backslash {
 			s.readRune()
@@ -121,19 +125,19 @@ func (s *Scanner) scanWord() string {
 		switch s.char {
 		case squote:
 			str := s.scanQuotedStrong()
-			buf.WriteString(str)
+			s.tmp.WriteString(str)
 		case dquote:
 			str := s.scanQuotedWeak()
-			buf.WriteString(str)
+			s.tmp.WriteString(str)
 		default:
 			if s.char == backslash {
 				s.readRune()
 			}
-			buf.WriteRune(s.char)
+			s.tmp.WriteRune(s.char)
 		}
 		s.readRune()
 	}
-	return buf.String()
+	return s.tmp.String()
 }
 
 func (s *Scanner) readRune() {

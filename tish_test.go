@@ -160,7 +160,7 @@ func cmpTokens(str string, words []Token) error {
 			return fmt.Errorf("unexpected token type")
 		}
 		if tok.Literal != words[j].Literal {
-			return fmt.Errorf("unexpected token! want %q, got %q", words[j], tok.Literal)
+			return fmt.Errorf("unexpected token! want %q, got %q", words[j].Literal, tok.Literal)
 		}
 		j++
 	}
