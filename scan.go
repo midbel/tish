@@ -23,7 +23,7 @@ const (
 const (
 	tokEOS rune = -(iota + 1)
 	tokEOW
-	tokLit
+	tokWord
 	tokVar
 	tokIllegal
 )
@@ -61,90 +61,31 @@ func NewScanner(str string) *Scanner {
 }
 
 func (s *Scanner) Scan() Token {
-	if s.char != tokEOS {
-		s.skip(isBlank)
-	}
-
 	var tok Token
-	tok.Type = tokLit
+	tok.Type = tokWord
 	switch s.char {
 	case tokEOS:
 		return eosToken
-	case squote:
-		tok.Literal = s.scanQuotedStrong()
-	case dquote:
-		tok.Literal = s.scanQuotedWeak()
-	case dollar:
-		s.readRune()
-		if !isAlpha(s.char) {
-			tok.Type = tokIllegal
-			break
-		}
-		tok.Literal = s.scanVariable()
-		tok.Type = tokVar
+	case space, tab:
+		s.skip(isBlank)
+		return eowToken
 	default:
-		tok.Literal = s.scanWord()
+		tok.Literal = s.scanDefault()
 	}
-	s.readRune()
-
 	return tok
 }
 
-func (s *Scanner) scanQuotedWeak() string {
-	defer s.tmp.Reset()
-
-	s.readRune()
-	for s.char != dquote {
-		if s.char == backslash {
-			s.readRune()
-		}
-		s.tmp.WriteRune(s.char)
-		s.readRune()
-	}
-	return s.tmp.String()
-}
-
-func (s *Scanner) scanQuotedStrong() string {
-	defer s.tmp.Reset()
-
-	s.readRune()
-	for s.char != squote {
-		s.tmp.WriteRune(s.char)
-		s.readRune()
-	}
-	return s.tmp.String()
-}
-
-func (s *Scanner) scanVariable() string {
-	defer s.tmp.Reset()
-
-	for isAlpha(s.char) || s.char == underscore {
-		s.tmp.WriteRune(s.char)
-		s.readRune()
-	}
-	return s.tmp.String()
-}
-
-func (s *Scanner) scanWord() string {
+func (s *Scanner) scanDefault() string {
 	defer s.tmp.Reset()
 
 	for !isBlank(s.char) {
 		if s.char == backslash {
 			s.readRune()
 		}
-		switch s.char {
-		case squote:
-			str := s.scanQuotedStrong()
-			s.tmp.WriteString(str)
-		case dquote:
-			str := s.scanQuotedWeak()
-			s.tmp.WriteString(str)
-		default:
-			if s.char == backslash {
-				s.readRune()
-			}
-			s.tmp.WriteRune(s.char)
+		if s.char == backslash {
+			s.readRune()
 		}
+		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
 	return s.tmp.String()
