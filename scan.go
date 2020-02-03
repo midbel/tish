@@ -22,14 +22,24 @@ const (
 
 const (
 	EOS rune = -(iota + 1)
-	Word
+	Literal
 	Variable
 	Illegal
+	EOW
 )
 
 type Token struct {
 	Literal string
 	Type    rune
+}
+
+var (
+	eofToken = Token{Type: EOS}
+	eowToken = Token{Type: EOW}
+)
+
+func (t Token) Equal(other Token) bool {
+	return t.Type == other.Type && t.Literal == other.Literal
 }
 
 type Scanner struct {
@@ -58,7 +68,7 @@ func (s *Scanner) Scan() Token {
 	}
 	s.skip(isBlank)
 
-	tok.Type = Word
+	tok.Type = Literal
 	switch s.char {
 	case squote:
 		tok.Literal = s.scanQuotedStrong()

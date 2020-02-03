@@ -18,21 +18,21 @@ func testVariables(t *testing.T) {
 		{
 			Input: `echo $PWD`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
+				{Literal: "echo", Type: Literal},
 				{Literal: "PWD", Type: Variable},
 			},
 		},
 		{
 			Input: `echo $PWD2`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
+				{Literal: "echo", Type: Literal},
 				{Literal: "PWD2", Type: Variable},
 			},
 		},
 		{
 			Input: `echo $OLD_PWD`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
+				{Literal: "echo", Type: Literal},
 				{Literal: "OLD_PWD", Type: Variable},
 			},
 		},
@@ -40,15 +40,15 @@ func testVariables(t *testing.T) {
 			// words: WL[Word(echo)], WL[Word(foobar)], WL[Word(home = ), Variable(HOME)]
 			Input: `echo foobar "home = $HOME"`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foobar", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foobar", Type: Literal},
 			},
 		},
 		{
 			// words: WL[Word(echo)], WL[Word(foo <), Variable(HOME), Word(> bar)]
 			Input: `echo foo" <$HOME> "bar`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
+				{Literal: "echo", Type: Literal},
 			},
 		},
 	}
@@ -67,79 +67,79 @@ func testWords(t *testing.T) {
 		{
 			Input: `echo`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
+				{Literal: "echo", Type: Literal},
 			},
 		},
 		{
 			Input: `echo foo bar`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foo", Type: Word},
-				{Literal: "bar", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foo", Type: Literal},
+				{Literal: "bar", Type: Literal},
 			},
 		},
 		{
 			Input: `echo foo\ bar`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foo bar", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foo bar", Type: Literal},
 			},
 		},
 		{
 			Input: `echo fo\o`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foo", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foo", Type: Literal},
 			},
 		},
 		{
 			Input: `echo "foobar"`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foobar", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foobar", Type: Literal},
 			},
 		},
 		{
 			Input: `echo 'foobar'`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foobar", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foobar", Type: Literal},
 			},
 		},
 		{
 			Input: `echo 'PWD=$PWD'`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "PWD=$PWD", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "PWD=$PWD", Type: Literal},
 			},
 		},
 		{
 			Input: `echo "foo bar"`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foo bar", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foo bar", Type: Literal},
 			},
 		},
 		{
 			Input: `echo "foo bar" "foo\" bar"`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "foo bar", Type: Word},
-				{Literal: "foo\" bar", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "foo bar", Type: Literal},
+				{Literal: "foo\" bar", Type: Literal},
 			},
 		},
 		{
 			Input: `echo prefix" between "suffix`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "prefix between suffix", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "prefix between suffix", Type: Literal},
 			},
 		},
 		{
 			Input: `echo prefix' between 'suffix`,
 			Words: []Token{
-				{Literal: "echo", Type: Word},
-				{Literal: "prefix between suffix", Type: Word},
+				{Literal: "echo", Type: Literal},
+				{Literal: "prefix between suffix", Type: Literal},
 			},
 		},
 	}
@@ -156,10 +156,7 @@ func cmpTokens(str string, words []Token) error {
 		if j >= len(words) {
 			return fmt.Errorf("too many tokens generated! want %d, got %d", len(words), j+1)
 		}
-		if tok.Type != words[j].Type {
-			return fmt.Errorf("unexpected token type")
-		}
-		if tok.Literal != words[j].Literal {
+		if !tok.Equal(words[j]) {
 			return fmt.Errorf("unexpected token! want %q, got %q", words[j].Literal, tok.Literal)
 		}
 		j++
