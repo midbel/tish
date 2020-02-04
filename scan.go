@@ -117,7 +117,7 @@ func (s *Scanner) Scan() Token {
 	if scan == nil {
 		switch s.char {
 		case dollar:
-			scan = s.scanVariable
+			scan = s.scanDollar // s.scanVariable
 		case pound:
 			scan = s.scanComment
 		case squote:
@@ -133,11 +133,46 @@ func (s *Scanner) Scan() Token {
 		s.push(scan)
 	}
 	tok.Literal = s.tmp.String()
-	// fmt.Printf("literal: %s, type: %d (%s - %t)\n", tok.Literal, tok.Type, tok, tok.IsZero())
 	if tok.IsZero() {
 		return s.Scan()
 	}
 	return tok
+}
+
+func (s *Scanner) scanDollar(tok *Token) ScanFunc {
+	switch peek := s.peekRune(); peek {
+	case lparen:
+		s.readRune()
+		s.readRune()
+		tok.Type = tokBeginSub
+		return s.scanSubstitution
+	default:
+		return s.scanVariable(tok)
+	}
+}
+
+func (s *Scanner) scanSubstitution(tok *Token) ScanFunc {
+	var scan ScanFunc
+	switch s.char {
+	case rparen:
+		s.readRune()
+		tok.Type = tokEndSub
+	case dollar:
+		scan = s.scanDollar // s.scanVariable
+	case pound:
+		scan = s.scanComment
+	case squote:
+		scan = s.scanQuotedStrong
+	case dquote:
+		scan = s.scanOpenWeak
+	default:
+		scan = s.scanDefault
+	}
+	if scan != nil {
+		s.push(s.scanSubstitution)
+		scan = scan(tok)
+	}
+	return scan
 }
 
 func (s *Scanner) scanDefault(tok *Token) ScanFunc {
@@ -172,7 +207,7 @@ func (s *Scanner) scanOpenWeak(tok *Token) ScanFunc {
 				tok.Type = tokWord
 			}
 			s.push(s.scanCloseWeak)
-			return s.scanVariable
+			return s.scanDollar
 		case backslash:
 			if k := s.peekRune(); k == dollar || k == dquote || k == backslash {
 				s.readRune()
