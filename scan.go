@@ -48,6 +48,10 @@ func (t Token) Equal(other Token) bool {
 	return t.Type == other.Type && t.Literal == other.Literal
 }
 
+func (t Token) IsZero() bool {
+	return t.Type == 0 && t.Literal == ""
+}
+
 func (t Token) String() string {
 	var prefix string
 	switch t.Type {
@@ -73,13 +77,13 @@ func (t Token) String() string {
 	return fmt.Sprintf("<%s(%s)>", prefix, t.Literal)
 }
 
-type ScanFunc func() ScanFunc
+type ScanFunc func(*Token) ScanFunc
 
 type Scanner struct {
 	buffer []byte
 
 	char rune
-	curr int
+	pos  int
 	next int
 
 	states []ScanFunc
@@ -107,16 +111,15 @@ func (s *Scanner) Scan() Token {
 	defer s.tmp.Reset()
 
 	var (
-		tok   Token
-		scan  = s.pop()
-		typof = tokWord
+		tok  Token
+		scan = s.pop()
 	)
 	if scan == nil {
 		switch s.char {
 		case dollar:
-			scan, typof = s.scanVariable, tokVar
+			scan = s.scanVariable
 		case pound:
-			scan, typof = s.scanComment, tokComment
+			scan = s.scanComment
 		case squote:
 			scan = s.scanQuotedStrong
 		case dquote:
@@ -126,14 +129,20 @@ func (s *Scanner) Scan() Token {
 		}
 	}
 
-	if scan = scan(); scan != nil {
+	if scan = scan(&tok); scan != nil {
 		s.push(scan)
 	}
-	tok.Literal, tok.Type = s.tmp.String(), typof
+	tok.Literal = s.tmp.String()
+	// fmt.Printf("literal: %s, type: %d (%s - %t)\n", tok.Literal, tok.Type, tok, tok.IsZero())
+	if tok.IsZero() {
+		return s.Scan()
+	}
 	return tok
 }
 
-func (s *Scanner) scanDefault() ScanFunc {
+func (s *Scanner) scanDefault(tok *Token) ScanFunc {
+	tok.Type = tokWord
+
 	for !isDelim(s.char) {
 		switch s.char {
 		case squote:
@@ -151,13 +160,17 @@ func (s *Scanner) scanDefault() ScanFunc {
 	return nil
 }
 
-func (s *Scanner) scanOpenWeak() ScanFunc {
+func (s *Scanner) scanOpenWeak(tok *Token) ScanFunc {
 	if s.char == dquote {
 		s.readRune()
 	}
+	pos := s.pos
 	for s.char != dquote {
 		switch s.char {
 		case dollar:
+			if s.pos > pos {
+				tok.Type = tokWord
+			}
 			s.push(s.scanCloseWeak)
 			return s.scanVariable
 		case backslash:
@@ -170,17 +183,22 @@ func (s *Scanner) scanOpenWeak() ScanFunc {
 		s.readRune()
 	}
 	s.readRune()
+
+	tok.Type = tokWord
 	return nil
 }
 
-func (s *Scanner) scanCloseWeak() ScanFunc {
+func (s *Scanner) scanCloseWeak(tok *Token) ScanFunc {
 	if s.char == dquote {
+		s.readRune()
 		return nil
 	}
-	return s.scanOpenWeak()
+	return s.scanOpenWeak(tok)
 }
 
-func (s *Scanner) scanQuotedStrong() ScanFunc {
+func (s *Scanner) scanQuotedStrong(tok *Token) ScanFunc {
+	tok.Type = tokWord
+
 	s.readRune()
 	for s.char != squote {
 		s.tmp.WriteRune(s.char)
@@ -191,7 +209,9 @@ func (s *Scanner) scanQuotedStrong() ScanFunc {
 	return nil
 }
 
-func (s *Scanner) scanVariable() ScanFunc {
+func (s *Scanner) scanVariable(tok *Token) ScanFunc {
+	tok.Type = tokVar
+
 	s.readRune()
 	for isAlpha(s.char) {
 		s.tmp.WriteRune(s.char)
@@ -200,7 +220,9 @@ func (s *Scanner) scanVariable() ScanFunc {
 	return nil
 }
 
-func (s *Scanner) scanComment() ScanFunc {
+func (s *Scanner) scanComment(tok *Token) ScanFunc {
+	tok.Type = tokComment
+
 	s.readRune()
 	for s.char != tokEOF {
 		s.tmp.WriteRune(s.char)
@@ -238,7 +260,7 @@ func (s *Scanner) readRune() {
 		}
 		s.next = len(s.buffer)
 	}
-	s.char, s.curr, s.next = r, s.next, s.next+n
+	s.char, s.pos, s.next = r, s.next, s.next+n
 }
 
 func (s *Scanner) unreadRune() {
@@ -246,8 +268,8 @@ func (s *Scanner) unreadRune() {
 		return
 	}
 
-	s.next, s.curr = s.curr, s.curr-utf8.RuneLen(s.char)
-	s.char, _ = utf8.DecodeRune(s.buffer[s.curr:])
+	s.next, s.pos = s.pos, s.pos-utf8.RuneLen(s.char)
+	s.char, _ = utf8.DecodeRune(s.buffer[s.pos:])
 }
 
 func (s *Scanner) peekRune() rune {
