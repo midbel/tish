@@ -199,7 +199,7 @@ func TestScannerScan(t *testing.T) {
 			},
 		},
 		{
-			Input: `echo foobar $(echo foobar $(echo foobar "VAR = $(echo $VAR)"))`,
+			Input: `echo foobar $(echo foobar $(echo 'foobar' "VAR = $(echo $VAR)"))`,
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,

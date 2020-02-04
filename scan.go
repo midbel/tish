@@ -160,7 +160,7 @@ func (s *Scanner) scanSubstitution(tok *Token) ScanFunc {
 	case dollar:
 		scan = s.scanDollar // s.scanVariable
 	case pound:
-		scan = s.scanComment
+		// illegal
 	case squote:
 		scan = s.scanQuotedStrong
 	case dquote:
@@ -170,7 +170,6 @@ func (s *Scanner) scanSubstitution(tok *Token) ScanFunc {
 	}
 	if scan != nil {
 		s.push(s.scanSubstitution)
-		scan = scan(tok)
 	}
 	return scan
 }
