@@ -76,7 +76,7 @@ type Scanner struct {
 	next int
 
 	states []stateFn
-	tmp   bytes.Buffer
+	tmp    bytes.Buffer
 }
 
 func NewScanner(str string) *Scanner {
@@ -92,35 +92,43 @@ func (s *Scanner) Scan() Token {
 	defer s.tmp.Reset()
 
 	var (
-		tok Token
-		state stateFn
+		tok   Token
+		state = s.pop()
 	)
-	switch s.char {
-	case tokEOF:
-		return eof
-	case space, tab:
-		s.skip(isBlank)
-		return blank
-	case dollar:
-		state = s.scanVariable
-	case pound:
-		state = s.scanComment
-	case squote:
-		state = s.scanQuotedStrong
-	case dquote:
-		state = s.scanQuotedWeak
-	default:
-		state = s.scanDefault
+	if state == nil {
+		switch s.char {
+		case tokEOF:
+			return eof
+		case space, tab:
+			s.skip(isBlank)
+			return blank
+		case dollar:
+			state = s.scanVariable
+		case pound:
+			state = s.scanComment
+		case squote:
+			state = s.scanQuotedStrong
+		case dquote:
+			state = s.scanQuotedWeak
+		default:
+			state = s.scanDefault
+		}
 	}
-	_, tok.Literal = state(&tok), s.tmp.String()
+	state, tok.Literal = state(&tok), s.tmp.String()
+	if state != nil {
+		s.push(state)
+	}
 	return tok
 }
 
 func (s *Scanner) scanDefault(tok *Token) stateFn {
+	tok.Type = tokWord
 	for !isDelim(s.char) {
 		switch s.char {
 		case squote:
+			return s.scanQuotedStrong
 		case dquote:
+			return s.scanQuotedWeak
 		case backslash:
 			s.readRune()
 		default:
@@ -128,16 +136,34 @@ func (s *Scanner) scanDefault(tok *Token) stateFn {
 		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
-	tok.Type = tokWord
 
 	return nil
 }
 
-func (s *Scanner) scanQuotedWeak(tok *Token) stateFn {
+func (s *Scanner) scanQuotedStrong(tok *Token) stateFn {
+	tok.Type = tokWord
+
 	s.readRune()
+	for s.char != squote {
+		s.tmp.WriteRune(s.char)
+		s.readRune()
+	}
+
+	s.readRune()
+	return nil
+}
+
+func (s *Scanner) scanQuotedWeak(tok *Token) stateFn {
+	tok.Type = tokWord
+
+	if s.char == dquote {
+		s.readRune()
+	}
 	for s.char != dquote {
 		switch s.char {
 		case dollar:
+			s.push(s.scanQuotedWeak)
+			return s.scanVariable
 		case backslash:
 			if k := s.peekRune(); k == dollar || k == dquote || k == backslash {
 				s.readRune()
@@ -148,18 +174,6 @@ func (s *Scanner) scanQuotedWeak(tok *Token) stateFn {
 		s.readRune()
 	}
 	s.readRune()
-	tok.Type = tokWord
-	return nil
-}
-
-func (s *Scanner) scanQuotedStrong(tok *Token) stateFn {
-	s.readRune()
-	for s.char != squote {
-		s.tmp.WriteRune(s.char)
-		s.readRune()
-	}
-	s.readRune()
-	tok.Type = tokWord
 	return nil
 }
 
@@ -195,7 +209,7 @@ func (s *Scanner) pop() stateFn {
 		return nil
 	}
 	fn := s.states[n-1]
-	s.states = s.states[n-1:]
+	s.states = s.states[:n-1]
 	return fn
 }
 

@@ -120,7 +120,9 @@ func TestScannerScan(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foo foobar bar", Type: tokWord},
+				{Literal: "foo", Type: tokWord},
+				{Literal: " foobar ", Type: tokWord},
+				{Literal: "bar", Type: tokWord},
 			},
 		},
 		{
@@ -128,19 +130,23 @@ func TestScannerScan(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foo foobar bar", Type: tokWord},
+				{Literal: "foo", Type: tokWord},
+				{Literal: " foobar ", Type: tokWord},
+				{Literal: "bar", Type: tokWord},
 			},
 		},
-		// {
-		// 	Input: `echo foo" <$HOME> "bar`,
-		// 	Words: []Token{
-		// 		{Literal: "echo", Type: tokWord},
-		// 		blank,
-		// 		{Literal: "foo <", Type: tokWord},
-		// 		{Literal: "HOME", Type: tokVar},
-		// 		{Literal: "> bar", Type: tokWord},
-		// 	},
-		// },
+		{
+			Input: `echo foo" <$HOME> "bar`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				{Literal: " <", Type: tokWord},
+				{Literal: "HOME", Type: tokVar},
+				{Literal: "> ", Type: tokWord},
+				{Literal: "bar", Type: tokWord},
+			},
+		},
 	}
 	for i, d := range data {
 		if err := cmpTokens(d.Input, d.Words); err != nil {
@@ -156,7 +162,7 @@ func cmpTokens(str string, words []Token) error {
 			return fmt.Errorf("too many tokens generated! want %d, got %d", len(words), j+1)
 		}
 		if !tok.Equal(words[j]) {
-			return fmt.Errorf("unexpected token! want %s, got %s", words[j], tok)
+			return fmt.Errorf("unexpected token (%d)! want %s, got %s", j+1, words[j], tok)
 		}
 		j++
 	}
