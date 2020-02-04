@@ -13,6 +13,10 @@ const (
 	dquote     = '"'
 	backslash  = '\\'
 	dollar     = '$'
+	semicolon  = ';'
+	pipe       = '|'
+	ampersand  = '&'
+	equal      = '='
 	newline    = '\n'
 	lparen     = '('
 	rparen     = ')'
@@ -30,6 +34,11 @@ const (
 	tokComment
 	tokIllegal
 
+	tokAssign
+	tokAnd
+	tokOr
+	tokPipe
+
 	tokBeginSub
 	tokEndSub
 )
@@ -40,8 +49,9 @@ type Token struct {
 }
 
 var (
-	eof   = Token{Type: tokEOF}
-	blank = Token{Type: tokBlank}
+	eof    = Token{Type: tokEOF}
+	blank  = Token{Type: tokBlank}
+	assign = Token{Type: tokAssign}
 )
 
 func (t Token) Equal(other Token) bool {
@@ -71,6 +81,8 @@ func (t Token) String() string {
 		return "<begin sub>"
 	case tokEndSub:
 		return "<end sub>"
+	case tokAssign:
+		return "<assign>"
 	default:
 		prefix = "unknown"
 	}
@@ -100,13 +112,16 @@ func NewScanner(str string) *Scanner {
 }
 
 func (s *Scanner) Scan() Token {
-	if s.char == tokEOF {
+	switch {
+	case s.char == tokEOF:
 		return eof
-	}
-
-	if isBlank(s.char) {
+	case s.char == equal:
+		s.readRune()
+		return assign
+	case isBlank(s.char):
 		s.skip(isBlank)
 		return blank
+	default:
 	}
 	defer s.tmp.Reset()
 
@@ -332,7 +347,7 @@ func isDelim(r rune) bool {
 }
 
 func isMeta(r rune) bool {
-	return r == dollar || r == lparen || r == rparen
+	return r == dollar || r == lparen || r == rparen || r == pipe || r == semicolon || r == equal || r == ampersand
 }
 
 func isBlank(r rune) bool {
