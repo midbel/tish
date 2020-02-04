@@ -2,6 +2,7 @@ package tish
 
 import (
 	"bytes"
+	"fmt"
 	"unicode/utf8"
 )
 
@@ -18,6 +19,7 @@ const (
 	lcurly     = '{'
 	rcurly     = '}'
 	underscore = '_'
+	pound      = '#'
 )
 
 const (
@@ -25,6 +27,7 @@ const (
 	tokEOW
 	tokWord
 	tokVar
+	tokComment
 	tokIllegal
 )
 
@@ -42,6 +45,29 @@ func (t Token) Equal(other Token) bool {
 	return t.Type == other.Type && t.Literal == other.Literal
 }
 
+func (t Token) String() string {
+	var prefix string
+	switch t.Type {
+	case tokEOS:
+		return "<eof>"
+	case tokEOW:
+		return "<eow>"
+	case tokWord:
+		prefix = "word"
+	case tokVar:
+		prefix = "var"
+	case tokComment:
+		prefix = "comment"
+	case tokIllegal:
+		prefix = "illegal"
+	default:
+		prefix = "unknown"
+	}
+	return fmt.Sprintf("<%s(%s)>", prefix, t.Literal)
+}
+
+type stateFn func(*Token) stateFn
+
 type Scanner struct {
 	buffer []byte
 
@@ -49,7 +75,8 @@ type Scanner struct {
 	curr int
 	next int
 
-	tmp bytes.Buffer
+	state stateFn
+	tmp   bytes.Buffer
 }
 
 func NewScanner(str string) *Scanner {
@@ -57,38 +84,107 @@ func NewScanner(str string) *Scanner {
 		buffer: []byte(str),
 	}
 	s.readRune()
+	s.skip(isBlank)
 	return s
 }
 
 func (s *Scanner) Scan() Token {
+	defer s.tmp.Reset()
+
 	var tok Token
-	tok.Type = tokWord
-	switch s.char {
-	case tokEOS:
-		return eosToken
-	case space, tab:
-		s.skip(isBlank)
-		return eowToken
-	default:
-		tok.Literal = s.scanDefault()
+	if s.state == nil {
+		switch s.char {
+		case tokEOS:
+			return eosToken
+		case space, tab:
+			s.skip(isBlank)
+			return eowToken
+		case dollar:
+			s.state = s.scanVariable
+		case squote:
+			s.state = s.scanQuotedStrong
+		case dquote:
+			s.state = s.scanQuotedWeak
+		case pound:
+			s.state = s.scanComment
+		default:
+			s.state = s.scanDefault
+		}
 	}
+	s.state, tok.Literal = s.state(&tok), s.tmp.String()
 	return tok
 }
 
-func (s *Scanner) scanDefault() string {
-	defer s.tmp.Reset()
-
+func (s *Scanner) scanDefault(tok *Token) stateFn {
 	for !isBlank(s.char) {
-		if s.char == backslash {
+		switch s.char {
+		case dollar:
+			tok.Type = tokWord
+			return s.scanVariable
+		case squote:
+			return s.scanQuotedStrong(tok)
+		case dquote:
+			return s.scanQuotedWeak(tok)
+		case backslash:
 			s.readRune()
-		}
-		if s.char == backslash {
-			s.readRune()
+		default:
 		}
 		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
-	return s.tmp.String()
+	tok.Type = tokWord
+
+	return nil
+}
+
+func (s *Scanner) scanQuotedWeak(tok *Token) stateFn {
+	s.readRune()
+	for s.char != dquote {
+		switch s.char {
+		case dollar:
+			tok.Type = tokWord
+			return s.scanVariable
+		case backslash:
+			s.readRune()
+		default:
+		}
+		s.tmp.WriteRune(s.char)
+		s.readRune()
+	}
+	s.readRune()
+	return s.scanDefault(tok)
+}
+
+func (s *Scanner) scanQuotedStrong(tok *Token) stateFn {
+	s.readRune()
+	for s.char != squote {
+		s.tmp.WriteRune(s.char)
+		s.readRune()
+	}
+	s.readRune()
+	return s.scanDefault(tok)
+}
+
+func (s *Scanner) scanVariable(tok *Token) stateFn {
+	s.readRune()
+	for isAlpha(s.char) {
+		s.tmp.WriteRune(s.char)
+		s.readRune()
+	}
+	tok.Type = tokVar
+
+	return nil
+}
+
+func (s *Scanner) scanComment(tok *Token) stateFn {
+	s.readRune()
+	for s.char != tokEOS {
+		s.tmp.WriteRune(s.char)
+		s.readRune()
+	}
+	tok.Type = tokComment
+
+	return nil
 }
 
 func (s *Scanner) readRune() {
