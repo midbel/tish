@@ -23,8 +23,8 @@ const (
 )
 
 const (
-	tokEOS rune = -(iota + 1)
-	tokEOW
+	tokEOF rune = -(iota + 1)
+	tokBlank
 	tokWord
 	tokVar
 	tokComment
@@ -37,8 +37,8 @@ type Token struct {
 }
 
 var (
-	eosToken = Token{Type: tokEOS}
-	eowToken = Token{Type: tokEOW}
+	eof   = Token{Type: tokEOF}
+	blank = Token{Type: tokBlank}
 )
 
 func (t Token) Equal(other Token) bool {
@@ -48,9 +48,9 @@ func (t Token) Equal(other Token) bool {
 func (t Token) String() string {
 	var prefix string
 	switch t.Type {
-	case tokEOS:
+	case tokEOF:
 		return "<eof>"
-	case tokEOW:
+	case tokBlank:
 		return "<eow>"
 	case tokWord:
 		prefix = "word"
@@ -75,7 +75,7 @@ type Scanner struct {
 	curr int
 	next int
 
-	state stateFn
+	states []stateFn
 	tmp   bytes.Buffer
 }
 
@@ -91,40 +91,36 @@ func NewScanner(str string) *Scanner {
 func (s *Scanner) Scan() Token {
 	defer s.tmp.Reset()
 
-	var tok Token
-	if s.state == nil {
-		switch s.char {
-		case tokEOS:
-			return eosToken
-		case space, tab:
-			s.skip(isBlank)
-			return eowToken
-		case dollar:
-			s.state = s.scanVariable
-		case squote:
-			s.state = s.scanQuotedStrong
-		case dquote:
-			s.state = s.scanQuotedWeak
-		case pound:
-			s.state = s.scanComment
-		default:
-			s.state = s.scanDefault
-		}
+	var (
+		tok Token
+		state stateFn
+	)
+	switch s.char {
+	case tokEOF:
+		return eof
+	case space, tab:
+		s.skip(isBlank)
+		return blank
+	case dollar:
+		state = s.scanVariable
+	case pound:
+		state = s.scanComment
+	case squote:
+		state = s.scanQuotedStrong
+	case dquote:
+		state = s.scanQuotedWeak
+	default:
+		state = s.scanDefault
 	}
-	s.state, tok.Literal = s.state(&tok), s.tmp.String()
+	_, tok.Literal = state(&tok), s.tmp.String()
 	return tok
 }
 
 func (s *Scanner) scanDefault(tok *Token) stateFn {
-	for !isBlank(s.char) {
+	for !isDelim(s.char) {
 		switch s.char {
-		case dollar:
-			tok.Type = tokWord
-			return s.scanVariable
 		case squote:
-			return s.scanQuotedStrong(tok)
 		case dquote:
-			return s.scanQuotedWeak(tok)
 		case backslash:
 			s.readRune()
 		default:
@@ -142,17 +138,18 @@ func (s *Scanner) scanQuotedWeak(tok *Token) stateFn {
 	for s.char != dquote {
 		switch s.char {
 		case dollar:
-			tok.Type = tokWord
-			return s.scanVariable
 		case backslash:
-			s.readRune()
+			if k := s.peekRune(); k == dollar || k == dquote || k == backslash {
+				s.readRune()
+			}
 		default:
 		}
 		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
 	s.readRune()
-	return s.scanDefault(tok)
+	tok.Type = tokWord
+	return nil
 }
 
 func (s *Scanner) scanQuotedStrong(tok *Token) stateFn {
@@ -162,7 +159,8 @@ func (s *Scanner) scanQuotedStrong(tok *Token) stateFn {
 		s.readRune()
 	}
 	s.readRune()
-	return s.scanDefault(tok)
+	tok.Type = tokWord
+	return nil
 }
 
 func (s *Scanner) scanVariable(tok *Token) stateFn {
@@ -178,7 +176,7 @@ func (s *Scanner) scanVariable(tok *Token) stateFn {
 
 func (s *Scanner) scanComment(tok *Token) stateFn {
 	s.readRune()
-	for s.char != tokEOS {
+	for s.char != tokEOF {
 		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
@@ -187,15 +185,29 @@ func (s *Scanner) scanComment(tok *Token) stateFn {
 	return nil
 }
 
+func (s *Scanner) push(fn stateFn) {
+	s.states = append(s.states, fn)
+}
+
+func (s *Scanner) pop() stateFn {
+	n := len(s.states)
+	if n == 0 {
+		return nil
+	}
+	fn := s.states[n-1]
+	s.states = s.states[n-1:]
+	return fn
+}
+
 func (s *Scanner) readRune() {
 	if s.next >= len(s.buffer) {
-		s.char = tokEOS
+		s.char = tokEOF
 		return
 	}
 	r, n := utf8.DecodeRune(s.buffer[s.next:])
 	if r == utf8.RuneError {
 		if n == 0 {
-			s.char = tokEOS
+			s.char = tokEOF
 		} else {
 			s.char = tokIllegal
 		}
@@ -215,12 +227,12 @@ func (s *Scanner) unreadRune() {
 
 func (s *Scanner) peekRune() rune {
 	if s.next >= len(s.buffer) {
-		return tokEOS
+		return tokEOF
 	}
 	r, n := utf8.DecodeRune(s.buffer[s.next:])
 	if r == utf8.RuneError {
 		if n == 0 {
-			r = tokEOS
+			r = tokEOF
 		} else {
 			r = tokIllegal
 		}
@@ -234,8 +246,16 @@ func (s *Scanner) skip(fn func(rune) bool) {
 	}
 }
 
+func isDelim(r rune) bool {
+	return isBlank(r) || isMeta(r)
+}
+
+func isMeta(r rune) bool {
+	return r == dollar
+}
+
 func isBlank(r rune) bool {
-	return r == space || r == tab || r == tokEOS
+	return r == space || r == tab || r == tokEOF
 }
 
 func isLetter(r rune) bool {
