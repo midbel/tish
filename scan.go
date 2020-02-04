@@ -29,6 +29,9 @@ const (
 	tokVar
 	tokComment
 	tokIllegal
+
+	tokBeginSub
+	tokEndSub
 )
 
 type Token struct {
@@ -60,13 +63,17 @@ func (t Token) String() string {
 		prefix = "comment"
 	case tokIllegal:
 		prefix = "illegal"
+	case tokBeginSub:
+		return "<begin sub>"
+	case tokEndSub:
+		return "<end sub>"
 	default:
 		prefix = "unknown"
 	}
 	return fmt.Sprintf("<%s(%s)>", prefix, t.Literal)
 }
 
-type stateFn func(*Token) stateFn
+type ScanFunc func() ScanFunc
 
 type Scanner struct {
 	buffer []byte
@@ -75,7 +82,7 @@ type Scanner struct {
 	curr int
 	next int
 
-	states []stateFn
+	states []ScanFunc
 	tmp    bytes.Buffer
 }
 
@@ -89,46 +96,50 @@ func NewScanner(str string) *Scanner {
 }
 
 func (s *Scanner) Scan() Token {
+	if s.char == tokEOF {
+		return eof
+	}
+
+	if isBlank(s.char) {
+		s.skip(isBlank)
+		return blank
+	}
 	defer s.tmp.Reset()
 
 	var (
 		tok   Token
-		state = s.pop()
+		scan  = s.pop()
+		typof = tokWord
 	)
-	if state == nil {
+	if scan == nil {
 		switch s.char {
-		case tokEOF:
-			return eof
-		case space, tab:
-			s.skip(isBlank)
-			return blank
 		case dollar:
-			state = s.scanVariable
+			scan, typof = s.scanVariable, tokVar
 		case pound:
-			state = s.scanComment
+			scan, typof = s.scanComment, tokComment
 		case squote:
-			state = s.scanQuotedStrong
+			scan = s.scanQuotedStrong
 		case dquote:
-			state = s.scanQuotedWeak
+			scan = s.scanOpenWeak
 		default:
-			state = s.scanDefault
+			scan = s.scanDefault
 		}
 	}
-	state, tok.Literal = state(&tok), s.tmp.String()
-	if state != nil {
-		s.push(state)
+
+	if scan = scan(); scan != nil {
+		s.push(scan)
 	}
+	tok.Literal, tok.Type = s.tmp.String(), typof
 	return tok
 }
 
-func (s *Scanner) scanDefault(tok *Token) stateFn {
-	tok.Type = tokWord
+func (s *Scanner) scanDefault() ScanFunc {
 	for !isDelim(s.char) {
 		switch s.char {
 		case squote:
 			return s.scanQuotedStrong
 		case dquote:
-			return s.scanQuotedWeak
+			return s.scanOpenWeak
 		case backslash:
 			s.readRune()
 		default:
@@ -140,29 +151,14 @@ func (s *Scanner) scanDefault(tok *Token) stateFn {
 	return nil
 }
 
-func (s *Scanner) scanQuotedStrong(tok *Token) stateFn {
-	tok.Type = tokWord
-
-	s.readRune()
-	for s.char != squote {
-		s.tmp.WriteRune(s.char)
-		s.readRune()
-	}
-
-	s.readRune()
-	return nil
-}
-
-func (s *Scanner) scanQuotedWeak(tok *Token) stateFn {
-	tok.Type = tokWord
-
+func (s *Scanner) scanOpenWeak() ScanFunc {
 	if s.char == dquote {
 		s.readRune()
 	}
 	for s.char != dquote {
 		switch s.char {
 		case dollar:
-			s.push(s.scanQuotedWeak)
+			s.push(s.scanCloseWeak)
 			return s.scanVariable
 		case backslash:
 			if k := s.peekRune(); k == dollar || k == dquote || k == backslash {
@@ -177,33 +173,48 @@ func (s *Scanner) scanQuotedWeak(tok *Token) stateFn {
 	return nil
 }
 
-func (s *Scanner) scanVariable(tok *Token) stateFn {
+func (s *Scanner) scanCloseWeak() ScanFunc {
+	if s.char == dquote {
+		return nil
+	}
+	return s.scanOpenWeak()
+}
+
+func (s *Scanner) scanQuotedStrong() ScanFunc {
+	s.readRune()
+	for s.char != squote {
+		s.tmp.WriteRune(s.char)
+		s.readRune()
+	}
+
+	s.readRune()
+	return nil
+}
+
+func (s *Scanner) scanVariable() ScanFunc {
 	s.readRune()
 	for isAlpha(s.char) {
 		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
-	tok.Type = tokVar
-
 	return nil
 }
 
-func (s *Scanner) scanComment(tok *Token) stateFn {
+func (s *Scanner) scanComment() ScanFunc {
 	s.readRune()
 	for s.char != tokEOF {
 		s.tmp.WriteRune(s.char)
 		s.readRune()
 	}
-	tok.Type = tokComment
 
 	return nil
 }
 
-func (s *Scanner) push(fn stateFn) {
+func (s *Scanner) push(fn ScanFunc) {
 	s.states = append(s.states, fn)
 }
 
-func (s *Scanner) pop() stateFn {
+func (s *Scanner) pop() ScanFunc {
 	n := len(s.states)
 	if n == 0 {
 		return nil
@@ -265,7 +276,7 @@ func isDelim(r rune) bool {
 }
 
 func isMeta(r rune) bool {
-	return r == dollar
+	return r == dollar || r == lparen || r == rparen
 }
 
 func isBlank(r rune) bool {
