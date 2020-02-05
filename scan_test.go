@@ -2,6 +2,7 @@ package tish
 
 import (
 	"fmt"
+	"io"
 	"testing"
 )
 
@@ -330,16 +331,23 @@ func TestScannerScan(t *testing.T) {
 
 func cmpTokens(str string, words []Token) error {
 	s := NewScanner(str)
-	ts := make([]Token, 0, len(words))
-	for tok, j := s.Scan(), 0; !tok.Equal(eof); tok = s.Scan() {
+	for j := 0; ; j++ {
+		tok, err := s.Scan()
+		if tok.Equal(eof) {
+			break
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
 		if j >= len(words) {
 			return fmt.Errorf("too many tokens generated! want %d, got %d (%s)", len(words), j+1, tok)
 		}
 		if !tok.Equal(words[j]) {
 			return fmt.Errorf("unexpected token (%d)! want %s, got %s", j+1, words[j], tok)
 		}
-		ts = append(ts, tok)
-		j++
 	}
 	return nil
 }

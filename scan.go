@@ -2,6 +2,8 @@ package tish
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"strings"
 	"unicode/utf8"
 )
@@ -26,12 +28,17 @@ func NewScanner(str string) *Scanner {
 	return s
 }
 
-func (s *Scanner) Scan() Token {
+func (s *Scanner) Scan() (Token, error) {
+	var err error
 	tok, ok := <-s.queue
 	if !ok {
-		tok.Type = tokEOF
+		err = io.EOF
 	}
-	return tok
+	if tok.Type == tokError && err == nil {
+		s.drain()
+		err = fmt.Errorf(tok.Literal)
+	}
+	return tok, err
 }
 
 func (s *Scanner) emit(str string, typof rune) {
@@ -50,6 +57,8 @@ func (s *Scanner) emitTypeOf(typof rune) {
 }
 
 func (s *Scanner) run() {
+	defer close(s.queue)
+
 	s.readRune()
 	s.skip(isBlank)
 
@@ -57,7 +66,11 @@ func (s *Scanner) run() {
 	for scan != nil {
 		scan = scan(s)
 	}
-	close(s.queue)
+}
+
+func (s *Scanner) drain() {
+	for range s.queue{
+	}
 }
 
 func (s *Scanner) readRune() {

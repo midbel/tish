@@ -4,6 +4,8 @@ type parser struct {
 	scan *Scanner
 	curr Token
 	peek Token
+
+	err error
 }
 
 func Parse(str string) (Word, error) {
@@ -22,9 +24,13 @@ func (p *parser) Parse() (Word, error) {
 
 func (p *parser) next() {
 	p.curr = p.peek
-	p.peek = p.scan.Scan()
+	peek, err := p.scan.Scan()
+	if err != nil {
+		p.err = err
+	}
+	p.peek = peek
 }
 
 func (p *parser) isDone() bool {
-	return p.curr.Equal(eof)
+	return p.err != nil && p.curr.Equal(eof)
 }

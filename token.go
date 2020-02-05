@@ -1,7 +1,7 @@
 package tish
 
 import (
-  "fmt"
+	"fmt"
 )
 
 const (
@@ -41,6 +41,7 @@ const (
 	tokVar
 	tokComment
 	tokIllegal
+	tokError
 	tokBeginSub
 	tokEndSub
 	tokBeginArith
@@ -67,6 +68,8 @@ func (t Token) Equal(other Token) bool {
 func (t Token) String() string {
 	var str string
 	switch t.Type {
+	case tokError:
+		return "<error>"
 	case tokBlank:
 		return "<blank>"
 	case tokEOF:
