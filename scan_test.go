@@ -323,13 +323,45 @@ func TestScannerScan(t *testing.T) {
 		},
 	}
 	for i, d := range data {
-		if err := cmpTokens(d.Input, d.Words); err != nil {
+		if err := cmpValidTokens(d.Input, d.Words); err != nil {
 			t.Errorf("%d) fail %s: %s", i+1, d.Input, err)
 		}
 	}
 }
 
-func cmpTokens(str string, words []Token) error {
+func TestScannerScanWithError(t *testing.T) {
+	data := []string{
+		"echo \"foo",
+		"echo 'foo",
+		"echo $(echo foobar",
+		"echo $(echo $(echo foobar)",
+		"echo $(echo $(echo foobar) foobar",
+	}
+	for i, str := range data {
+		if err := cmpInvalidTokens(str); err != nil {
+			t.Errorf("%d) fail: %s", i+1, err)
+		}
+	}
+}
+
+func cmpInvalidTokens(str string) error {
+	s := NewScanner(str)
+	for {
+		tok, err := s.Scan()
+		if tok.Equal(eof) {
+			break
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid input not detected: %s", str)
+}
+
+func cmpValidTokens(str string, words []Token) error {
 	s := NewScanner(str)
 	for j := 0; ; j++ {
 		tok, err := s.Scan()

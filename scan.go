@@ -293,6 +293,9 @@ func scanSubstitution(s *Scanner) ScanFunc {
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
 		switch s.char {
+		case tokEOF:
+			s.emit("command subsitution not closed", tokError)
+			return nil
 		case space, tab:
 			scanBlanks(s)
 		case squote:
@@ -316,6 +319,10 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 
 	s.readRune()
 	for s.char != dquote {
+		if s.char == tokEOF {
+			s.emit(fmt.Sprintf("quoted string not closed: %s", buf.String()), tokError)
+			return nil
+		}
 		switch s.char {
 		case dollar:
 			s.emit(buf.String(), tokWord)
@@ -349,6 +356,10 @@ func scanQuotedStrong(s *Scanner) {
 
 	s.readRune()
 	for s.char != squote {
+		if s.char == tokEOF {
+			s.emit(fmt.Sprintf("quoted string not closed: %s", buf.String()), tokError)
+			return
+		}
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
