@@ -37,7 +37,8 @@ const (
 	tokBlank
 	tokQuoted
 	tokWord
-	tokNumber
+	tokInteger
+	tokFloat
 	tokVar
 	tokComment
 	tokIllegal
@@ -78,8 +79,10 @@ func (t Token) String() string {
 		str = "word"
 	case tokVar:
 		str = "var"
-	case tokNumber:
-		str = "number"
+	case tokInteger:
+		str = "integer"
+	case tokFloat:
+		str = "float"
 	case tokComment:
 		str = "comment"
 	case tokBeginSub:

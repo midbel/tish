@@ -221,6 +221,9 @@ func scanArithmetic(s *Scanner) ScanFunc {
 
 	for {
 		switch {
+		case s.char == tokEOF:
+			s.emit("unclosed arithmetic expression", tokError)
+			return nil
 		case isOperator(s.char):
 			s.emitTypeOf(s.char)
 		case isDigit(s.char):
@@ -233,12 +236,14 @@ func scanArithmetic(s *Scanner) ScanFunc {
 				s.emitTypeOf(tokEndArith)
 				return scanDefault
 			}
+			s.emit("unclosed arithmetic expression", tokError)
+			return nil
 		case s.char == lparen:
 			scanGroup(s)
 		case s.char == dollar:
 			scanVariable(s)
 			continue
-		case isBlank(s.char):
+		case s.char == space || s.char == tab:
 			s.skip(isBlank)
 			continue
 		default:
@@ -273,20 +278,33 @@ func scanGroup(s *Scanner) {
 }
 
 func scanNumber(s *Scanner) {
+	// if s.char == '0' {
+	// 	switch peek := s.peekRune(); peek {
+	// 	case 'x', 'X':
+	// 	case 'o':
+	// 	case 'b':
+	// 	default:
+	// 	}
+	// }
 	var buf bytes.Buffer
 	for isDigit(s.char) {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-	if s.char == dot {
+	switch {
+	case s.char == dot:
 		buf.WriteRune(s.char)
 		s.readRune()
 		for isDigit(s.char) {
 			buf.WriteRune(s.char)
 			s.readRune()
 		}
+		s.emit(buf.String(), tokFloat)
+	case isOperator(s.char) || isBlank(s.char) || s.char == rparen:
+		s.emit(buf.String(), tokInteger)
+	default:
+		s.emit(fmt.Sprintf("number: invalid character: %c", s.char), tokError)
 	}
-	s.emit(buf.String(), tokNumber)
 }
 
 func scanSubstitution(s *Scanner) ScanFunc {
