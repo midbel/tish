@@ -31,6 +31,7 @@ const (
 	mul        = '*'
 	modulo     = '%'
 	dot        = '.'
+	comma      = ','
 )
 
 const (
@@ -46,6 +47,9 @@ const (
 	tokEndSub
 	tokBeginArith
 	tokEndArith
+	tokBeginBrace
+	tokEndBrace
+	tokSequence
 )
 
 var (
@@ -239,6 +243,23 @@ func scanDefault(s *Scanner) ScanFunc {
 		return nil
 	}
 	return scanBlanks
+}
+
+func scanBraces(s *Scanner) ScanFunc {
+	s.readRune()
+
+	s.emitTypeOf(tokBeginBrace)
+	for s.char != rcurly {
+		s.readRune()
+	}
+	s.readRune()
+
+	s.emitTypeOf(tokEndBrace)
+	if s.char == tokEOF {
+		s.emitTypeOf(s.char)
+		return nil
+	}
+	return scanDefault
 }
 
 func scanComment(s *Scanner) ScanFunc {
@@ -435,7 +456,7 @@ func scanVariable(s *Scanner) ScanFunc {
 	if s.char == dollar {
 		s.readRune()
 	}
-	
+
 	var buf bytes.Buffer
 	for isAlpha(s.char) {
 		buf.WriteRune(s.char)

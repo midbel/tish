@@ -268,6 +268,58 @@ func TestScannerScan(t *testing.T) {
 				{Type: tokEndArith},
 			},
 		},
+		{
+			Input: `echo {1,2,3}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginBrace},
+				{Literal: "1", Type: tokNumber},
+				{Type: comma},
+				{Literal: "2", Type: tokNumber},
+				{Type: comma},
+				{Literal: "3", Type: tokNumber},
+				{Type: tokEndBrace},
+			},
+		},
+		{
+			Input: `echo {1..10}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginBrace},
+				{Literal: "1", Type: tokNumber},
+				{Type: tokSequence},
+				{Literal: "10", Type: tokNumber},
+				{Type: tokEndBrace},
+			},
+		},
+		{
+			Input: `echo prolog-{a..z}-epilog`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "prolog-", Type: tokWord},
+				{Type: tokBeginBrace},
+				{Literal: "a", Type: tokWord},
+				{Type: tokSequence},
+				{Literal: "z", Type: tokWord},
+				{Type: tokEndBrace},
+				{Literal: "-epilog", Type: tokWord},
+			},
+		},
+		{
+			Input: `echo {foo,bar}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginBrace},
+				{Literal: "foo", Type: tokWord},
+				{Type: comma},
+				{Literal: "bar", Type: tokWord},
+				{Type: tokEndBrace},
+			},
+		},
 	}
 	for i, d := range data {
 		if err := cmpTokens(d.Input, d.Words); err != nil {
