@@ -378,6 +378,10 @@ func TestScannerScanWithError(t *testing.T) {
 		"echo $((3a + 4))",
 		"echo $((3 + 4)",
 		"echo $((3 + 4",
+		// "echo pre-{foo,bar",
+		"echo pre-{f..b",
+		"echo pre-{f.b",
+		"echo pre-{foo,bar",
 	}
 	for i, str := range data {
 		if err := cmpInvalidTokens(str); err != nil {

@@ -35,8 +35,12 @@ func (s *Scanner) Scan() (Token, error) {
 		err = io.EOF
 	}
 	if tok.Type == tokError && err == nil {
+		str := tok.Literal
+		if s.pos < len(s.buffer) {
+			str = fmt.Sprintf("%s: %s", str, s.buffer)
+		}
+		err = fmt.Errorf(str)
 		s.drain()
-		err = fmt.Errorf(tok.Literal)
 	}
 	return tok, err
 }
@@ -119,6 +123,12 @@ func (s *Scanner) skip(fn func(rune) bool) {
 	}
 }
 
+// func (s *Scanner) skipBlanks() {
+// 	for s.char == space || s.char == tab {
+// 		s.readRune()
+// 	}
+// }
+
 func scanDefault(s *Scanner) ScanFunc {
 	var buf bytes.Buffer
 	for !isDelim(s.char) {
@@ -162,7 +172,7 @@ func scanDefault(s *Scanner) ScanFunc {
 func scanBraces(s *Scanner) ScanFunc {
 	s.readRune()
 	delim := func(r rune) bool {
-		return r == rcurly || r == dot || r == comma
+		return r == rcurly || r == dot || r == comma || r == tokEOF
 	}
 
 	s.emitTypeOf(tokBeginBrace)
@@ -175,9 +185,11 @@ func scanBraces(s *Scanner) ScanFunc {
 			s.skip(isBlank)
 		case s.char == dot:
 			s.readRune()
-			if s.char == dot {
-				s.emitTypeOf(tokSequence)
+			if s.char != dot {
+				s.emit("unterminated sequence operator", tokError)
+				return nil
 			}
+			s.emitTypeOf(tokSequence)
 		case s.char == comma:
 			s.emitTypeOf(comma)
 		default:
