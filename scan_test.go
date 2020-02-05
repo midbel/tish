@@ -225,22 +225,6 @@ func TestScannerScan(t *testing.T) {
 				{Type: tokEndSub},
 			},
 		},
-		{
-			Input: `VAR=foobar`,
-			Words: []Token{
-				{Literal: "VAR", Type: tokWord},
-				assign,
-				{Literal: "foobar", Type: tokWord},
-			},
-		},
-		{
-			Input: `VAR=$FOO`,
-			Words: []Token{
-				{Literal: "VAR", Type: tokWord},
-				assign,
-				{Literal: "FOO", Type: tokVar},
-			},
-		},
 	}
 	for i, d := range data {
 		if err := cmpTokens(d.Input, d.Words); err != nil {
