@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strings"
+	// "strings"
 	"unicode/utf8"
 )
 
@@ -46,8 +46,7 @@ func (s *Scanner) emit(str string, typof rune) {
 		return
 	}
 	if typof == tokQuoted {
-		typof = tokWord
-		str = strings.Trim(str, "'")
+		str, typof = str[1:len(str)-1], tokWord
 	}
 	s.queue <- Token{Literal: str, Type: typof}
 }
@@ -142,6 +141,8 @@ func scanDefault(s *Scanner) ScanFunc {
 			s.emit(buf.String(), tokWord)
 			buf.Reset()
 			scanQuotedWeak(s)
+		// case lcurly:
+		// 	return scanBraces
 		case backslash:
 			s.readRune()
 		default:
@@ -162,6 +163,27 @@ func scanBraces(s *Scanner) ScanFunc {
 
 	s.emitTypeOf(tokBeginBrace)
 	for s.char != rcurly {
+		switch {
+		case s.char == tokEOF:
+			s.emit("unterminated braces expression", tokError)
+			return nil
+		case s.char == space || s.char == tab:
+			s.skip(isBlank)
+		case s.char == dot:
+			s.readRune()
+			if s.char == dot {
+				s.emitTypeOf(tokSequence)
+			}
+		case s.char == comma:
+			s.emitTypeOf(comma)
+		case isDigit(s.char):
+			scanNumber(s)
+		case isLetter(s.char):
+			scanWord(s, func(r rune) bool {
+				return r == comma || r == dot || r == rcurly
+			})
+		default:
+		}
 		s.readRune()
 	}
 	s.readRune()
@@ -307,6 +329,18 @@ func scanNumber(s *Scanner) {
 	}
 }
 
+func scanWord(s *Scanner, fn func(r rune) bool) {
+	var buf bytes.Buffer
+	for !fn(s.char) {
+		if s.char == tokEOF {
+			s.emit(fmt.Sprintf("unexpected end of string: %s", buf.String()), tokError)
+		}
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	s.emit(buf.String(), tokWord)
+}
+
 func scanSubstitution(s *Scanner) ScanFunc {
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
@@ -359,6 +393,7 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 	s.readRune()
 
 	// buf.WriteRune(dquote)
+	// s.emit(buf.String(), tokQuoted)
 	s.emit(buf.String(), tokWord)
 
 	if s.char == tokEOF {
