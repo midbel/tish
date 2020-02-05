@@ -2,112 +2,11 @@ package tish
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"unicode/utf8"
 )
 
-const (
-	space      = ' '
-	tab        = '\t'
-	squote     = '\''
-	dquote     = '"'
-	backslash  = '\\'
-	dollar     = '$'
-	semicolon  = ';'
-	pipe       = '|'
-	ampersand  = '&'
-	equal      = '='
-	newline    = '\n'
-	lparen     = '('
-	rparen     = ')'
-	lcurly     = '{'
-	rcurly     = '}'
-	underscore = '_'
-	pound      = '#'
-	plus       = '+'
-	minus      = '-'
-	div        = '/'
-	mul        = '*'
-	modulo     = '%'
-	dot        = '.'
-	comma      = ','
-)
-
-const (
-	tokEOF rune = -(iota + 1)
-	tokBlank
-	tokQuoted
-	tokWord
-	tokNumber
-	tokVar
-	tokComment
-	tokIllegal
-	tokBeginSub
-	tokEndSub
-	tokBeginArith
-	tokEndArith
-	tokBeginBrace
-	tokEndBrace
-	tokSequence
-)
-
-var (
-	eof   = Token{Type: tokEOF}
-	blank = Token{Type: tokBlank}
-)
-
 type ScanFunc func(*Scanner) ScanFunc
-
-type Token struct {
-	Literal string
-	Type    rune
-}
-
-func (t Token) Equal(other Token) bool {
-	return t.Type == other.Type && t.Literal == other.Literal
-}
-
-func (t Token) String() string {
-	var str string
-	switch t.Type {
-	case tokBlank:
-		return "<blank>"
-	case tokEOF:
-		return "eof"
-	case tokWord:
-		str = "word"
-	case tokVar:
-		str = "var"
-	case tokNumber:
-		str = "number"
-	case tokComment:
-		str = "comment"
-	case tokBeginSub:
-		return "<begin-sub>"
-	case tokEndSub:
-		return "<end-sub>"
-	case tokBeginArith:
-		return "<begin-arith>"
-	case tokEndArith:
-		return "<end-arith>"
-	case plus:
-		return "<add>"
-	case minus:
-		return "<subtract>"
-	case mul:
-		return "<multiply>"
-	case div:
-		return "<divide>"
-	case modulo:
-		return "<modulo>"
-	case lparen, rparen:
-		return "<paren>"
-	default:
-		str = "unknown"
-	}
-	return fmt.Sprintf("%s(%s)", str, t.Literal)
-}
 
 type Scanner struct {
 	buffer []byte
