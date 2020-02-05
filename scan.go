@@ -141,8 +141,8 @@ func scanDefault(s *Scanner) ScanFunc {
 			s.emit(buf.String(), tokWord)
 			buf.Reset()
 			scanQuotedWeak(s)
-		// case lcurly:
-		// 	return scanBraces
+		case lcurly:
+			return scanBraces
 		case backslash:
 			s.readRune()
 		default:
@@ -160,6 +160,9 @@ func scanDefault(s *Scanner) ScanFunc {
 
 func scanBraces(s *Scanner) ScanFunc {
 	s.readRune()
+	delim := func(r rune) bool {
+		return r == rcurly || r == dot || r == comma
+	}
 
 	s.emitTypeOf(tokBeginBrace)
 	for s.char != rcurly {
@@ -176,13 +179,9 @@ func scanBraces(s *Scanner) ScanFunc {
 			}
 		case s.char == comma:
 			s.emitTypeOf(comma)
-		case isDigit(s.char):
-			scanNumber(s)
-		case isLetter(s.char):
-			scanWord(s, func(r rune) bool {
-				return r == comma || r == dot || r == rcurly
-			})
 		default:
+			scanWord(s, delim)
+			continue
 		}
 		s.readRune()
 	}
@@ -244,7 +243,7 @@ func scanArithmetic(s *Scanner) ScanFunc {
 	for {
 		switch {
 		case s.char == tokEOF:
-			s.emit("unclosed arithmetic expression", tokError)
+			s.emit("unterminated arithmetic expression", tokError)
 			return nil
 		case isOperator(s.char):
 			s.emitTypeOf(s.char)
@@ -258,7 +257,7 @@ func scanArithmetic(s *Scanner) ScanFunc {
 				s.emitTypeOf(tokEndArith)
 				return scanDefault
 			}
-			s.emit("unclosed arithmetic expression", tokError)
+			s.emit("unterminated arithmetic expression", tokError)
 			return nil
 		case s.char == lparen:
 			scanGroup(s)
@@ -346,7 +345,7 @@ func scanSubstitution(s *Scanner) ScanFunc {
 	for s.char != rparen {
 		switch s.char {
 		case tokEOF:
-			s.emit("command subsitution not closed", tokError)
+			s.emit("unterminated command subsitution", tokError)
 			return nil
 		case space, tab:
 			scanBlanks(s)
@@ -372,7 +371,7 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 	s.readRune()
 	for s.char != dquote {
 		if s.char == tokEOF {
-			s.emit(fmt.Sprintf("quoted string not closed: %s", buf.String()), tokError)
+			s.emit(fmt.Sprintf("unterminated quoted string: %s", buf.String()), tokError)
 			return nil
 		}
 		switch s.char {
@@ -410,7 +409,7 @@ func scanQuotedStrong(s *Scanner) {
 	s.readRune()
 	for s.char != squote {
 		if s.char == tokEOF {
-			s.emit(fmt.Sprintf("quoted string not closed: %s", buf.String()), tokError)
+			s.emit(fmt.Sprintf("unterminated quoted string: %s", buf.String()), tokError)
 			return
 		}
 		buf.WriteRune(s.char)
@@ -451,7 +450,9 @@ func isDelim(r rune) bool {
 }
 
 func isMeta(r rune) bool {
-	return r == lparen || r == rparen || r == pipe || r == semicolon || r == equal || r == ampersand
+	return r == lparen || r == rparen || r == pipe ||
+		r == semicolon || r == equal || r == ampersand
+		// r == lcurly || r == rcurly
 }
 
 func isBlank(r rune) bool {

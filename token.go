@@ -85,14 +85,10 @@ func (t Token) String() string {
 		str = "float"
 	case tokComment:
 		str = "comment"
-	case tokBeginSub:
-		return "<begin-sub>"
-	case tokEndSub:
-		return "<end-sub>"
-	case tokBeginArith:
-		return "<begin-arith>"
-	case tokEndArith:
-		return "<end-arith>"
+	case tokBeginSub, tokBeginBrace, tokBeginArith:
+		return "<begin>"
+	case tokEndSub, tokEndBrace, tokEndArith:
+		return "<end>"
 	case plus:
 		return "<add>"
 	case minus:
@@ -103,12 +99,12 @@ func (t Token) String() string {
 		return "<divide>"
 	case modulo:
 		return "<modulo>"
-	case lparen, rparen:
-		return "<paren>"
+	case lparen, rparen, lcurly, rcurly:
+		return "<group>"
 	case tilde:
 		return "<tilde>"
 	default:
-		str = "unknown"
+		return fmt.Sprintf("unknown(%d)", t.Type)
 	}
 	return fmt.Sprintf("%s(%s)", str, t.Literal)
 }
