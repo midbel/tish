@@ -69,7 +69,7 @@ func (s *Scanner) run() {
 }
 
 func (s *Scanner) drain() {
-	for range s.queue{
+	for range s.queue {
 	}
 }
 
