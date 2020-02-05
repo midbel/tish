@@ -142,6 +142,7 @@ func scanDefault(s *Scanner) ScanFunc {
 			buf.Reset()
 			scanQuotedWeak(s)
 		case lcurly:
+			s.emit(buf.String(), tokWord)
 			return scanBraces
 		case backslash:
 			s.readRune()
@@ -355,6 +356,8 @@ func scanSubstitution(s *Scanner) ScanFunc {
 			scanQuotedWeak(s)
 		case dollar:
 			scanDollar(s)(s)
+		case lcurly:
+			scanBraces(s)
 		default:
 			scanDefault(s)
 		}

@@ -334,6 +334,32 @@ func TestScannerScan(t *testing.T) {
 				{Type: tokEndBrace},
 			},
 		},
+		{
+			Input: `echo "foobar {foo,bar}"`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal:"foobar {foo,bar}", Type: tokWord},
+			},
+		},
+		{
+			Input: `echo foobar $(echo {foo,bar})`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foobar", Type: tokWord},
+				blank,
+				{Type: tokBeginSub},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginBrace},
+				{Literal: "foo", Type: tokWord},
+				{Type: comma},
+				{Literal: "bar", Type: tokWord},
+				{Type: tokEndBrace},
+				{Type: tokEndSub},
+			},
+		},
 	}
 	for i, d := range data {
 		if err := cmpValidTokens(d.Input, d.Words); err != nil {
