@@ -65,6 +65,14 @@ func TestScannerScan(t *testing.T) {
 			},
 		},
 		{
+			Input: `echo ${VAR}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "VAR", Type: tokVar},
+			},
+		},
+		{
 			Input: `echo foo$VAR`,
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
@@ -223,6 +231,41 @@ func TestScannerScan(t *testing.T) {
 				{Type: tokEndSub},
 				{Type: tokEndSub},
 				{Type: tokEndSub},
+			},
+		},
+		{
+			Input: `echo $((1 + ((2 * 3) + $VAR) / $VAR))`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginArith},
+				{Literal: "1", Type: tokNumber},
+				{Type: plus},
+				{Type: lparen},
+				{Type: lparen},
+				{Literal: "2", Type: tokNumber},
+				{Type: mul},
+				{Literal: "3", Type: tokNumber},
+				{Type: rparen},
+				{Type: plus},
+				{Literal: "VAR", Type: tokVar},
+				{Type: rparen},
+				{Type: div},
+				{Literal: "VAR", Type: tokVar},
+				{Type: tokEndArith},
+			},
+		},
+		{
+			Input: `echo "sum = $((3.141592 - 2))"`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "sum = ", Type: tokWord},
+				{Type: tokBeginArith},
+				{Literal: "3.141592", Type: tokNumber},
+				{Type: minus},
+				{Literal: "2", Type: tokNumber},
+				{Type: tokEndArith},
 			},
 		},
 	}

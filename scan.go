@@ -3,6 +3,7 @@ package tish
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -35,6 +36,7 @@ const (
 const (
 	tokEOF rune = -(iota + 1)
 	tokBlank
+	tokQuoted
 	tokWord
 	tokNumber
 	tokVar
@@ -132,6 +134,10 @@ func (s *Scanner) Scan() Token {
 func (s *Scanner) emit(str string, typof rune) {
 	if len(str) == 0 {
 		return
+	}
+	if typof == tokQuoted {
+		typof = tokWord
+		str = strings.Trim(str, "'")
 	}
 	s.queue <- Token{Literal: str, Type: typof}
 }
@@ -372,8 +378,10 @@ func scanSubstitution(s *Scanner) ScanFunc {
 }
 
 func scanQuotedWeak(s *Scanner) ScanFunc {
-	s.readRune()
 	var buf bytes.Buffer
+	// buf.WriteRune(dquote)
+
+	s.readRune()
 	for s.char != dquote {
 		switch s.char {
 		case dollar:
@@ -391,7 +399,10 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 		s.readRune()
 	}
 	s.readRune()
+
+	// buf.WriteRune(dquote)
 	s.emit(buf.String(), tokWord)
+
 	if s.char == tokEOF {
 		s.emitTypeOf(s.char)
 		return nil
@@ -400,14 +411,18 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 }
 
 func scanQuotedStrong(s *Scanner) {
-	s.readRune()
 	var buf bytes.Buffer
+	buf.WriteRune(squote)
+
+	s.readRune()
 	for s.char != squote {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-	s.emit(buf.String(), tokWord)
 	s.readRune()
+
+	buf.WriteRune(squote)
+	s.emit(buf.String(), tokQuoted)
 }
 
 func scanBlanks(s *Scanner) ScanFunc {
@@ -417,6 +432,10 @@ func scanBlanks(s *Scanner) ScanFunc {
 }
 
 func scanVariable(s *Scanner) ScanFunc {
+	if s.char == dollar {
+		s.readRune()
+	}
+	
 	var buf bytes.Buffer
 	for isAlpha(s.char) {
 		buf.WriteRune(s.char)
