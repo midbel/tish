@@ -209,17 +209,19 @@ func TestScannerScan(t *testing.T) {
 		{
 			Input: `echo $(VAR=FOO; echo $VAR) #comment`,
 			Words: []Token{
-				{Literal:"echo", Type: tokWord},
+				{Literal: "echo", Type: tokWord},
 				blank,
 				{Type: tokBeginSub},
 				{Literal: "VAR", Type: tokWord},
 				{Type: equal},
 				{Literal: "FOO", Type: tokWord},
 				{Type: semicolon},
+				// blank,
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal:"VAR", Type: tokVar},
+				{Literal: "VAR", Type: tokVar},
 				{Type: tokEndSub},
+				blank,
 				{Literal: "comment", Type: tokComment},
 			},
 		},
@@ -386,7 +388,7 @@ func TestScannerScan(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal:"foobar {foo,bar}", Type: tokWord},
+				{Literal: "foobar {foo,bar}", Type: tokWord},
 			},
 		},
 		{

@@ -155,7 +155,11 @@ func scanDefault(s *Scanner) ScanFunc {
 			buf.Reset()
 			s.emitTypeOf(s.char)
 
+			char := s.char
 			s.readRune()
+			if char == semicolon {
+				s.skip(isBlank)
+			}
 			continue
 		default:
 		}
@@ -462,8 +466,7 @@ func isDelim(r rune) bool {
 }
 
 func isMeta(r rune) bool {
-	return r == lparen || r == rparen || r == pipe ||
-		r == semicolon || r == ampersand
+	return r == lparen || r == rparen || r == pipe || r == ampersand
 }
 
 func isBlank(r rune) bool {
