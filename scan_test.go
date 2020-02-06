@@ -177,6 +177,33 @@ func TestScannerScan(t *testing.T) {
 			},
 		},
 		{
+			Input: `echo foo; echo bar;`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+				{Type: semicolon},
+			},
+		},
+		{
+			Input: `echo foo | echo bar;`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				blank,
+				{Type: pipe},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+				{Type: semicolon},
+			},
+		},
+		{
 			Input: `VAR=100`,
 			Words: []Token{
 				{Literal: "VAR", Type: tokWord},
@@ -223,6 +250,24 @@ func TestScannerScan(t *testing.T) {
 				{Type: tokEndSub},
 				blank,
 				{Literal: "comment", Type: tokComment},
+			},
+		},
+		{
+			Input: `echo foo $(echo bar | echo);`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				blank,
+				{Type: tokBeginSub},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+				blank,
+				{Type: pipe},
+				{Literal: "echo", Type: tokWord},
+				{Type: tokEndSub},
+				{Type: semicolon},
 			},
 		},
 		{

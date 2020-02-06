@@ -159,6 +159,10 @@ func scanDefault(s *Scanner) ScanFunc {
 			s.readRune()
 			s.skip(isBlank)
 			s.emitTypeOf(semicolon)
+		case pipe:
+			s.readRune()
+			s.skip(isBlank)
+			s.emitTypeOf(pipe)
 		default:
 			scanWord(s, delim)
 		}
@@ -378,6 +382,10 @@ func scanSubstitution(s *Scanner) ScanFunc {
 			s.readRune()
 			s.skip(isBlank)
 			s.emitTypeOf(semicolon)
+		case pipe:
+			s.readRune()
+			s.skip(isBlank)
+			s.emitTypeOf(pipe)
 		default:
 			scanWord(s, delim)
 		}
