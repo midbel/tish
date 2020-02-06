@@ -116,6 +116,14 @@ func (s *Scanner) peekRune() rune {
 	return r
 }
 
+func (s *Scanner) restore(pos int) {
+	if pos < 0 || pos >= len(s.buffer) {
+		return
+	}
+	r, n := utf8.DecodeRune(s.buffer[pos:])
+	s.char, s.pos, s.next = r, pos, pos+n
+}
+
 func (s *Scanner) skip(fn func(rune) bool) {
 	for fn(s.char) {
 		s.readRune()
