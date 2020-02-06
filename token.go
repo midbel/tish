@@ -100,6 +100,8 @@ func (t Token) String() string {
 		return "<end>"
 	case pipe:
 		return "<pipe>"
+	case semicolon:
+		return "<semicolon>"
 	case ampersand:
 		return "<ampersand>"
 	case plus:

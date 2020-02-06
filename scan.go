@@ -31,7 +31,7 @@ func (s *Scanner) Scan() (Token, error) {
 	var err error
 	tok, ok := <-s.queue
 	if !ok {
-		err = io.EOF
+		err, tok = io.EOF, eof
 	}
 	if tok.Type == tokError && err == nil {
 		str := tok.Literal

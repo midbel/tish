@@ -29,10 +29,22 @@ func (i List) Expand(e *Env) ([]string, error) {
 
 func (i List) String() string {
 	var buf strings.Builder
-	for _, w := range i.words {
+	buf.WriteString("list(")
+	for i, w := range i.words {
+		if i > 0 {
+			buf.WriteRune(comma)
+		}
 		buf.WriteString(w.String())
 	}
+	buf.WriteString(")")
 	return buf.String()
+}
+
+func (i List) asWord() Word {
+	if len(i.words) == 1 {
+		return i.words[0]
+	}
+	return i
 }
 
 type Variable string
@@ -42,7 +54,7 @@ func (v Variable) Expand(e *Env) ([]string, error) {
 }
 
 func (v Variable) String() string {
-	return "$" + string(v)
+	return fmt.Sprintf("variable(%s)", string(v))
 }
 
 type Literal string
@@ -52,5 +64,5 @@ func (i Literal) Expand(_ *Env) ([]string, error) {
 }
 
 func (i Literal) String() string {
-	return string(i)
+	return fmt.Sprintf("literal(%s)", string(i))
 }
