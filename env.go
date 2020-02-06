@@ -36,5 +36,9 @@ func (e *Env) Set(n string, vs []string) {
 }
 
 func (e *Env) Del(n string) {
+	if _, ok := e.locals[n]; !ok && e.parent != nil {
+		e.parent.Del(n)
+		return
+	}
 	delete(e.locals, n)
 }
