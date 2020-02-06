@@ -135,9 +135,8 @@ func (s *Scanner) skip(fn func(rune) bool) {
 
 func scanDefault(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
-		return isComment(r) || isBlank(r) || isQuote(r) ||
-			r == dollar || r == lcurly || r == lparen || r == rparen || r == equal ||
-			r == semicolon || r == pipe || r == ampersand
+		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
+			r == dollar || r == lcurly || r == equal
 	}
 	for s.char != tokEOF {
 		switch s.char {
@@ -181,9 +180,8 @@ func scanDefault(s *Scanner) ScanFunc {
 
 func scanList(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
-		return isComment(r) || isBlank(r) || isQuote(r) ||
-			r == dollar || r == lcurly || r == lparen || r == rparen || r == equal ||
-			r == semicolon || r == pipe || r == ampersand
+		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
+			r == dollar || r == lcurly || r == equal
 	}
 
 	s.readRune()
@@ -413,9 +411,8 @@ func scanWord(s *Scanner, fn func(r rune) bool) {
 
 func scanSubstitution(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
-		return isComment(r) || isBlank(r) || isQuote(r) ||
-			r == dollar || r == lcurly || r == lparen || r == rparen ||
-			r == equal || r == semicolon || r == pipe || r == ampersand
+		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
+			r == dollar || r == lcurly || r == equal
 	}
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
@@ -568,6 +565,10 @@ func isComment(r rune) bool {
 
 func isQuote(r rune) bool {
 	return r == squote || r == dquote
+}
+
+func isControl(r rune) bool {
+	return r == pipe || r == ampersand || r == semicolon || r == lparen || r == rparen
 }
 
 func isBlank(r rune) bool {

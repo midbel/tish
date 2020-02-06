@@ -19,7 +19,7 @@ func Parse(str string) (Word, error) {
 }
 
 func (p *parser) Parse() (Word, error) {
-	return nil, nil
+	return nil, p.err
 }
 
 func (p *parser) next() {
@@ -32,5 +32,5 @@ func (p *parser) next() {
 }
 
 func (p *parser) isDone() bool {
-	return p.err != nil && p.curr.Equal(eof)
+	return p.err != nil || p.curr.Equal(eof)
 }
