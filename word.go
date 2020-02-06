@@ -5,6 +5,31 @@ import (
 	"strings"
 )
 
+type Kind int
+
+const (
+	kindSimple Kind = iota
+	kindSeq
+	kindPipe
+	kindAnd
+	kindOr
+)
+
+func (k Kind) String() string {
+	switch k {
+	case kindSimple:
+		return "simple"
+	case kindPipe:
+		return "pipeline"
+	case kindAnd:
+		return "and"
+	case kindOr:
+		return "or"
+	default:
+		return "unknown"
+	}
+}
+
 type Word interface {
 	Expand(*Env) ([]string, error)
 	Equal(Word) bool
@@ -13,7 +38,7 @@ type Word interface {
 
 type List struct {
 	words []Word
-	kind  rune
+	kind  Kind
 }
 
 func (i List) Expand(e *Env) ([]string, error) {
@@ -30,20 +55,21 @@ func (i List) Expand(e *Env) ([]string, error) {
 
 func (i List) String() string {
 	var buf strings.Builder
-	buf.WriteString("list(")
+	buf.WriteString(i.kind.String())
+	buf.WriteRune(lparen)
 	for i, w := range i.words {
 		if i > 0 {
 			buf.WriteRune(comma)
 		}
 		buf.WriteString(w.String())
 	}
-	buf.WriteString(")")
+	buf.WriteRune(rparen)
 	return buf.String()
 }
 
 func (i List) Equal(w Word) bool {
 	other, ok := w.(List)
-	if !ok || len(i.words) != len(other.words) {
+	if !ok || i.kind != other.kind || len(i.words) != len(other.words) {
 		return false
 	}
 	for j := 0; j < len(i.words); j++ {
