@@ -18,9 +18,15 @@ func testExpandLists(t *testing.T) {
 				Literal("foobar"),
 				Variable("FOO"),
 				Variable("BAR"),
+				List{
+					words: []Word{
+						Literal("PWD"),
+						Variable("PWD"),
+					},
+				},
 			},
 		}
-		values = []string{"echo", "foobar", "foo", "bar"}
+		values = []string{"echo", "foobar", "foo", "bar", "PWD", "github.com/midbel/tish"}
 	)
 
 	vs, err := list.Expand(env)
@@ -104,6 +110,7 @@ func buildEnv() *Env {
 	p := NewEnvironment()
 	p.Set("HOME", []string{"/home/midbel"})
 	p.Set("SHELL", []string{"/bin/shell"})
+	p.Set("PWD", []string{"github.com/midbel/tish"})
 
 	e := NewEnclosedEnvironment(p)
 	e.Set("FOO", []string{"foo"})
