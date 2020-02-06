@@ -87,7 +87,14 @@ func (p *parser) isBlank() bool {
 }
 
 func (p *parser) isControl() bool {
-	return p.curr.Type == tokEOF || isControl(p.curr.Type)
+	switch p.curr.Type {
+	case tokEOF:
+	case tokAnd:
+	case tokOr:
+	default:
+		return isControl(p.curr.Type)
+	}
+	return true
 }
 
 func (p *parser) next() {

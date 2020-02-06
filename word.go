@@ -50,7 +50,7 @@ func (i List) asWord() Word {
 type Variable string
 
 func (v Variable) Expand(e *Env) ([]string, error) {
-	return nil, nil
+	return e.Get(string(v))
 }
 
 func (v Variable) String() string {
