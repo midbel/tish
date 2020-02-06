@@ -565,6 +565,7 @@ func TestScannerScanWithError(t *testing.T) {
 		"echo pre-{f..b",
 		"echo pre-{f.b",
 		"echo pre-{foo,bar",
+		"(echo foobar",
 	}
 	for i, str := range data {
 		if err := cmpInvalidTokens(str); err != nil {
