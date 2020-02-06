@@ -149,6 +149,14 @@ func scanDefault(s *Scanner) ScanFunc {
 			return scanBraces
 		case backslash:
 			s.readRune()
+		case equal, semicolon:
+
+			s.emit(buf.String(), tokWord)
+			buf.Reset()
+			s.emitTypeOf(s.char)
+
+			s.readRune()
+			continue
 		default:
 		}
 		buf.WriteRune(s.char)
@@ -333,6 +341,9 @@ func scanWord(s *Scanner, fn func(r rune) bool) {
 		if s.char == tokEOF {
 			s.emit(fmt.Sprintf("unexpected end of string: %s", buf.String()), tokError)
 		}
+		if s.char == backslash {
+			s.readRune()
+		}
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
@@ -452,7 +463,7 @@ func isDelim(r rune) bool {
 
 func isMeta(r rune) bool {
 	return r == lparen || r == rparen || r == pipe ||
-		r == semicolon || r == equal || r == ampersand
+		r == semicolon || r == ampersand
 }
 
 func isBlank(r rune) bool {
