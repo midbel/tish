@@ -204,6 +204,32 @@ func TestScannerScan(t *testing.T) {
 			},
 		},
 		{
+			Input: `echo foo || echo bar`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				blank,
+				{Type: tokOr},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+			},
+		},
+		{
+			Input: `echo foo && echo bar`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				blank,
+				{Type: tokAnd},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+			},
+		},
+		{
 			Input: `VAR=100`,
 			Words: []Token{
 				{Literal: "VAR", Type: tokWord},

@@ -50,6 +50,9 @@ const (
 	tokBeginBrace
 	tokEndBrace
 	tokSequence
+	tokAnd
+	tokOr
+	tokBackground
 )
 
 var (

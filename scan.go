@@ -136,7 +136,8 @@ func (s *Scanner) skip(fn func(rune) bool) {
 func scanDefault(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
 		return isComment(r) || isBlank(r) || isQuote(r) ||
-			r == dollar || r == lcurly || r == equal || r == semicolon
+			r == dollar || r == lcurly || r == equal || r == semicolon ||
+			r == pipe || r == ampersand
 	}
 	for s.char != tokEOF {
 		switch s.char {
@@ -160,9 +161,11 @@ func scanDefault(s *Scanner) ScanFunc {
 			s.skip(isBlank)
 			s.emitTypeOf(semicolon)
 		case pipe:
-			s.readRune()
+			scanPipe(s)
 			s.skip(isBlank)
-			s.emitTypeOf(pipe)
+		case ampersand:
+			scanAmpersand(s)
+			s.skip(isBlank)
 		default:
 			scanWord(s, delim)
 		}
@@ -357,7 +360,8 @@ func scanWord(s *Scanner, fn func(r rune) bool) {
 func scanSubstitution(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
 		return isComment(r) || isBlank(r) || isQuote(r) ||
-			r == dollar || r == lcurly || r == equal || r == rparen || r == semicolon
+			r == dollar || r == lcurly || r == equal || r == rparen ||
+			r == semicolon || r == pipe || r == ampersand
 	}
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
@@ -382,10 +386,12 @@ func scanSubstitution(s *Scanner) ScanFunc {
 			s.readRune()
 			s.skip(isBlank)
 			s.emitTypeOf(semicolon)
-		case pipe:
-			s.readRune()
-			s.skip(isBlank)
-			s.emitTypeOf(pipe)
+			case pipe:
+				scanPipe(s)
+				s.skip(isBlank)
+			case ampersand:
+				scanAmpersand(s)
+				s.skip(isBlank)
 		default:
 			scanWord(s, delim)
 		}
@@ -474,6 +480,28 @@ func scanVariable(s *Scanner) ScanFunc {
 		return nil
 	}
 	return scanDefault
+}
+
+func scanPipe(s *Scanner) {
+	s.readRune()
+	switch s.char {
+	case pipe:
+		s.readRune()
+		s.emitTypeOf(tokOr)
+	default:
+		s.emitTypeOf(pipe)
+	}
+}
+
+func scanAmpersand(s *Scanner) {
+	s.readRune()
+	switch s.char {
+	case ampersand:
+		s.readRune()
+		s.emitTypeOf(tokAnd)
+	default:
+		s.emitTypeOf(tokBackground)
+	}
 }
 
 func isComment(r rune) bool {
