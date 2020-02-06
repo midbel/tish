@@ -119,54 +119,42 @@ func (s *Scanner) peekRune() rune {
 func (s *Scanner) skip(fn func(rune) bool) {
 	for fn(s.char) {
 		s.readRune()
+		if s.char == tokEOF {
+			break
+		}
 	}
 }
 
 func scanDefault(s *Scanner) ScanFunc {
-	var buf bytes.Buffer
-	for !isDelim(s.char) {
+	delim := func(r rune) bool {
+		return isComment(r) || isBlank(r) || isQuote(r) ||
+			r == dollar || r == lcurly || r == equal || r == semicolon
+	}
+	for s.char != tokEOF {
 		switch s.char {
 		case pound:
-			s.emit(buf.String(), tokWord)
 			return scanComment
 		case space, tab:
-			s.emit(buf.String(), tokWord)
 			return scanBlanks
 		case dollar:
-			s.emit(buf.String(), tokWord)
 			return scanDollar
 		case squote:
-			s.emit(buf.String(), tokWord)
-			buf.Reset()
 			scanQuotedStrong(s)
-			continue
 		case dquote:
-			s.emit(buf.String(), tokWord)
-			buf.Reset()
 			scanQuotedWeak(s)
 		case lcurly:
-			s.emit(buf.String(), tokWord)
 			return scanBraces
-		case backslash:
+		case equal:
 			s.readRune()
-		case equal, semicolon:
-
-			s.emit(buf.String(), tokWord)
-			buf.Reset()
-			s.emitTypeOf(s.char)
-
-			char := s.char
+			s.emitTypeOf(equal)
+		case semicolon:
 			s.readRune()
-			if char == semicolon {
-				s.skip(isBlank)
-			}
-			continue
+			s.skip(isBlank)
+			s.emitTypeOf(semicolon)
 		default:
+			scanWord(s, delim)
 		}
-		buf.WriteRune(s.char)
-		s.readRune()
 	}
-	s.emit(buf.String(), tokWord)
 	if s.char == tokEOF {
 		s.emitTypeOf(s.char)
 		return nil
@@ -355,6 +343,10 @@ func scanWord(s *Scanner, fn func(r rune) bool) {
 }
 
 func scanSubstitution(s *Scanner) ScanFunc {
+	delim := func(r rune) bool {
+		return isComment(r) || isBlank(r) || isQuote(r) ||
+			r == dollar || r == lcurly || r == equal || r == rparen || r == semicolon
+	}
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
 		switch s.char {
@@ -371,8 +363,15 @@ func scanSubstitution(s *Scanner) ScanFunc {
 			scanDollar(s)(s)
 		case lcurly:
 			scanBraces(s)
+		case equal:
+			s.readRune()
+			s.emitTypeOf(equal)
+		case semicolon:
+			s.readRune()
+			s.skip(isBlank)
+			s.emitTypeOf(semicolon)
 		default:
-			scanDefault(s)
+			scanWord(s, delim)
 		}
 	}
 	s.readRune()
@@ -461,12 +460,12 @@ func scanVariable(s *Scanner) ScanFunc {
 	return scanDefault
 }
 
-func isDelim(r rune) bool {
-	return isBlank(r) || isMeta(r)
+func isComment(r rune) bool {
+	return r == pound
 }
 
-func isMeta(r rune) bool {
-	return r == lparen || r == rparen || r == pipe || r == ampersand
+func isQuote(r rune) bool {
+	return r == squote || r == dquote
 }
 
 func isBlank(r rune) bool {
