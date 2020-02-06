@@ -7,6 +7,7 @@ import (
 
 type Word interface {
 	Expand(*Env) ([]string, error)
+	Equal(Word) bool
 	fmt.Stringer
 }
 
@@ -40,6 +41,19 @@ func (i List) String() string {
 	return buf.String()
 }
 
+func (i List) Equal(w Word) bool {
+	other, ok := w.(List)
+	if !ok || len(i.words) != len(other.words) {
+		return false
+	}
+	for j := 0; j < len(i.words); j++ {
+		if !i.words[j].Equal(other.words[j]) {
+			return false
+		}
+	}
+	return true
+}
+
 func (i List) asWord() Word {
 	if len(i.words) == 1 {
 		return i.words[0]
@@ -57,6 +71,14 @@ func (v Variable) String() string {
 	return fmt.Sprintf("variable(%s)", string(v))
 }
 
+func (v Variable) Equal(w Word) bool {
+	other, ok := w.(Variable)
+	if !ok {
+		return false
+	}
+	return string(other) == string(v)
+}
+
 type Literal string
 
 func (i Literal) Expand(_ *Env) ([]string, error) {
@@ -65,4 +87,12 @@ func (i Literal) Expand(_ *Env) ([]string, error) {
 
 func (i Literal) String() string {
 	return fmt.Sprintf("literal(%s)", string(i))
+}
+
+func (i Literal) Equal(w Word) bool {
+	other, ok := w.(Literal)
+	if !ok {
+		return false
+	}
+	return string(other) == string(i)
 }
