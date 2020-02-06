@@ -103,6 +103,8 @@ func (t Token) String() string {
 		return "<group>"
 	case tilde:
 		return "<tilde>"
+	case equal:
+		return "<assign>"
 	default:
 		return fmt.Sprintf("unknown(%d)", t.Type)
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	// "strings"
 	"unicode/utf8"
 )
 
@@ -123,12 +122,6 @@ func (s *Scanner) skip(fn func(rune) bool) {
 	}
 }
 
-// func (s *Scanner) skipBlanks() {
-// 	for s.char == space || s.char == tab {
-// 		s.readRune()
-// 	}
-// }
-
 func scanDefault(s *Scanner) ScanFunc {
 	var buf bytes.Buffer
 	for !isDelim(s.char) {
@@ -210,6 +203,7 @@ func scanBraces(s *Scanner) ScanFunc {
 
 func scanComment(s *Scanner) ScanFunc {
 	s.readRune()
+	s.skip(isBlank)
 
 	var buf bytes.Buffer
 	for s.char != tokEOF {
@@ -312,14 +306,6 @@ func scanGroup(s *Scanner) {
 }
 
 func scanNumber(s *Scanner) {
-	// if s.char == '0' {
-	// 	switch peek := s.peekRune(); peek {
-	// 	case 'x', 'X':
-	// 	case 'o':
-	// 	case 'b':
-	// 	default:
-	// 	}
-	// }
 	var buf bytes.Buffer
 	for isDigit(s.char) {
 		buf.WriteRune(s.char)
@@ -467,7 +453,6 @@ func isDelim(r rune) bool {
 func isMeta(r rune) bool {
 	return r == lparen || r == rparen || r == pipe ||
 		r == semicolon || r == equal || r == ampersand
-		// r == lcurly || r == rcurly
 }
 
 func isBlank(r rune) bool {

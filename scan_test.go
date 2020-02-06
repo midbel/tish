@@ -177,6 +177,52 @@ func TestScannerScan(t *testing.T) {
 			},
 		},
 		{
+			Input: `VAR=100`,
+			Words: []Token{
+				{Literal: "VAR", Type: tokWord},
+				{Type: equal},
+				{Literal: "100", Type: tokWord},
+			},
+		},
+		{
+			Input: `VAR=$FOO # comment`,
+			Words: []Token{
+				{Literal: "VAR", Type: tokWord},
+				{Type: equal},
+				{Literal: "FOO", Type: tokVar},
+				{Literal: "comment", Type: tokComment},
+			},
+		},
+		{
+			Input: `VAR=$(echo $FOO)`,
+			Words: []Token{
+				{Literal: "VAR", Type: tokWord},
+				{Type: equal},
+				{Type: tokBeginSub},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokEndSub},
+			},
+		},
+		{
+			Input: `echo $(VAR=FOO; echo $VAR) #comment`,
+			Words: []Token{
+				{Literal:"echo", Type: tokWord},
+				blank,
+				{Type: tokBeginBrace},
+				{Literal: "VAR", Type: tokWord},
+				{Type: equal},
+				{Literal: "FOO", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal:"VAR", Type: tokVar},
+				{Type: tokEndBrace},
+				{Literal: "comment", Type: tokComment},
+			},
+		},
+		{
 			Input: `echo foobar $(echo foobar)`,
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
@@ -378,7 +424,7 @@ func TestScannerScanWithError(t *testing.T) {
 		"echo $((3a + 4))",
 		"echo $((3 + 4)",
 		"echo $((3 + 4",
-		// "echo pre-{foo,bar",
+		"echo pre-{foo,bar",
 		"echo pre-{f..b",
 		"echo pre-{f.b",
 		"echo pre-{foo,bar",
