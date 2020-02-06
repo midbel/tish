@@ -49,6 +49,8 @@ const (
 	tokEndArith
 	tokBeginBrace
 	tokEndBrace
+	tokBeginList
+	tokEndList
 	tokSequence
 	tokAnd
 	tokOr
@@ -88,10 +90,18 @@ func (t Token) String() string {
 		str = "float"
 	case tokComment:
 		str = "comment"
-	case tokBeginSub, tokBeginBrace, tokBeginArith:
+	case tokAnd:
+		return "<and>"
+	case tokOr:
+		return "<or>"
+	case tokBeginSub, tokBeginBrace, tokBeginArith, tokBeginList:
 		return "<begin>"
-	case tokEndSub, tokEndBrace, tokEndArith:
+	case tokEndSub, tokEndBrace, tokEndArith, tokEndList:
 		return "<end>"
+	case pipe:
+		return "<pipe>"
+	case ampersand:
+		return "<ampersand>"
 	case plus:
 		return "<add>"
 	case minus:

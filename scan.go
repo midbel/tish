@@ -136,8 +136,8 @@ func (s *Scanner) skip(fn func(rune) bool) {
 func scanDefault(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
 		return isComment(r) || isBlank(r) || isQuote(r) ||
-			r == dollar || r == lcurly || r == equal || r == semicolon ||
-			r == pipe || r == ampersand
+			r == dollar || r == lcurly || r == lparen || r == rparen || r == equal ||
+			r == semicolon || r == pipe || r == ampersand
 	}
 	for s.char != tokEOF {
 		switch s.char {
@@ -153,6 +153,8 @@ func scanDefault(s *Scanner) ScanFunc {
 			scanQuotedWeak(s)
 		case lcurly:
 			return scanBraces
+		case lparen:
+			return scanList
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)
@@ -175,6 +177,58 @@ func scanDefault(s *Scanner) ScanFunc {
 		return nil
 	}
 	return scanBlanks
+}
+
+func scanList(s *Scanner) ScanFunc {
+	delim := func(r rune) bool {
+		return isComment(r) || isBlank(r) || isQuote(r) ||
+			r == dollar || r == lcurly || r == lparen || r == rparen || r == equal ||
+			r == semicolon || r == pipe || r == ampersand
+	}
+
+	s.readRune()
+	s.emitTypeOf(tokBeginList)
+	for s.char != rparen {
+		switch s.char {
+		case tokEOF:
+			s.emit("unterminated list", tokError)
+			return nil
+		case pound:
+			s.emit("unterminated list", tokError)
+			return nil
+		case space, tab:
+			scanBlanks(s)
+		case dollar:
+			scanDollar(s)
+		case squote:
+			scanQuotedStrong(s)
+		case dquote:
+			scanQuotedWeak(s)
+		case lcurly:
+			scanBraces(s)
+		case lparen:
+			scanList(s)
+		case equal:
+			s.readRune()
+			s.emitTypeOf(equal)
+		case semicolon:
+			s.readRune()
+			s.skip(isBlank)
+			s.emitTypeOf(semicolon)
+		case pipe:
+			scanPipe(s)
+			s.skip(isBlank)
+		case ampersand:
+			scanAmpersand(s)
+			s.skip(isBlank)
+		default:
+			scanWord(s, delim)
+		}
+	}
+
+	s.emitTypeOf(tokEndList)
+	s.readRune()
+	return scanDefault
 }
 
 func scanBraces(s *Scanner) ScanFunc {
@@ -360,8 +414,8 @@ func scanWord(s *Scanner, fn func(r rune) bool) {
 func scanSubstitution(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
 		return isComment(r) || isBlank(r) || isQuote(r) ||
-			r == dollar || r == lcurly || r == equal || r == rparen ||
-			r == semicolon || r == pipe || r == ampersand
+			r == dollar || r == lcurly || r == lparen || r == rparen ||
+			r == equal || r == semicolon || r == pipe || r == ampersand
 	}
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
@@ -379,6 +433,8 @@ func scanSubstitution(s *Scanner) ScanFunc {
 			scanDollar(s)(s)
 		case lcurly:
 			scanBraces(s)
+		case lparen:
+			scanList(s)
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)
@@ -386,12 +442,12 @@ func scanSubstitution(s *Scanner) ScanFunc {
 			s.readRune()
 			s.skip(isBlank)
 			s.emitTypeOf(semicolon)
-			case pipe:
-				scanPipe(s)
-				s.skip(isBlank)
-			case ampersand:
-				scanAmpersand(s)
-				s.skip(isBlank)
+		case pipe:
+			scanPipe(s)
+			s.skip(isBlank)
+		case ampersand:
+			scanAmpersand(s)
+			s.skip(isBlank)
 		default:
 			scanWord(s, delim)
 		}
@@ -460,7 +516,9 @@ func scanQuotedStrong(s *Scanner) {
 
 func scanBlanks(s *Scanner) ScanFunc {
 	s.skip(isBlank)
-	s.emitTypeOf(tokBlank)
+	if s.char != ampersand && s.char != pipe {
+		s.emitTypeOf(tokBlank)
+	}
 	return scanDefault
 }
 
