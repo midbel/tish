@@ -8,15 +8,20 @@ import (
 type Kind int
 
 const (
+	// kindWord Kind = iota
 	kindSimple Kind = iota
 	kindSeq
 	kindPipe
 	kindAnd
 	kindOr
+	kindList
+	kindSub
 )
 
 func (k Kind) String() string {
 	switch k {
+	// case kindWord:
+	// 	return "word"
 	case kindSimple:
 		return "simple"
 	case kindPipe:
@@ -25,6 +30,10 @@ func (k Kind) String() string {
 		return "and"
 	case kindOr:
 		return "or"
+	case kindList:
+		return "list"
+	case kindSub:
+		return "subsitution"
 	default:
 		return "unknown"
 	}

@@ -71,14 +71,14 @@ func TestParse(t *testing.T) {
 			),
 		},
 	}
-	for _, d := range data {
+	for i, d := range data {
 		w, err := Parse(d.Input)
 		if err != nil {
-			t.Errorf("parse: unexpected error: %s", err)
+			t.Errorf("%d) parse: unexpected error: %s", i+1, err)
 			continue
 		}
 		if !d.Word.Equal(w) || d.Word.String() != w.String() {
-			t.Errorf("words are not equal! want %s, got %s", w, d.Word)
+			t.Errorf("%d) words are not equal! want %s, got %s", i+1, w, d.Word)
 		}
 	}
 }

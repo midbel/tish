@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -33,9 +34,6 @@ func (p *parser) Parse() (Word, error) {
 		ws.words = append(ws.words, w)
 		p.next()
 	}
-	if p.err == io.EOF {
-		p.err = nil
-	}
 	return ws.asWord(), p.err
 }
 
@@ -46,10 +44,10 @@ func (p *parser) parseCommand() (Word, error) {
 		if err != nil {
 			return nil, err
 		}
-		ws.words = append(ws.words, w)
-		if p.isControl() {
+		if !p.isControl() {
 			break
 		}
+		ws.words = append(ws.words, w)
 		p.next()
 	}
 	return ws, nil
@@ -100,7 +98,7 @@ func (p *parser) isControl() bool {
 func (p *parser) next() {
 	p.curr = p.peek
 	peek, err := p.scan.Scan()
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		p.err = err
 	}
 	p.peek = peek
