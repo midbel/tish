@@ -54,8 +54,8 @@ func (p *parser) parseSequence() (Word, error) {
 }
 
 func (p *parser) parseConditional(left Word) (Word, error) {
-	typof := kindOr
-	if p.curr.Type == tokAnd {
+	typof, token := kindOr, p.curr.Type
+	if token == tokAnd {
 		typof = kindAnd
 	}
 	is := List{
@@ -68,11 +68,22 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 		return nil, fmt.Errorf("cdt: unexpected operator: %s", p.curr)
 	}
 
-	right, err := p.parseCommand()
-	if err != nil {
-		return nil, err
+	for {
+		right, err := p.parseCommand()
+		if err != nil {
+			return nil, err
+		}
+		is.words = append(is.words, right)
+
+		tok := p.curr
+		if p.isControl() && !(tok.Type == tokAnd || tok.Type == tokOr) {
+			break
+		}
+		if tok.Type != token {
+			return p.parseConditional(is)
+		}
+		p.next()
 	}
-	is.words = append(is.words, right)
 	return is, nil
 }
 

@@ -130,11 +130,52 @@ func TestParse(t *testing.T) {
 				),
 				makeList(kindAnd,
 					makeList(kindSimple, Literal("cat")),
-					makeList(kindAnd,
-						makeList(kindSimple, Literal("grep")),
-						makeList(kindSimple, Literal("sort")),
-					),
+					makeList(kindSimple, Literal("grep")),
+					makeList(kindSimple, Literal("sort")),
 				),
+			),
+		},
+		{
+			Input: "echo && wc; cat && grep || sort",
+			Word: makeList(kindSeq,
+				makeList(kindAnd,
+					makeList(kindSimple, Literal("echo")),
+					makeList(kindSimple, Literal("wc")),
+				),
+				makeList(kindOr,
+					makeList(kindAnd,
+						makeList(kindSimple, Literal("cat")),
+						makeList(kindSimple, Literal("grep")),
+					),
+					makeList(kindSimple, Literal("sort")),
+				),
+			),
+		},
+		{
+			Input: "echo && wc; cat || grep && sort",
+			Word: makeList(kindSeq,
+				makeList(kindAnd,
+					makeList(kindSimple, Literal("echo")),
+					makeList(kindSimple, Literal("wc")),
+				),
+				makeList(kindAnd,
+					makeList(kindOr,
+						makeList(kindSimple, Literal("cat")),
+						makeList(kindSimple, Literal("grep")),
+					),
+					makeList(kindSimple, Literal("sort")),
+				),
+			),
+		},
+		{
+			Input: "echo; cat || grep; sort",
+			Word: makeList(kindSeq,
+				makeList(kindSimple, Literal("echo")),
+				makeList(kindOr,
+					makeList(kindSimple, Literal("cat")),
+					makeList(kindSimple, Literal("grep")),
+				),
+				makeList(kindSimple, Literal("sort")),
 			),
 		},
 	}
@@ -145,7 +186,9 @@ func TestParse(t *testing.T) {
 			continue
 		}
 		if !d.Word.Equal(w) || d.Word.String() != w.String() {
-			t.Errorf("%d) %s: words mismatched! want %s, got %s", i+1, d.Input, d.Word, w)
+			t.Errorf("%d) %s: words mismatched!", i+1, d.Input)
+			t.Logf("\twant: %s", d.Word)
+			t.Logf("\tgot : %s", w)
 		}
 	}
 }
