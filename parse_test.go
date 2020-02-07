@@ -70,6 +70,36 @@ func TestParse(t *testing.T) {
 				),
 			),
 		},
+		{
+			Input: "echo foo | echo; echo bar",
+			Word: makeList(kindSeq,
+				makeList(kindPipe,
+					makeList(kindSimple, Literal("echo"), Literal("foo")),
+					makeList(kindSimple, Literal("echo")),
+				),
+				makeList(kindSimple, Literal("echo"), Literal("bar")),
+			),
+		},
+		{
+			Input: "echo foo | echo && echo bar", // as (echo foo | echo) && echo bar
+			Word: makeList(kindAnd,
+				makeList(kindPipe,
+					makeList(kindSimple, Literal("echo"), Literal("foo")),
+					makeList(kindSimple, Literal("echo")),
+				),
+				makeList(kindSimple, Literal("echo"), Literal("bar")),
+			),
+		},
+		{
+			Input: "echo foo || echo bar | echo", // as echo foo || (echo bar | echo)
+			Word: makeList(kindOr,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				makeList(kindPipe,
+					makeList(kindSimple, Literal("echo"), Literal("bar")),
+					makeList(kindSimple, Literal("echo")),
+				),
+			),
+		},
 	}
 	for i, d := range data {
 		w, err := Parse(d.Input)

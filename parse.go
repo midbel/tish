@@ -6,6 +6,20 @@ import (
 	"io"
 )
 
+// const (
+// 	bindLowest = iota
+// 	bindPipe
+// 	bindSeq
+// 	bindCdt
+// )
+//
+// var bindings = map[rune]int{
+// 	tokAnd:    bindCdt,
+// 	tokOr:     bindCdt,
+// 	pipe:      bindPipe,
+// 	semicolon: bindSeq,
+// }
+
 type parser struct {
 	scan *Scanner
 	curr Token
@@ -32,9 +46,13 @@ func Parse(str string) (Word, error) {
 }
 
 func (p *parser) Parse() (Word, error) {
+	return p.parse()
+}
+
+func (p *parser) parse() (Word, error) {
 	left, err := p.parseCommand()
-	if err != nil {
-		return nil, err
+	if err != nil || p.isDone() {
+		return left, err
 	}
 	for !p.isDone() {
 		infix, ok := p.infix[p.curr.Type]
