@@ -40,8 +40,6 @@ func (p *parser) parseSequence() (Word, error) {
 		case tokEOF:
 		case tokOr, tokAnd:
 			w, err = p.parseConditional(w)
-		case pipe:
-			w, err = p.parsePipeline(w)
 		case semicolon:
 		default:
 			return nil, fmt.Errorf("unexpected operator: %s", p.curr)
@@ -53,30 +51,6 @@ func (p *parser) parseSequence() (Word, error) {
 		p.next()
 	}
 	return ws.asWord(), nil
-}
-
-func (p *parser) parsePipeline(left Word) (Word, error) {
-	p.next()
-	if p.isControl() {
-		return nil, fmt.Errorf("pipe: unexpected operator: %s", p.curr)
-	}
-
-	is := List{
-		words: []Word{left},
-		kind:  kindPipe,
-	}
-	for {
-		right, err := p.parseCommand()
-		if err != nil {
-			return nil, err
-		}
-		is.words = append(is.words, right)
-		if p.curr.Type != pipe {
-			break
-		}
-		p.next()
-	}
-	return is, nil
 }
 
 func (p *parser) parseConditional(left Word) (Word, error) {
@@ -103,15 +77,26 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 }
 
 func (p *parser) parseCommand() (Word, error) {
-	ws := List{kind: kindSimple}
-	for !p.isControl() {
-		w, err := p.parseWord()
-		if err != nil {
-			return nil, err
+	ws := List{kind: kindPipe}
+	for {
+		xs := List{kind: kindSimple}
+		for !p.isControl() {
+			w, err := p.parseWord()
+			if err != nil {
+				return nil, err
+			}
+			xs.words = append(xs.words, w)
+			if p.isBlank() {
+				p.next()
+			}
 		}
-		ws.words = append(ws.words, w)
-		if p.isBlank() {
-			p.next()
+		ws.words = append(ws.words, xs.asWord())
+		if p.curr.Type != pipe && p.isControl() {
+			break
+		}
+		p.next()
+		if p.isControl() {
+			return nil, fmt.Errorf("command: unexpected operator: %s", p.curr)
 		}
 	}
 	return ws.asWord(), p.err
@@ -136,9 +121,7 @@ func (p *parser) parseWord() (Word, error) {
 			break
 		}
 	}
-	// if len(xs) == 0 {
-	// 	return nil, nil
-	// }
+
 	var w Word
 	if n := len(xs); n == 0 {
 	} else if n == 1 {

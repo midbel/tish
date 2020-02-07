@@ -92,7 +92,7 @@ func (i List) Equal(w Word) bool {
 
 func (i List) asWord() Word {
 	if len(i.words) == 1 {
-		return i.words[0]
+		return i.words[0] //.asWord()
 	}
 	return i
 }

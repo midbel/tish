@@ -121,6 +121,22 @@ func TestParse(t *testing.T) {
 				),
 			),
 		},
+		{
+			Input: "echo && wc; cat && grep && sort",
+			Word: makeList(kindSeq,
+				makeList(kindAnd,
+					makeList(kindSimple, Literal("echo")),
+					makeList(kindSimple, Literal("wc")),
+				),
+				makeList(kindAnd,
+					makeList(kindSimple, Literal("cat")),
+					makeList(kindAnd,
+						makeList(kindSimple, Literal("grep")),
+						makeList(kindSimple, Literal("sort")),
+					),
+				),
+			),
+		},
 	}
 	for i, d := range data {
 		w, err := Parse(d.Input)
