@@ -55,8 +55,8 @@ func TestParse(t *testing.T) {
 		},
 		{
 			Input: "echo $BAR || echo $FOO",
-			Word: makeList(kindPipe,
-				makeList(kindSimple, Literal("echo"), Literal("BAR")),
+			Word: makeList(kindOr,
+				makeList(kindSimple, Literal("echo"), Variable("BAR")),
 				makeList(kindSimple, Literal("echo"), Variable("FOO")),
 			),
 		},
@@ -74,16 +74,19 @@ func TestParse(t *testing.T) {
 	for i, d := range data {
 		w, err := Parse(d.Input)
 		if err != nil {
-			t.Errorf("%d) parse: unexpected error: %s", i+1, err)
+			t.Errorf("%d) parsing %s: unexpected error (%s)", i+1, d.Input, err)
 			continue
 		}
 		if !d.Word.Equal(w) || d.Word.String() != w.String() {
-			t.Errorf("%d) words are not equal! want %s, got %s", i+1, w, d.Word)
+			t.Errorf("%d) %s: words mismatched! want %s, got %s", i+1, d.Input, d.Word, w)
 		}
 	}
 }
 
 func makeList(kind Kind, ws ...Word) Word {
+	if len(ws) == 1 {
+		return ws[0]
+	}
 	return List{
 		words: ws,
 		kind:  kind,

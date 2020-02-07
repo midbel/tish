@@ -2,13 +2,30 @@ package tish
 
 import (
 	"fmt"
+	// "os/exec"
 	"strings"
 )
+
+type Cmd struct {
+	word Word
+
+	next struct {
+		cmd  *Cmd
+		kind Kind
+	}
+}
+
+func (c Cmd) Execute(e *Env) error {
+	_, err := c.word.Expand(e)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 type Kind int
 
 const (
-	// kindWord Kind = iota
 	kindSimple Kind = iota
 	kindSeq
 	kindPipe
@@ -20,10 +37,10 @@ const (
 
 func (k Kind) String() string {
 	switch k {
-	// case kindWord:
-	// 	return "word"
 	case kindSimple:
 		return "simple"
+	case kindSeq:
+		return "sequence"
 	case kindPipe:
 		return "pipeline"
 	case kindAnd:
