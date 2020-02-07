@@ -71,6 +71,16 @@ func TestParse(t *testing.T) {
 			),
 		},
 		{
+			Input: "echo foo; echo $FOO && echo",
+			Word: makeList(kindSeq,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				makeList(kindAnd,
+					makeList(kindSimple, Literal("echo"), Variable("FOO")),
+					makeList(kindSimple, Literal("echo")),
+				),
+			),
+		},
+		{
 			Input: "echo foo | echo; echo bar",
 			Word: makeList(kindSeq,
 				makeList(kindPipe,
@@ -80,16 +90,16 @@ func TestParse(t *testing.T) {
 				makeList(kindSimple, Literal("echo"), Literal("bar")),
 			),
 		},
-		{
-			Input: "echo foo | echo && echo bar", // as (echo foo | echo) && echo bar
-			Word: makeList(kindAnd,
-				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo"), Literal("foo")),
-					makeList(kindSimple, Literal("echo")),
-				),
-				makeList(kindSimple, Literal("echo"), Literal("bar")),
-			),
-		},
+		// {
+		// 	Input: "echo foo | cat && echo bar", // as (echo foo | echo) && echo bar
+		// 	Word: makeList(kindAnd,
+		// 		makeList(kindPipe,
+		// 			makeList(kindSimple, Literal("echo"), Literal("foo")),
+		// 			makeList(kindSimple, Literal("cat")),
+		// 		),
+		// 		makeList(kindSimple, Literal("echo"), Literal("bar")),
+		// 	),
+		// },
 		{
 			Input: "echo foo || echo bar | echo", // as echo foo || (echo bar | echo)
 			Word: makeList(kindOr,

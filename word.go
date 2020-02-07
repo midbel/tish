@@ -2,26 +2,8 @@ package tish
 
 import (
 	"fmt"
-	// "os/exec"
 	"strings"
 )
-
-type Cmd struct {
-	word Word
-
-	next struct {
-		cmd  *Cmd
-		kind Kind
-	}
-}
-
-func (c Cmd) Execute(e *Env) error {
-	_, err := c.word.Expand(e)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 type Kind int
 
@@ -60,6 +42,8 @@ type Word interface {
 	Expand(*Env) ([]string, error)
 	Equal(Word) bool
 	fmt.Stringer
+
+	asWord() Word
 }
 
 type List struct {
@@ -131,6 +115,10 @@ func (v Variable) Equal(w Word) bool {
 	return string(other) == string(v)
 }
 
+func (v Variable) asWord() Word {
+	return v
+}
+
 type Literal string
 
 func (i Literal) Expand(_ *Env) ([]string, error) {
@@ -147,4 +135,8 @@ func (i Literal) Equal(w Word) bool {
 		return false
 	}
 	return string(other) == string(i)
+}
+
+func (i Literal) asWord() Word {
+	return i
 }

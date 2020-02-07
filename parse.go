@@ -6,39 +6,18 @@ import (
 	"io"
 )
 
-// const (
-// 	bindLowest = iota
-// 	bindPipe
-// 	bindSeq
-// 	bindCdt
-// )
-//
-// var bindings = map[rune]int{
-// 	tokAnd:    bindCdt,
-// 	tokOr:     bindCdt,
-// 	pipe:      bindPipe,
-// 	semicolon: bindSeq,
-// }
-
 type parser struct {
 	scan *Scanner
 	curr Token
 	peek Token
-
-	infix map[rune]func(Word) (Word, error)
 
 	err error
 }
 
 func Parse(str string) (Word, error) {
 	var p parser
+
 	p.scan = NewScanner(str)
-	p.infix = map[rune]func(Word) (Word, error){
-		pipe:      p.parsePipeline,
-		semicolon: p.parseSequence,
-		tokAnd:    p.parseConditional,
-		tokOr:     p.parseConditional,
-	}
 	p.next()
 	p.next()
 
@@ -46,46 +25,40 @@ func Parse(str string) (Word, error) {
 }
 
 func (p *parser) Parse() (Word, error) {
-	return p.parse()
+	return p.parseSequence()
 }
 
-func (p *parser) parse() (Word, error) {
-	left, err := p.parseCommand()
-	if err != nil || p.isDone() {
-		return left, err
-	}
+func (p *parser) parseSequence() (Word, error) {
+	ws := List{kind: kindSeq}
+
 	for !p.isDone() {
-		infix, ok := p.infix[p.curr.Type]
-		if !ok {
-			return nil, fmt.Errorf("unexpected token %s", p.curr)
-		}
-		left, err = infix(left)
+		w, err := p.parseCommand()
 		if err != nil {
 			return nil, err
 		}
+		switch p.curr.Type {
+		case tokEOF:
+		case tokOr, tokAnd:
+			w, err = p.parseConditional(w)
+		case pipe:
+			w, err = p.parsePipeline(w)
+		case semicolon:
+		default:
+			return nil, fmt.Errorf("unexpected operator: %s", p.curr)
+		}
+		if err != nil {
+			return nil, err
+		}
+		ws.words = append(ws.words, w)
+		p.next()
 	}
-	return left, p.err
-}
-
-func (p *parser) parseSequence(left Word) (Word, error) {
-	p.next()
-
-	seq := List{
-		words: []Word{left},
-		kind:  kindSeq,
-	}
-	right, err := p.parseCommand()
-	if err != nil {
-		return nil, err
-	}
-	seq.words = append(seq.words, right)
-	return seq, nil
+	return ws.asWord(), nil
 }
 
 func (p *parser) parsePipeline(left Word) (Word, error) {
 	p.next()
 
-	pipe := List{
+	is := List{
 		words: []Word{left},
 		kind:  kindPipe,
 	}
@@ -93,8 +66,8 @@ func (p *parser) parsePipeline(left Word) (Word, error) {
 	if err != nil {
 		return nil, err
 	}
-	pipe.words = append(pipe.words, right)
-	return pipe, nil
+	is.words = append(is.words, right)
+	return is, nil
 }
 
 func (p *parser) parseConditional(left Word) (Word, error) {
@@ -102,7 +75,7 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 	if p.curr.Type == tokAnd {
 		typof = kindAnd
 	}
-	cdt := List{
+	is := List{
 		words: []Word{left},
 		kind:  typof,
 	}
@@ -113,8 +86,8 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 	if err != nil {
 		return nil, err
 	}
-	cdt.words = append(cdt.words, right)
-	return cdt, nil
+	is.words = append(is.words, right)
+	return is, nil
 }
 
 func (p *parser) parseCommand() (Word, error) {
@@ -151,9 +124,11 @@ func (p *parser) parseWord() (Word, error) {
 			break
 		}
 	}
+	// if len(xs) == 0 {
+	// 	return nil, nil
+	// }
 	var w Word
 	if n := len(xs); n == 0 {
-		w = Literal("")
 	} else if n == 1 {
 		w = xs[0]
 	} else {
