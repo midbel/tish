@@ -47,6 +47,17 @@ func TestParse(t *testing.T) {
 			),
 		},
 		{
+			Input: "find | cat | grep",
+			Word:  makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
+		},
+		{
+			Input: "find | cat | grep; wc",
+			Word: makeList(kindSeq,
+				makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
+				makeList(kindSimple, Literal("wc")),
+			),
+		},
+		{
 			Input: "echo foo && echo $FOO",
 			Word: makeList(kindAnd,
 				makeList(kindSimple, Literal("echo"), Literal("foo")),

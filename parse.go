@@ -57,16 +57,25 @@ func (p *parser) parseSequence() (Word, error) {
 
 func (p *parser) parsePipeline(left Word) (Word, error) {
 	p.next()
+	if p.isControl() {
+		return nil, fmt.Errorf("pipe: unexpected operator: %s", p.curr)
+	}
 
 	is := List{
 		words: []Word{left},
 		kind:  kindPipe,
 	}
-	right, err := p.parseCommand()
-	if err != nil {
-		return nil, err
+	for {
+		right, err := p.parseCommand()
+		if err != nil {
+			return nil, err
+		}
+		is.words = append(is.words, right)
+		if p.curr.Type != pipe {
+			break
+		}
+		p.next()
 	}
-	is.words = append(is.words, right)
 	return is, nil
 }
 
@@ -81,6 +90,9 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 	}
 
 	p.next()
+	if p.isControl() {
+		return nil, fmt.Errorf("cdt: unexpected operator: %s", p.curr)
+	}
 
 	right, err := p.parseCommand()
 	if err != nil {
