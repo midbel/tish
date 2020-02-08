@@ -150,7 +150,7 @@ func (p *parser) parseSubstitution() (Word, error) {
 func (p *parser) parseWord() (Word, error) {
 	var xs []Word
 	for !p.isDone() {
-		if p.curr.Type == tokEOF || p.curr.Type == tokEndSub {
+		if p.curr.Type == tokEOF {
 			break
 		}
 		switch p.curr.Type {

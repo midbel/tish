@@ -94,7 +94,8 @@ func (i List) asWord() Word {
 	if i.kind == kindSub || len(i.words) != 1 {
 		return i
 	}
-	return i.words[0] //.asWord()
+	return i.words[0].asWord()
+	// return i.words[0] //.asWord()
 }
 
 type Variable string
