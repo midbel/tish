@@ -121,6 +121,19 @@ func (p *parser) parseSubstitution() (Word, error) {
 	return w, nil
 }
 
+func (p *parser) parseExpression() (Word, error) {
+	p.next()
+	ws := List{kind: kindExpr}
+	for {
+		if p.curr.Type == tokEndArith {
+			break
+		}
+		p.next()
+	}
+	p.next()
+	return ws, nil
+}
+
 func (p *parser) parseCommand() (Word, error) {
 	ws := List{kind: kindPipe}
 	for {
@@ -162,6 +175,12 @@ func (p *parser) parseWord() (Word, error) {
 			p.next()
 		case tokBeginSub:
 			w, err := p.parseSubstitution()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
+		case tokBeginArith:
+			w, err := p.parseExpression()
 			if err != nil {
 				return nil, err
 			}

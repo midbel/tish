@@ -12,6 +12,27 @@ type ParseCase struct {
 func TestParse(t *testing.T) {
 	t.Run("simple", testParseSimple)
 	t.Run("substitution", testParseSubstitution)
+	t.Run("arithmetic", testParseArithmetic)
+}
+
+func testParseArithmetic(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `echo $((1 + 2 * $VAR))`,
+			Word:  makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindExpr),
+			),
+		},
+		{
+			Input: `echo $((1 + (2 * $VAR)))`,
+			Word:  makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindExpr),
+			),
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseSubstitution(t *testing.T) {

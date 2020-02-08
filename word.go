@@ -15,6 +15,7 @@ const (
 	kindOr
 	kindList
 	kindSub
+	kindExpr
 )
 
 func (k Kind) String() string {
@@ -33,6 +34,8 @@ func (k Kind) String() string {
 		return "list"
 	case kindSub:
 		return "substitution"
+	case kindExpr:
+		return "expression"
 	default:
 		return "unknown"
 	}
