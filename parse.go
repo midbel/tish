@@ -87,32 +87,6 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 	return is, nil
 }
 
-func (p *parser) parseCommand() (Word, error) {
-	ws := List{kind: kindPipe}
-	for {
-		xs := List{kind: kindSimple}
-		for !p.isControl() {
-			w, err := p.parseWord()
-			if err != nil {
-				return nil, err
-			}
-			xs.words = append(xs.words, w)
-			if p.isBlank() {
-				p.next()
-			}
-		}
-		ws.words = append(ws.words, xs.asWord())
-		if p.curr.Type != pipe && p.isControl() {
-			break
-		}
-		p.next()
-		if p.isControl() {
-			return nil, fmt.Errorf("command: unexpected operator: %s", p.curr)
-		}
-	}
-	return ws.asWord(), p.err
-}
-
 func (p *parser) parseSubstitution() (Word, error) {
 	p.next()
 
@@ -147,8 +121,34 @@ func (p *parser) parseSubstitution() (Word, error) {
 	return w, nil
 }
 
+func (p *parser) parseCommand() (Word, error) {
+	ws := List{kind: kindPipe}
+	for {
+		xs := List{kind: kindSimple}
+		for !p.isControl() {
+			w, err := p.parseWord()
+			if err != nil {
+				return nil, err
+			}
+			xs.words = append(xs.words, w)
+			if p.isBlank() {
+				p.next()
+			}
+		}
+		ws.words = append(ws.words, xs.asWord())
+		if p.curr.Type != pipe && p.isControl() {
+			break
+		}
+		p.next()
+		if p.isControl() {
+			return nil, fmt.Errorf("command: unexpected operator: %s", p.curr)
+		}
+	}
+	return ws.asWord(), p.err
+}
+
 func (p *parser) parseWord() (Word, error) {
-	var xs []Word
+	xs := make([]Word, 0, 10)
 	for !p.isDone() {
 		if p.curr.Type == tokEOF {
 			break
@@ -156,8 +156,10 @@ func (p *parser) parseWord() (Word, error) {
 		switch p.curr.Type {
 		case tokWord:
 			xs = append(xs, Literal(p.curr.Literal))
+			p.next()
 		case tokVar:
 			xs = append(xs, Variable(p.curr.Literal))
+			p.next()
 		case tokBeginSub:
 			w, err := p.parseSubstitution()
 			if err != nil {
@@ -167,7 +169,6 @@ func (p *parser) parseWord() (Word, error) {
 		default:
 			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}
-		p.next()
 		if p.isBlank() || p.isControl() {
 			break
 		}

@@ -53,19 +53,19 @@ func testParseSubstitution(t *testing.T) {
 				),
 			),
 		},
-		// {
-		// 	Input: `echo $(cat $(grep) $(wc))`,
-		// 	Word: makeList(kindSimple,
-		// 		Literal("echo"),
-		// 		makeList(kindSub,
-		// 			makeList(kindSimple,
-		// 				Literal("cat"),
-		// 				makeList(kindSub, makeList(kindSimple, Literal("grep"))),
-		// 				makeList(kindSub, makeList(kindSimple, Literal("wc"))),
-		// 			),
-		// 		),
-		// 	),
-		// },
+		{
+			Input: `echo $(cat $(grep) $(wc))`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindSub,
+					makeList(kindSimple,
+						Literal("cat"),
+						makeList(kindSub, makeList(kindSimple, Literal("grep"))),
+						makeList(kindSub, makeList(kindSimple, Literal("wc"))),
+					),
+				),
+			),
+		},
 	}
 	runParseCase(t, data)
 }
