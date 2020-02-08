@@ -32,7 +32,7 @@ func (k Kind) String() string {
 	case kindList:
 		return "list"
 	case kindSub:
-		return "subsitution"
+		return "substitution"
 	default:
 		return "unknown"
 	}
@@ -91,10 +91,10 @@ func (i List) Equal(w Word) bool {
 }
 
 func (i List) asWord() Word {
-	if len(i.words) == 1 {
-		return i.words[0] //.asWord()
+	if i.kind == kindSub || len(i.words) != 1 {
+		return i
 	}
-	return i
+	return i.words[0] //.asWord()
 }
 
 type Variable string

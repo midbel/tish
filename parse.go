@@ -113,10 +113,44 @@ func (p *parser) parseCommand() (Word, error) {
 	return ws.asWord(), p.err
 }
 
+func (p *parser) parseSubstitution() (Word, error) {
+	p.next()
+
+	ws := List{kind: kindSeq}
+	for {
+		w, err := p.parseCommand()
+		if err != nil {
+			return nil, err
+		}
+		switch p.curr.Type {
+		case tokEndSub:
+		case tokOr, tokAnd:
+			w, err = p.parseConditional(w)
+		case semicolon:
+		default:
+			return nil, fmt.Errorf("substitution: unexpected operator: %s", p.curr)
+		}
+		if err != nil {
+			return nil, err
+		}
+		ws.words = append(ws.words, w)
+		if p.curr.Type == tokEndSub {
+			break
+		}
+		p.next()
+	}
+	p.next()
+	w := List{
+		words: []Word{ws.asWord()},
+		kind:  kindSub,
+	}
+	return w, nil
+}
+
 func (p *parser) parseWord() (Word, error) {
 	var xs []Word
 	for !p.isDone() {
-		if p.curr.Type == tokEOF {
+		if p.curr.Type == tokEOF || p.curr.Type == tokEndSub {
 			break
 		}
 		switch p.curr.Type {
@@ -124,8 +158,14 @@ func (p *parser) parseWord() (Word, error) {
 			xs = append(xs, Literal(p.curr.Literal))
 		case tokVar:
 			xs = append(xs, Variable(p.curr.Literal))
+		case tokBeginSub:
+			w, err := p.parseSubstitution()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
 		default:
-			return nil, fmt.Errorf("unexpected token %s", p.curr)
+			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}
 		p.next()
 		if p.isBlank() || p.isControl() {
@@ -152,6 +192,7 @@ func (p *parser) isControl() bool {
 	case tokEOF:
 	case tokAnd:
 	case tokOr:
+	case tokEndSub:
 	default:
 		return isControl(p.curr.Type)
 	}

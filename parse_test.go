@@ -26,10 +26,12 @@ func TestParse(t *testing.T) {
 			Word:  makeList(kindSimple, Literal("echo"), Variable("FOO")),
 		},
 		{
-			Input: "echo foo; echo bar",
+			Input: "echo; cat; wc; grep",
 			Word: makeList(kindSeq,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				makeList(kindSimple, Literal("echo"), Literal("bar")),
+				makeList(kindSimple, Literal("echo")),
+				makeList(kindSimple, Literal("cat")),
+				makeList(kindSimple, Literal("wc")),
+				makeList(kindSimple, Literal("grep")),
 			),
 		},
 		{
@@ -178,11 +180,32 @@ func TestParse(t *testing.T) {
 				makeList(kindSimple, Literal("sort")),
 			),
 		},
+		{
+			Input: `echo $(cat | wc)`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindSub,
+					makeList(kindPipe, Literal("cat"), Literal("wc")),
+				),
+			),
+		},
+		{
+			Input: `echo "sum = $(cat ; wc)"`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindSimple,
+					Literal("sum = "),
+					makeList(kindSub,
+						makeList(kindSeq, Literal("cat"), Literal("wc")),
+					),
+				),
+			),
+		},
 	}
 	for i, d := range data {
 		w, err := Parse(d.Input)
 		if err != nil {
-			t.Errorf("%d) parsing %s: unexpected error (%s)", i+1, d.Input, err)
+			t.Errorf("%d) parsing %s: unexpected error: %s", i+1, d.Input, err)
 			continue
 		}
 		if !d.Word.Equal(w) || d.Word.String() != w.String() {
@@ -194,7 +217,7 @@ func TestParse(t *testing.T) {
 }
 
 func makeList(kind Kind, ws ...Word) Word {
-	if len(ws) == 1 {
+	if len(ws) == 1 && kind != kindSub {
 		return ws[0]
 	}
 	return List{
