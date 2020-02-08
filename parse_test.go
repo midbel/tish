@@ -4,11 +4,71 @@ import (
 	"testing"
 )
 
+type ParseCase struct {
+	Input string
+	Word  Word
+}
+
 func TestParse(t *testing.T) {
-	data := []struct {
-		Input string
-		Word  Word
-	}{
+	t.Run("simple", testParseSimple)
+	t.Run("substitution", testParseSubstitution)
+}
+
+func testParseSubstitution(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `echo $(cat | wc)`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindSub,
+					makeList(kindPipe, Literal("cat"), Literal("wc")),
+				),
+			),
+		},
+		{
+			Input: `echo "sum = $(cat ; wc)"`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindSimple,
+					Literal("sum = "),
+					makeList(kindSub,
+						makeList(kindSeq, Literal("cat"), Literal("wc")),
+					),
+				),
+			),
+		},
+		{
+			Input: `echo $(cat $(grep) wc)`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindSub,
+					makeList(kindSimple,
+						Literal("cat"),
+						makeList(kindSub, makeList(kindSimple, Literal("grep"))),
+						Literal("wc"),
+					),
+				),
+			),
+		},
+		// {
+		// 	Input: `echo $(cat $(grep) $(wc))`,
+		// 	Word: makeList(kindSimple,
+		// 		Literal("echo"),
+		// 		makeList(kindSub,
+		// 			makeList(kindSimple,
+		// 				Literal("cat"),
+		// 				makeList(kindSub, makeList(kindSimple, Literal("grep"))),
+		// 				makeList(kindSub, makeList(kindSimple, Literal("wc"))),
+		// 			),
+		// 		),
+		// 	),
+		// },
+	}
+	runParseCase(t, data)
+}
+
+func testParseSimple(t *testing.T) {
+	data := []ParseCase{
 		{
 			Input: "echo",
 			Word:  makeList(kindSimple, Literal("echo")),
@@ -180,31 +240,17 @@ func TestParse(t *testing.T) {
 				makeList(kindSimple, Literal("sort")),
 			),
 		},
-		{
-			Input: `echo $(cat | wc)`,
-			Word: makeList(kindSimple,
-				Literal("echo"),
-				makeList(kindSub,
-					makeList(kindPipe, Literal("cat"), Literal("wc")),
-				),
-			),
-		},
-		{
-			Input: `echo "sum = $(cat ; wc)"`,
-			Word: makeList(kindSimple,
-				Literal("echo"),
-				makeList(kindSimple,
-					Literal("sum = "),
-					makeList(kindSub,
-						makeList(kindSeq, Literal("cat"), Literal("wc")),
-					),
-				),
-			),
-		},
 	}
+	runParseCase(t, data)
+}
+
+func runParseCase(t *testing.T, data []ParseCase) {
+	t.Helper()
+
 	for i, d := range data {
 		w, err := Parse(d.Input)
 		if err != nil {
+			t.Log(d.Word.String())
 			t.Errorf("%d) parsing %s: unexpected error: %s", i+1, d.Input, err)
 			continue
 		}
