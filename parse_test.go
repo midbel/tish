@@ -19,16 +19,39 @@ func testParseArithmetic(t *testing.T) {
 	data := []ParseCase{
 		{
 			Input: `echo $((1 + 2 * $VAR))`,
-			Word:  makeList(kindSimple,
+			Word: makeList(kindSimple,
 				Literal("echo"),
-				makeList(kindExpr),
+				makeExpr(
+					makeEval(plus,
+						Number(1),
+						makeEval(mul, Number(2), Variable("VAR")),
+					),
+				),
 			),
 		},
 		{
-			Input: `echo $((1 + (2 * $VAR)))`,
-			Word:  makeList(kindSimple,
+			Input: `echo $(((1 + 2) * $VAR))`,
+			Word: makeList(kindSimple,
 				Literal("echo"),
-				makeList(kindExpr),
+				makeExpr(
+					makeEval(
+						mul,
+						makeEval(plus, Number(1), Number(2)),
+						Variable("VAR"),
+					),
+				),
+			),
+		},
+		{
+			Input: `echo $((-1+1))`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeExpr(
+					makeEval(plus,
+						prefix{op: minus, right: Number(1)},
+						Number(1),
+					),
+				),
 			),
 		},
 	}
@@ -286,8 +309,21 @@ func runParseCase(t *testing.T, data []ParseCase) {
 	}
 }
 
+func makeEval(op rune, left, right Evaluator) Evaluator {
+	e := infix{
+		left:  left,
+		right: right,
+		op:    op,
+	}
+	return e
+}
+
+func makeExpr(e Evaluator) Word {
+	return makeList(kindExpr, Expr{expr: e})
+}
+
 func makeList(kind Kind, ws ...Word) Word {
-	if len(ws) == 1 && kind != kindSub {
+	if len(ws) == 1 && !(kind == kindSub || kind == kindExpr) {
 		return ws[0]
 	}
 	return List{

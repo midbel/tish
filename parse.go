@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 )
 
 type parser struct {
@@ -12,10 +13,28 @@ type parser struct {
 	peek Token
 
 	err error
+
+	infix  map[rune]func(Evaluator) (Evaluator, error)
+	prefix map[rune]func() (Evaluator, error)
 }
 
 func Parse(str string) (Word, error) {
 	var p parser
+
+	p.infix = map[rune]func(Evaluator) (Evaluator, error){
+		plus:   p.parseInfix,
+		minus:  p.parseInfix,
+		div:    p.parseInfix,
+		mul:    p.parseInfix,
+		modulo: p.parseInfix,
+	}
+	p.prefix = map[rune]func() (Evaluator, error){
+		lparen:   p.parsePrefix,
+		minus:    p.parsePrefix,
+		tokInt:   p.parsePrefix,
+		tokFloat: p.parsePrefix,
+		tokVar:   p.parsePrefix,
+	}
 
 	p.scan = NewScanner(str)
 	p.next()
@@ -121,17 +140,91 @@ func (p *parser) parseSubstitution() (Word, error) {
 	return w, nil
 }
 
-func (p *parser) parseExpression() (Word, error) {
+func (p *parser) parseArithmetic() (Word, error) {
 	p.next()
-	ws := List{kind: kindExpr}
-	for {
-		if p.curr.Type == tokEndArith {
-			break
-		}
-		p.next()
+
+	e, err := p.parseExpression(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	ws := List{
+		kind:  kindExpr,
+		words: []Word{Expr{expr: e}},
 	}
 	p.next()
 	return ws, nil
+}
+
+func (p *parser) parseExpression(bp int) (Evaluator, error) {
+	prefix, ok := p.prefix[p.curr.Type]
+	if !ok {
+		return nil, fmt.Errorf("expr: unexpected prefix operator: %s", p.curr)
+	}
+	left, err := prefix()
+	if err != nil {
+		return nil, err
+	}
+	for p.curr.Type != tokEndArith && bp < bindPower(p.curr) {
+		infix, ok := p.infix[p.curr.Type]
+		if !ok {
+			return nil, fmt.Errorf("expr: unexpected infix operator: %s", p.curr)
+		}
+		left, err = infix(left)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return left, nil
+}
+
+func (p *parser) parseInfix(left Evaluator) (Evaluator, error) {
+	e := infix{
+		left: left,
+		op:   p.curr.Type,
+	}
+
+	bp := bindPower(p.curr)
+	p.next()
+
+	right, err := p.parseExpression(bp)
+	if err == nil {
+		e.right = right
+	}
+	return e, err
+}
+
+func (p *parser) parsePrefix() (Evaluator, error) {
+	var (
+		e   Evaluator
+		err error
+	)
+	switch p.curr.Type {
+	case lparen:
+		p.next()
+		e, err = p.parseExpression(bindLowest)
+		if err == nil {
+			if p.curr.Type != rparen {
+				return nil, fmt.Errorf("unexpected token: %s", p.peek)
+			}
+			p.next()
+		}
+	case minus:
+		p.next()
+		e, err = p.parseExpression(bindPrefix)
+		if err == nil {
+			e = prefix{right: e, op: minus}
+		}
+	case tokVar:
+		e = Variable(p.curr.Literal)
+		p.next()
+	default:
+		n, err := strconv.ParseInt(p.curr.Literal, 10, 64)
+		if err == nil {
+			e = Number(n)
+			p.next()
+		}
+	}
+	return e, err
 }
 
 func (p *parser) parseCommand() (Word, error) {
@@ -180,7 +273,7 @@ func (p *parser) parseWord() (Word, error) {
 			}
 			xs = append(xs, w)
 		case tokBeginArith:
-			w, err := p.parseExpression()
+			w, err := p.parseArithmetic()
 			if err != nil {
 				return nil, err
 			}
@@ -213,6 +306,7 @@ func (p *parser) isControl() bool {
 	case tokAnd:
 	case tokOr:
 	case tokEndSub:
+	case tokEndArith:
 	default:
 		return isControl(p.curr.Type)
 	}

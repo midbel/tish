@@ -2,6 +2,7 @@ package tish
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -94,7 +95,7 @@ func (i List) Equal(w Word) bool {
 }
 
 func (i List) asWord() Word {
-	if i.kind == kindSub || len(i.words) != 1 {
+	if i.kind == kindSub || i.kind == kindExpr || len(i.words) != 1 {
 		return i
 	}
 	return i.words[0].asWord()
@@ -117,6 +118,18 @@ func (v Variable) Equal(w Word) bool {
 		return false
 	}
 	return string(other) == string(v)
+}
+
+func (v Variable) Eval(e *Env) (Number, error) {
+	vs, err := e.Get(string(v))
+	if err != nil {
+		return 0, err
+	}
+	x, err := strconv.ParseInt(vs[0], 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return Number(x), nil
 }
 
 func (v Variable) asWord() Word {
@@ -143,4 +156,31 @@ func (i Literal) Equal(w Word) bool {
 
 func (i Literal) asWord() Word {
 	return i
+}
+
+type Number int64
+
+func (n Number) Eval(_ *Env) (Number, error) {
+	return n, nil
+}
+
+func (n Number) Expand(_ *Env) ([]string, error) {
+	x := strconv.FormatInt(int64(n), 10)
+	return []string{x}, nil
+}
+
+func (n Number) String() string {
+	return fmt.Sprintf("number(%d)", int64(n))
+}
+
+func (n Number) Equal(w Word) bool {
+	other, ok := w.(Number)
+	if !ok {
+		return ok
+	}
+	return int64(n) == int64(other)
+}
+
+func (n Number) asWord() Word {
+	return n
 }

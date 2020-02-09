@@ -388,7 +388,7 @@ func scanNumber(s *Scanner) {
 		}
 		s.emit(buf.String(), tokFloat)
 	case isOperator(s.char) || isBlank(s.char) || s.char == rparen:
-		s.emit(buf.String(), tokInteger)
+		s.emit(buf.String(), tokInt)
 	default:
 		s.emit(fmt.Sprintf("number: invalid character: %c", s.char), tokError)
 	}

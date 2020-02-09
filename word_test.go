@@ -7,6 +7,44 @@ import (
 func TestWordExpand(t *testing.T) {
 	t.Run("variables", testExpandVariables)
 	t.Run("lists", testExpandLists)
+	t.Run("expr", testExpandExpr)
+}
+
+func testExpandExpr(t *testing.T) {
+	env := buildEnv()
+
+	data := []struct {
+		Expr Evaluator
+		Want Number
+	}{
+		{
+			Expr: Number(1),
+			Want: 1,
+		},
+		{
+			Expr: Variable("NINE"),
+			Want: 9,
+		},
+		{
+			Expr: infix{
+				left:  Number(1),
+				right: Variable("NINE"),
+				op:    plus,
+			},
+			Want: 10,
+		},
+	}
+	for _, d := range data {
+		got, err := d.Expr.Eval(env)
+		if err != nil {
+			t.Errorf("%s: unexpected error when expanding expr: %s", d.Expr, err)
+			continue
+		}
+		if got != d.Want {
+			t.Errorf("%s: mismatch value! want %s, got %s", d.Expr, d.Want, got)
+			break
+		}
+	}
 }
 
 func testExpandLists(t *testing.T) {
@@ -115,6 +153,7 @@ func buildEnv() *Env {
 	e := NewEnclosedEnvironment(p)
 	e.Set("FOO", []string{"foo"})
 	e.Set("BAR", []string{"bar"})
+	e.Set("NINE", []string{"9"})
 
 	return e
 }
