@@ -1,16 +1,24 @@
 package tish
 
 import (
-	"fmt"
 	"io"
 	"testing"
 )
 
+type ScanCase struct {
+	Input string
+	Words []Token
+}
+
 func TestScannerScan(t *testing.T) {
-	data := []struct {
-		Input string
-		Words []Token
-	}{
+	t.Run("simple", testScanSimple)
+	t.Run("substitution", testScanSubstitution)
+	t.Run("arithmetic", testScanArithmetic)
+	t.Run("braces", testScanBraces)
+}
+
+func testScanSimple(t *testing.T) {
+	data := []ScanCase{
 		{
 			Input: `echo`,
 			Words: []Token{
@@ -312,6 +320,12 @@ func TestScannerScan(t *testing.T) {
 				{Literal: "comment", Type: tokComment},
 			},
 		},
+	}
+	testValidTokens(t, data)
+}
+
+func testScanSubstitution(t *testing.T) {
+	data := []ScanCase{
 		{
 			Input: `VAR=$(echo $FOO)`,
 			Words: []Token{
@@ -417,6 +431,12 @@ func TestScannerScan(t *testing.T) {
 				{Type: tokEndSub},
 			},
 		},
+	}
+	testValidTokens(t, data)
+}
+
+func testScanArithmetic(t *testing.T) {
+	data := []ScanCase{
 		{
 			Input: `echo $((1 + ((2 * 3) + $VAR) / $VAR))`,
 			Words: []Token{
@@ -465,6 +485,12 @@ func TestScannerScan(t *testing.T) {
 				{Type: tokEndArith},
 			},
 		},
+	}
+	testValidTokens(t, data)
+}
+
+func testScanBraces(t *testing.T) {
+	data := []ScanCase{
 		{
 			Input: `echo {1,2,3}`,
 			Words: []Token{
@@ -544,11 +570,7 @@ func TestScannerScan(t *testing.T) {
 			},
 		},
 	}
-	for i, d := range data {
-		if err := cmpValidTokens(d.Input, d.Words); err != nil {
-			t.Errorf("%d) fail %s: %s", i+1, d.Input, err)
-		}
-	}
+	testValidTokens(t, data)
 }
 
 func TestScannerScanWithError(t *testing.T) {
@@ -567,14 +589,14 @@ func TestScannerScanWithError(t *testing.T) {
 		"echo pre-{foo,bar",
 		"(echo foobar",
 	}
-	for i, str := range data {
-		if err := cmpInvalidTokens(str); err != nil {
-			t.Errorf("%d) fail: %s", i+1, err)
-		}
+	for _, str := range data {
+		testInvalidTokens(t, str)
 	}
 }
 
-func cmpInvalidTokens(str string) error {
+func testInvalidTokens(t *testing.T, str string) {
+	t.Helper()
+
 	s := NewScanner(str)
 	for {
 		tok, err := s.Scan()
@@ -585,31 +607,37 @@ func cmpInvalidTokens(str string) error {
 			if err == io.EOF {
 				break
 			}
-			return nil
+			return
 		}
 	}
-	return fmt.Errorf("invalid input not detected: %s", str)
+	t.Errorf("invalid input not detected: %s", str)
 }
 
-func cmpValidTokens(str string, words []Token) error {
-	s := NewScanner(str)
-	for j := 0; ; j++ {
-		tok, err := s.Scan()
-		if tok.Equal(eof) {
-			break
-		}
-		if err != nil {
-			if err == io.EOF {
+func testValidTokens(t *testing.T, data []ScanCase) {
+	t.Helper()
+
+	for _, d := range data {
+		s := NewScanner(d.Input)
+		for j := 0; ; j++ {
+			tok, err := s.Scan()
+			if tok.Equal(eof) {
 				break
 			}
-			return err
-		}
-		if j >= len(words) {
-			return fmt.Errorf("too many tokens generated! want %d, got %d (%s)", len(words), j+1, tok)
-		}
-		if !tok.Equal(words[j]) {
-			return fmt.Errorf("unexpected token (%d)! want %s, got %s", j+1, words[j], tok)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				t.Errorf("unexpected error: %s", err)
+				break
+			}
+			if j >= len(d.Words) {
+				t.Errorf("too many tokens generated! want %d, got %d (%s)", len(d.Words), j+1, tok)
+				break
+			}
+			if !tok.Equal(d.Words[j]) {
+				t.Errorf("unexpected token (%d)! want %s, got %s", j+1, d.Words[j], tok)
+				break
+			}
 		}
 	}
-	return nil
 }

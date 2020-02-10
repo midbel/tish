@@ -22,18 +22,18 @@ func Parse(str string) (Word, error) {
 	var p parser
 
 	p.infix = map[rune]func(Evaluator) (Evaluator, error){
-		plus:   p.parseInfix,
-		minus:  p.parseInfix,
-		div:    p.parseInfix,
-		mul:    p.parseInfix,
-		modulo: p.parseInfix,
+		plus:   p.parseInfixExpr,
+		minus:  p.parseInfixExpr,
+		div:    p.parseInfixExpr,
+		mul:    p.parseInfixExpr,
+		modulo: p.parseInfixExpr,
 	}
 	p.prefix = map[rune]func() (Evaluator, error){
-		lparen:   p.parsePrefix,
-		minus:    p.parsePrefix,
-		tokInt:   p.parsePrefix,
-		tokFloat: p.parsePrefix,
-		tokVar:   p.parsePrefix,
+		lparen:   p.parsePrefixExpr,
+		minus:    p.parsePrefixExpr,
+		tokInt:   p.parsePrefixExpr,
+		tokFloat: p.parsePrefixExpr,
+		tokVar:   p.parsePrefixExpr,
 	}
 
 	p.scan = NewScanner(str)
@@ -177,7 +177,7 @@ func (p *parser) parseExpression(bp int) (Evaluator, error) {
 	return left, nil
 }
 
-func (p *parser) parseInfix(left Evaluator) (Evaluator, error) {
+func (p *parser) parseInfixExpr(left Evaluator) (Evaluator, error) {
 	e := infix{
 		left: left,
 		op:   p.curr.Type,
@@ -193,7 +193,7 @@ func (p *parser) parseInfix(left Evaluator) (Evaluator, error) {
 	return e, err
 }
 
-func (p *parser) parsePrefix() (Evaluator, error) {
+func (p *parser) parsePrefixExpr() (Evaluator, error) {
 	var (
 		e   Evaluator
 		err error
