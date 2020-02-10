@@ -22,11 +22,13 @@ func Parse(str string) (Word, error) {
 	var p parser
 
 	p.infix = map[rune]func(Evaluator) (Evaluator, error){
-		plus:   p.parseInfixExpr,
-		minus:  p.parseInfixExpr,
-		div:    p.parseInfixExpr,
-		mul:    p.parseInfixExpr,
-		modulo: p.parseInfixExpr,
+		plus:          p.parseInfixExpr,
+		minus:         p.parseInfixExpr,
+		div:           p.parseInfixExpr,
+		mul:           p.parseInfixExpr,
+		modulo:        p.parseInfixExpr,
+		tokLeftShift:  p.parseInfixExpr,
+		tokRightShift: p.parseInfixExpr,
 	}
 	p.prefix = map[rune]func() (Evaluator, error){
 		lparen:   p.parsePrefixExpr,

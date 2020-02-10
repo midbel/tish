@@ -229,6 +229,8 @@ func scanList(s *Scanner) ScanFunc {
 	return scanDefault
 }
 
+// range: [prolog]{lower:upper}[epilog]
+// list: [prolog]{item0,...,item1}[epilog]
 func scanBraces(s *Scanner) ScanFunc {
 	s.readRune()
 	delim := func(r rune) bool {
@@ -319,6 +321,18 @@ func scanArithmetic(s *Scanner) ScanFunc {
 		case s.char == tokEOF:
 			s.emit("unterminated arithmetic expression", tokError)
 			return nil
+		case s.char == langle:
+			s.readRune()
+			if s.char != langle {
+				s.emit("invalid operator", tokError)
+			}
+			s.emitTypeOf(tokLeftShift)
+		case s.char == rangle:
+			s.readRune()
+			if s.char != rangle {
+				s.emit("invalid operator", tokError)
+			}
+			s.emitTypeOf(tokRightShift)
 		case isOperator(s.char):
 			s.emitTypeOf(s.char)
 		case isDigit(s.char):

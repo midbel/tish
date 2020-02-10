@@ -54,6 +54,30 @@ func testParseArithmetic(t *testing.T) {
 				),
 			),
 		},
+		{
+			Input: `echo $(( 1 << 2))`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeExpr(
+					makeEval(tokLeftShift,
+						Number(1),
+						Number(2),
+					),
+				),
+			),
+		},
+		{
+			Input: `echo $(( 4 >> 1))`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeExpr(
+					makeEval(tokRightShift,
+						Number(4),
+						Number(1),
+					),
+				),
+			),
+		},
 	}
 	runParseCase(t, data)
 }

@@ -8,17 +8,20 @@ import (
 
 const (
 	bindLowest int = iota
+	bindShift
 	bindPlus
 	bindMul
 	bindPrefix
 )
 
 var bindings = map[rune]int{
-	plus:   bindPlus,
-	minus:  bindPlus,
-	mul:    bindMul,
-	div:    bindMul,
-	modulo: bindMul,
+	plus:          bindPlus,
+	minus:         bindPlus,
+	mul:           bindMul,
+	div:           bindMul,
+	modulo:        bindMul,
+	tokLeftShift:  bindShift,
+	tokRightShift: bindShift,
 }
 
 func bindPower(tok Token) int {
@@ -92,6 +95,10 @@ func (i infix) Eval(e *Env) (Number, error) {
 		r = left * right
 	case modulo:
 		r = left % right
+	case tokLeftShift:
+		r = left << right
+	case tokRightShift:
+		r = left >> right
 	}
 	return r, nil
 }

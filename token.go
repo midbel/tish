@@ -30,11 +30,14 @@ const (
 	dot        = '.'
 	comma      = ','
 	tilde      = '~'
+	langle     = '<'
+	rangle     = '>'
 )
 
 const (
 	tokEOF rune = -(iota + 1)
 	tokBlank
+	// tokChar
 	tokQuoted
 	tokWord
 	tokInt
@@ -55,6 +58,8 @@ const (
 	tokAnd
 	tokOr
 	tokBackground
+	tokLeftShift
+	tokRightShift
 )
 
 var (
