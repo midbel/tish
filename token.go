@@ -12,6 +12,7 @@ const (
 	backslash  = '\\'
 	dollar     = '$'
 	semicolon  = ';'
+	colon      = ':'
 	pipe       = '|'
 	ampersand  = '&'
 	equal      = '='
