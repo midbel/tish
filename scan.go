@@ -484,11 +484,6 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 			if k := s.peekRune(); k == dollar || k == dquote || k == backslash {
 				s.readRune()
 			}
-		case lcurly:
-			s.emit(buf.String(), tokWord)
-			buf.Reset()
-			scanBraces(s)
-			continue
 		default:
 		}
 		buf.WriteRune(s.char)
