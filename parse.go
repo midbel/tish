@@ -111,10 +111,10 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 func (p *parser) parseBraces(prolog Word) (Word, error) {
 	p.next()
 
-	ws := List{kind: kindSimple}
+	ws := List{kind: kindBraces}
 	for !p.isDone() && p.curr.Type != tokEndBrace {
 		if p.curr.Type != tokWord {
-			return nil, fmt.Errorf("braces: unexpected token %s", p.curr)
+			return nil, fmt.Errorf("braces: %s is not a word", p.curr)
 		}
 		ws.words = append(ws.words, Literal(p.curr.Literal))
 
@@ -123,10 +123,16 @@ func (p *parser) parseBraces(prolog Word) (Word, error) {
 			break
 		}
 		switch p.curr.Type {
-		// case lcurly:
+		case tokBeginBrace:
+			n := len(ws.words) - 1
+			w, err := p.parseBraces(ws.words[n])
+			if err != nil {
+				return nil, err
+			}
+			ws.words[n] = w
 		case comma:
 		default:
-			return nil, fmt.Errorf("braces: unexpected token %s", p.curr)
+			return nil, fmt.Errorf("braces: %s is not allowed", p.curr)
 		}
 		p.next()
 	}
@@ -138,24 +144,13 @@ func (p *parser) parseBraces(prolog Word) (Word, error) {
 		w = Literal("{}")
 	case 1:
 		w = ws.words[0]
+		if i, ok := w.(Literal); ok {
+			w = Literal(fmt.Sprintf("{%s}", string(i)))
+		}
 	default:
 		b := Brace{
 			word:   ws,
 			prolog: prolog,
-		}
-		if !p.isBlank() {
-			epilog, err := p.parseWord()
-			// fmt.Println("epilog", epilog)
-			if err != nil {
-				return nil, err
-			}
-			b.epilog = epilog
-			// if x, ok := epilog.(Brace); ok {
-			// 	x.prolog = b
-			// 	b = x
-			// } else {
-			// 	b.epilog = epilog
-			// }
 		}
 		w = b
 	}
@@ -338,6 +333,21 @@ func (p *parser) parseWord() (Word, error) {
 			w, err := p.parseBraces(asWord(xs))
 			if err != nil {
 				return nil, err
+			}
+			if b, ok := w.(Brace); ok && !p.isBlank() {
+				epilog, err := p.parseWord()
+				if err != nil {
+					return nil, err
+				}
+				if _, ok := epilog.(Brace); ok {
+					w = Brace{
+						prolog: b,
+						word:   epilog,
+					}
+				} else {
+					b.epilog = epilog
+					w = b
+				}
 			}
 			xs = []Word{w}
 		default:

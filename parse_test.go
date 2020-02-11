@@ -23,7 +23,7 @@ func testParseBraces(t *testing.T) {
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Brace{
-					word: makeList(kindSimple, Literal("foo"), Literal("bar")),
+					word: makeList(kindBraces, Literal("foo"), Literal("bar")),
 				},
 			),
 		},
@@ -31,7 +31,7 @@ func testParseBraces(t *testing.T) {
 			Input: `echo {foobar}`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
-				Literal("foobar"), // should be "{foobar}"
+				Literal("{foobar}"),
 			),
 		},
 		{
@@ -42,22 +42,18 @@ func testParseBraces(t *testing.T) {
 			),
 		},
 		{
-			Input: `echo {foo-{1,2}, bar-{3, 4}}`,
+			Input: `echo {foo-{1,2}, bar-{3,4}}`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Brace{
-					word: makeList(kindSimple,
+					word: makeList(kindBraces,
 						Brace{
 							prolog: Literal("foo-"),
-							word: Brace{
-								word: makeList(kindSimple, Literal("1"), Literal("2")),
-							},
+							word:   makeList(kindBraces, Literal("1"), Literal("2")),
 						},
 						Brace{
 							prolog: Literal("bar-"),
-							word: Brace{
-								word: makeList(kindSimple, Literal("3"), Literal("3")),
-							},
+							word:   makeList(kindBraces, Literal("3"), Literal("4")),
 						},
 					),
 				},
@@ -70,22 +66,22 @@ func testParseBraces(t *testing.T) {
 				Brace{
 					prolog: Literal("prolog-"),
 					epilog: Literal("-epilog"),
-					word:   makeList(kindSimple, Literal("foo"), Literal("bar")),
+					word:   makeList(kindBraces, Literal("foo"), Literal("bar")),
 				},
 			),
 		},
 		{
-			Input: `echo foo-{1,2}-bar{3,4}`,
+			Input: `echo foo-{1,2}-bar-{3,4}`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Brace{
 					prolog: Brace{
 						prolog: Literal("foo-"),
-						word:   makeList(kindSimple, Literal("1"), Literal("2")),
+						word:   makeList(kindBraces, Literal("1"), Literal("2")),
 					},
 					word: Brace{
 						prolog: Literal("-bar-"),
-						word:   makeList(kindSimple, Literal("3"), Literal("4")),
+						word:   makeList(kindBraces, Literal("3"), Literal("4")),
 					},
 				},
 			),

@@ -126,6 +126,8 @@ func (t Token) String() string {
 		return "<tilde>"
 	case equal:
 		return "<assign>"
+	case comma:
+		return "<comma>"
 	default:
 		return fmt.Sprintf("unknown(%d)", t.Type)
 	}

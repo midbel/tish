@@ -60,9 +60,14 @@ func testExpandBraces(t *testing.T) {
 			Values: []string{"foo-1-bar-3", "foo-1-bar-4", "foo-2-bar-3", "foo-2-bar-4"},
 		},
 		{
-			Word: Brace{},
+			Word: Brace{
+				word: makeList(kindBraces,
+					Brace{prolog: Literal("foo-"), word: makeList(kindBraces, Literal("1"), Literal("2"))},
+					Brace{prolog: Literal("bar-"), word: makeList(kindBraces, Literal("3"), Literal("4"))},
+				),
+			},
 			Values: []string{"foo-1", "foo-2", "bar-3", "bar-4"},
-		}
+		},
 	}
 	for _, d := range data {
 		vs, err := d.Word.Expand(env)

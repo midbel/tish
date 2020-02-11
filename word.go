@@ -38,6 +38,8 @@ func (k Kind) String() string {
 		return "substitution"
 	case kindExpr:
 		return "expression"
+	case kindBraces:
+		return "brace"
 	default:
 		return "unknown"
 	}
@@ -110,7 +112,7 @@ type Brace struct {
 }
 
 func (b Brace) Expand(e *Env) ([]string, error) {
-	if e.word == nil {
+	if b.word == nil {
 		return nil, nil
 	}
 	ws, err := b.word.Expand(e)
