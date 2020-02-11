@@ -34,6 +34,19 @@ func testParseAssignments(t *testing.T) {
 			},
 		},
 		{
+			Input: `VAR=`,
+			Word: Assignment{
+				ident: "VAR",
+			},
+		},
+		{
+			Input: `VAR="foo bar"`,
+			Word: Assignment{
+				ident: "VAR",
+				word:  makeList(kindSimple, Literal("foo bar")),
+			},
+		},
+		{
 			Input: `VAR=$(echo foobar)`,
 			Word: Assignment{
 				ident: "VAR",

@@ -315,7 +315,9 @@ func (p *parser) parseAssignment() (Word, error) {
 			p.next()
 		}
 	}
-	a.word = ws.asWord()
+	if len(ws.words) > 0 {
+		a.word = ws.asWord()
+	}
 	return a, nil
 }
 

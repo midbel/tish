@@ -261,6 +261,9 @@ func (a Assignment) Expand(e *Env) ([]string, error) {
 }
 
 func (a Assignment) String() string {
+	if a.word == nil {
+		return fmt.Sprintf("assignment(%s)", a.ident)
+	}
 	return fmt.Sprintf("assigment(%s=%s)", a.ident, a.word.String())
 }
 
@@ -270,6 +273,12 @@ func (a Assignment) Equal(w Word) bool {
 		return ok
 	}
 	if a.ident != other.ident {
+		return false
+	}
+	if a.word == nil && other.word == nil {
+		return true
+	}
+	if a.word == nil || other.word == nil {
 		return false
 	}
 	return a.word.Equal(other.word)
