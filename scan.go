@@ -234,7 +234,7 @@ func scanList(s *Scanner) ScanFunc {
 func scanBraces(s *Scanner) ScanFunc {
 	s.readRune()
 	delim := func(r rune) bool {
-		return r == lcurly || r == rcurly || r == dot || r == comma || r == tokEOF
+		return r == lcurly || r == rcurly || r == comma || r == tokEOF
 	}
 
 	s.emitTypeOf(tokBeginBrace)
@@ -245,6 +245,7 @@ func scanBraces(s *Scanner) ScanFunc {
 			return nil
 		case s.char == space || s.char == tab:
 			s.skip(isBlank)
+			continue
 		case s.char == comma:
 			s.emitTypeOf(comma)
 		case s.char == lcurly:

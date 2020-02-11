@@ -596,11 +596,25 @@ func testScanBraces(t *testing.T) {
 			},
 		},
 		{
-			Input: `echo "values = {foo,bar}"`,
+			Input: `echo {foo-{1,2}, bar-{3,4}}`,
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "values = {foo,bar}", Type: tokWord},
+				{Type: tokBeginBrace},
+				{Literal: "foo-", Type: tokWord},
+				{Type: tokBeginBrace},
+				{Literal: "1", Type: tokWord},
+				{Type: comma},
+				{Literal: "2", Type: tokWord},
+				{Type: tokEndBrace},
+				{Type: comma},
+				{Literal: "bar-", Type: tokWord},
+				{Type: tokBeginBrace},
+				{Literal: "3", Type: tokWord},
+				{Type: comma},
+				{Literal: "4", Type: tokWord},
+				{Type: tokEndBrace},
+				{Type: tokEndBrace},
 			},
 		},
 	}
@@ -661,16 +675,15 @@ func testValidTokens(t *testing.T, data []ScanCase) {
 				if err == io.EOF {
 					break
 				}
-				t.Errorf("unexpected error: %s", err)
+				t.Errorf("%s: unexpected error: %s", d.Input, err)
 				break
 			}
 			if j >= len(d.Words) {
-				t.Errorf("too many tokens generated! want %d, got %d (%s)", len(d.Words), j+1, tok)
+				t.Errorf("%s: too many tokens generated! want %d, got %d (%s)", d.Input, len(d.Words), j+1, tok)
 				break
 			}
 			if !tok.Equal(d.Words[j]) {
-				t.Errorf("unexpected token (%d)! want %s, got %s", j+1, d.Words[j], tok)
-				break
+				t.Errorf("%s: unexpected token (%d)! want %s, got %s", d.Input, j+1, d.Words[j], tok)
 			}
 		}
 	}
