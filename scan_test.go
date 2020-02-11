@@ -548,7 +548,12 @@ func testScanBraces(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foobar {foo,bar}", Type: tokWord},
+				{Literal: "foobar ", Type: tokWord},
+				{Type: tokBeginBrace},
+				{Literal: "foo", Type: tokWord},
+				{Type: comma},
+				{Literal: "bar", Type: tokWord},
+				{Type: tokEndBrace},
 			},
 		},
 		{
@@ -592,6 +597,19 @@ func testScanBraces(t *testing.T) {
 				{Type: comma},
 				{Literal: "3", Type: tokWord},
 				{Type: tokEndBrace},
+				{Type: tokEndBrace},
+			},
+		},
+		{
+			Input: `echo "values = {foo,bar}"`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "values = ", Type: tokWord},
+				{Type: tokBeginBrace},
+				{Literal: "foo", Type: tokWord},
+				{Type: comma},
+				{Literal: "bar", Type: tokWord},
 				{Type: tokEndBrace},
 			},
 		},
