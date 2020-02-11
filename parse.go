@@ -108,12 +108,12 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 	return is, nil
 }
 
-func (p *parser) parseBraces() (Word, error) {
+func (p *parser) parseBraces(prolog Word) (Word, error) {
 	p.next()
 	set := make(Set, 0, 10)
 	for !p.isDone() {
 		if p.curr.Type != tokWord {
-			return nil, fmt.Errorf("braces: 1 unexpected token %s", p.curr)
+			return nil, fmt.Errorf("braces: unexpected token %s", p.curr)
 		}
 		set = append(set, p.curr.Literal)
 
@@ -122,12 +122,23 @@ func (p *parser) parseBraces() (Word, error) {
 			break
 		}
 		if p.curr.Type != comma {
-			return nil, fmt.Errorf("braces: 2 unexpected token %s", p.curr)
+			return nil, fmt.Errorf("braces: unexpected token %s", p.curr)
 		}
 		p.next()
 	}
 	p.next()
-	return Brace{word: set}, nil
+	switch len(set) {
+	case 0:
+		return nil, fmt.Errorf("braces: empty set")
+	case 1:
+		return Literal(fmt.Sprintf("{%s}", set[0])), nil
+	default:
+		b := Brace{
+			word:   set,
+			prolog: prolog,
+		}
+		return b, nil
+	}
 }
 
 func (p *parser) parseSubstitution() (Word, error) {
@@ -303,12 +314,11 @@ func (p *parser) parseWord() (Word, error) {
 			}
 			xs = append(xs, w)
 		case tokBeginBrace:
-			w, err := p.parseBraces()
-			// fmt.Println(w, err, p.curr)
+			w, err := p.parseBraces(asWord(xs))
 			if err != nil {
 				return nil, err
 			}
-			xs = append(xs, w)
+			xs = []Word{w}
 		default:
 			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}
@@ -316,7 +326,10 @@ func (p *parser) parseWord() (Word, error) {
 			break
 		}
 	}
+	return asWord(xs), nil
+}
 
+func asWord(xs []Word) Word {
 	var w Word
 	if n := len(xs); n == 0 {
 	} else if n == 1 {
@@ -324,7 +337,7 @@ func (p *parser) parseWord() (Word, error) {
 	} else {
 		w = List{words: xs}
 	}
-	return w, nil
+	return w
 }
 
 func (p *parser) isBlank() bool {

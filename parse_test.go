@@ -34,34 +34,27 @@ func testParseBraces(t *testing.T) {
 				Literal("{foobar}"),
 			),
 		},
-		// {
-		// 	Input: `echo {foo-{1,2,3}, bar-{1,2,3}}`,
-		// 	Word: makeList(kindBraces,
-		// 		Literal("echo"),
-		// 		Brace{},
-		// 	),
-		// },
-		// {
-		// 	Input: `echo prolog-{foo,bar}-epilog`,
-		// 	Word: makeList(kindBraces,
-		// 		Literal("echo"),
-		// 		Brace{
-		// 			prolog: "prolog",
-		// 			epilog: "epilog",
-		// 			word:   makeSet("foo", "bar"),
-		// 		},
-		// 	),
-		// },
 		{
-			Input: `echo "values = {foo,bar}"`,
+			Input: `echo {foo-{1,2,3}, bar-{1,2,3}}`,
+			Word: makeList(kindBraces,
+				Literal("echo"),
+			),
+		},
+		{
+			Input: `echo prolog-{foo,bar}-epilog`,
+			Word: makeList(kindList,
+				Literal("echo"),
+				Brace{
+					prolog: Literal("prolog"),
+					epilog: Literal("epilog"),
+					word:   makeSet("foo", "bar"),
+				},
+			),
+		},
+		{
+			Input: `echo foo-{1,2}-bar{1,2}`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
-				makeList(kindSimple,
-					Literal("values = "),
-					Brace{
-						word: makeSet("foo", "bar"),
-					},
-				),
 			),
 		},
 	}
