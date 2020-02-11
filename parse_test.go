@@ -86,6 +86,12 @@ func testParseBraces(t *testing.T) {
 				},
 			),
 		},
+		{
+			Input: "{foo,bar}",
+			Word: Brace{
+				word: makeList(kindBraces, Literal("foo"), Literal("bar")),
+			},
+		},
 	}
 	runParseCase(t, data)
 }
@@ -207,6 +213,12 @@ func testParseSubstitution(t *testing.T) {
 						makeList(kindSub, makeList(kindSimple, Literal("wc"))),
 					),
 				),
+			),
+		},
+		{
+			Input: `$(echo foo bar)`,
+			Word: makeList(kindSub,
+				makeList(kindSimple, Literal("echo"), Literal("foo"), Literal("bar")),
 			),
 		},
 	}

@@ -297,6 +297,13 @@ func (p *parser) parsePrefixExpr() (Evaluator, error) {
 }
 
 func (p *parser) parseCommand() (Word, error) {
+	switch p.curr.Type {
+	default:
+	case tokBeginSub:
+		return p.parseSubstitution()
+	case tokBeginBrace:
+		return p.parseWord()
+	}
 	ws := List{kind: kindPipe}
 	for {
 		xs := List{kind: kindSimple}

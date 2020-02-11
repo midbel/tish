@@ -91,24 +91,24 @@ func (i infix) Eval(e *Env) (Number, error) {
 		r = left - right
 	case div:
 		if right == 0 {
-			return nil, fmt.Errorf("division by zero")
+			return 0, fmt.Errorf("division by zero")
 		}
 		r = left / right
 	case mul:
 		r = left * right
 	case modulo:
 		if right == 0 {
-			return nil, fmt.Errorf("division by zero")
+			return 0, fmt.Errorf("division by zero")
 		}
 		r = left % right
 	case tokLeftShift:
 		if right < 0 {
-			return nil, fmt.Errorf("negative shift count: %d", right)
+			return 0, fmt.Errorf("negative shift count: %d", right)
 		}
 		r = left << right
 	case tokRightShift:
 		if right < 0 {
-			return nil, fmt.Errorf("negative shift count: %d", right)
+			return 0, fmt.Errorf("negative shift count: %d", right)
 		}
 		r = left >> right
 	}
