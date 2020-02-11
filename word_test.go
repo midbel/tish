@@ -25,22 +25,22 @@ func testExpandBraces(t *testing.T) {
 		},
 		{
 			Word: Brace{
-				prolog: "before-",
-				epilog: "-after",
+				prolog: Literal("before-"),
+				epilog: Literal("-after"),
 				word:   Set([]string{"foo", "bar"}),
 			},
 			Values: []string{"before-foo-after", "before-bar-after"},
 		},
 		{
 			Word: Brace{
-				prolog: "before-",
+				prolog: Literal("before-"),
 				word:   Set([]string{"foo", "bar"}),
 			},
 			Values: []string{"before-foo", "before-bar"},
 		},
 		{
 			Word: Brace{
-				epilog: "-after",
+				epilog: Literal("-after"),
 				word:   Set([]string{"foo", "bar"}),
 			},
 			Values: []string{"foo-after", "bar-after"},

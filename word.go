@@ -104,8 +104,8 @@ func (i List) asWord() Word {
 }
 
 type Brace struct {
-	prolog string
-	epilog string
+	prolog Word
+	epilog Word
 	word   Word
 }
 
@@ -114,8 +114,23 @@ func (b Brace) Expand(e *Env) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	var prolog, epilog string
+	if b.prolog != nil {
+		ps, err := b.prolog.Expand(e)
+		if err != nil {
+			return nil, err
+		}
+		prolog = strings.Join(ps, "")
+	}
+	if b.epilog != nil {
+		es, err := b.epilog.Expand(e)
+		if err != nil {
+			return nil, err
+		}
+		epilog = strings.Join(es, "")
+	}
 	for i := range ws {
-		ws[i] = b.prolog + ws[i] + b.epilog
+		ws[i] = prolog + ws[i] + epilog
 	}
 	return ws, nil
 }
