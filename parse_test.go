@@ -13,6 +13,59 @@ func TestParse(t *testing.T) {
 	t.Run("simple", testParseSimple)
 	t.Run("substitution", testParseSubstitution)
 	t.Run("arithmetic", testParseArithmetic)
+	t.Run("braces", testParseBraces)
+}
+
+func testParseBraces(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `echo {foo,bar}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Brace{
+					word: makeSet("foo", "bar"),
+				},
+			),
+		},
+		{
+			Input: `echo {foobar}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Literal("{foobar}"),
+			),
+		},
+		// {
+		// 	Input: `echo {foo-{1,2,3}, bar-{1,2,3}}`,
+		// 	Word: makeList(kindBraces,
+		// 		Literal("echo"),
+		// 		Brace{},
+		// 	),
+		// },
+		// {
+		// 	Input: `echo prolog-{foo,bar}-epilog`,
+		// 	Word: makeList(kindBraces,
+		// 		Literal("echo"),
+		// 		Brace{
+		// 			prolog: "prolog",
+		// 			epilog: "epilog",
+		// 			word:   makeSet("foo", "bar"),
+		// 		},
+		// 	),
+		// },
+		{
+			Input: `echo "values = {foo,bar}"`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				makeList(kindSimple,
+					Literal("values = "),
+					Brace{
+						word: makeSet("foo", "bar"),
+					},
+				),
+			),
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseArithmetic(t *testing.T) {
@@ -331,6 +384,10 @@ func runParseCase(t *testing.T, data []ParseCase) {
 			t.Logf("\tgot : %s", w)
 		}
 	}
+}
+
+func makeSet(str ...string) Word {
+	return Set(str)
 }
 
 func makeEval(op rune, left, right Evaluator) Evaluator {

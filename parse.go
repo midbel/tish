@@ -108,6 +108,28 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 	return is, nil
 }
 
+func (p *parser) parseBraces() (Word, error) {
+	p.next()
+	set := make(Set, 0, 10)
+	for !p.isDone() {
+		if p.curr.Type != tokWord {
+			return nil, fmt.Errorf("braces: 1 unexpected token %s", p.curr)
+		}
+		set = append(set, p.curr.Literal)
+
+		p.next()
+		if p.curr.Type == tokEndBrace {
+			break
+		}
+		if p.curr.Type != comma {
+			return nil, fmt.Errorf("braces: 2 unexpected token %s", p.curr)
+		}
+		p.next()
+	}
+	p.next()
+	return Brace{word: set}, nil
+}
+
 func (p *parser) parseSubstitution() (Word, error) {
 	p.next()
 
@@ -276,6 +298,13 @@ func (p *parser) parseWord() (Word, error) {
 			xs = append(xs, w)
 		case tokBeginArith:
 			w, err := p.parseArithmetic()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
+		case tokBeginBrace:
+			w, err := p.parseBraces()
+			// fmt.Println(w, err, p.curr)
 			if err != nil {
 				return nil, err
 			}

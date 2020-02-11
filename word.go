@@ -17,6 +17,7 @@ const (
 	kindList
 	kindSub
 	kindExpr
+	kindBraces
 )
 
 func (k Kind) String() string {
@@ -100,6 +101,68 @@ func (i List) asWord() Word {
 	}
 	return i.words[0].asWord()
 	// return i.words[0] //.asWord()
+}
+
+type Brace struct {
+	prolog string
+	epilog string
+	word   Word
+}
+
+func (b Brace) Expand(e *Env) ([]string, error) {
+	ws, err := b.word.Expand(e)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ws {
+		ws[i] = b.prolog + ws[i] + b.epilog
+	}
+	return ws, nil
+}
+
+func (b Brace) String() string {
+	return "brace"
+}
+
+func (b Brace) Equal(w Word) bool {
+	_, ok := w.(Brace)
+	return ok
+}
+
+func (b Brace) asWord() Word {
+	return b
+}
+
+type Set []string
+
+func (s Set) Expand(_ *Env) ([]string, error) {
+	vs := make([]string, len(s))
+	copy(vs, s)
+	return vs, nil
+}
+
+func (s Set) String() string {
+	return "set"
+}
+
+func (s Set) Equal(w Word) bool {
+	other, ok := w.(Set)
+	if !ok {
+		return ok
+	}
+	if len(s) != len(other) {
+		return false
+	}
+	for i := range s {
+		if s[i] != other[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (s Set) asWord() Word {
+	return s
 }
 
 type Variable string

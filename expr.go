@@ -41,7 +41,7 @@ func (e Expr) Expand(env *Env) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	x := strconv.FormatInt(int64(n), 64)
+	x := strconv.FormatInt(int64(n), 10)
 	return []string{x}, nil
 }
 
@@ -107,7 +107,14 @@ func (i infix) String() string {
 	var buf strings.Builder
 	buf.WriteString("infix(")
 	buf.WriteString(i.left.String())
-	buf.WriteRune(i.op)
+	switch i.op {
+	case tokLeftShift:
+		buf.WriteString("<<")
+	case tokRightShift:
+		buf.WriteString(">>")
+	default:
+		buf.WriteRune(i.op)
+	}
 	buf.WriteString(i.right.String())
 	buf.WriteString(")")
 	return buf.String()
