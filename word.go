@@ -114,29 +114,39 @@ func (b Brace) Expand(e *Env) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var prolog, epilog string
-	if b.prolog != nil {
-		ps, err := b.prolog.Expand(e)
+	for i, w := range []Word{b.prolog, b.epilog} {
+		if w == nil {
+			continue
+		}
+		xs, err := w.Expand(e)
 		if err != nil {
 			return nil, err
 		}
-		prolog = strings.Join(ps, "")
-	}
-	if b.epilog != nil {
-		es, err := b.epilog.Expand(e)
-		if err != nil {
-			return nil, err
-		}
-		epilog = strings.Join(es, "")
-	}
-	for i := range ws {
-		ws[i] = prolog + ws[i] + epilog
+		ws = combineWords(ws, xs, i==0)
 	}
 	return ws, nil
 }
 
 func (b Brace) String() string {
-	return "brace"
+	var buf strings.Builder
+	buf.WriteString("brace(")
+	if b.prolog != nil {
+		buf.WriteString("pre(")
+		buf.WriteString(b.prolog.String())
+		buf.WriteString(")")
+	}
+
+	buf.WriteRune(lcurly)
+	buf.WriteString(b.word.String())
+	buf.WriteRune(rcurly)
+
+	if b.epilog != nil {
+		buf.WriteString("post(")
+		buf.WriteString(b.epilog.String())
+		buf.WriteString(")")
+	}
+	buf.WriteString(")")
+	return buf.String()
 }
 
 func (b Brace) Equal(w Word) bool {
@@ -146,38 +156,6 @@ func (b Brace) Equal(w Word) bool {
 
 func (b Brace) asWord() Word {
 	return b
-}
-
-type Set []string
-
-func (s Set) Expand(_ *Env) ([]string, error) {
-	vs := make([]string, len(s))
-	copy(vs, s)
-	return vs, nil
-}
-
-func (s Set) String() string {
-	return "set"
-}
-
-func (s Set) Equal(w Word) bool {
-	other, ok := w.(Set)
-	if !ok {
-		return ok
-	}
-	if len(s) != len(other) {
-		return false
-	}
-	for i := range s {
-		if s[i] != other[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func (s Set) asWord() Word {
-	return s
 }
 
 type Variable string
@@ -261,4 +239,21 @@ func (n Number) Equal(w Word) bool {
 
 func (n Number) asWord() Word {
 	return n
+}
+
+func combineWords(ws, ps []string, prefix bool) []string {
+	var words []string
+	for i := range ws {
+		for j := range ps {
+			if prefix {
+				words = append(words, ps[j]+ws[i])
+			} else {
+				words = append(words, ws[i]+ps[j])
+			}
+		}
+	}
+	if len(words) == 0 {
+		words = ws
+	}
+	return words
 }

@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"sort"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func testExpandBraces(t *testing.T) {
 	}{
 		{
 			Word: Brace{
-				word: Set([]string{"foo", "bar"}),
+				word: makeList(kindSimple, Literal("foo"), Literal("bar")),
 			},
 			Values: []string{"foo", "bar"},
 		},
@@ -27,23 +28,36 @@ func testExpandBraces(t *testing.T) {
 			Word: Brace{
 				prolog: Literal("before-"),
 				epilog: Literal("-after"),
-				word:   Set([]string{"foo", "bar"}),
+				word:   makeList(kindSimple, Literal("foo"), Literal("bar")),
 			},
 			Values: []string{"before-foo-after", "before-bar-after"},
 		},
 		{
 			Word: Brace{
 				prolog: Literal("before-"),
-				word:   Set([]string{"foo", "bar"}),
+				word:   makeList(kindSimple, Literal("foo"), Literal("bar")),
 			},
 			Values: []string{"before-foo", "before-bar"},
 		},
 		{
 			Word: Brace{
 				epilog: Literal("-after"),
-				word:   Set([]string{"foo", "bar"}),
+				word:   makeList(kindSimple, Literal("foo"), Literal("bar")),
 			},
 			Values: []string{"foo-after", "bar-after"},
+		},
+		{
+			Word: Brace{
+				prolog: Brace{
+					prolog: Literal("foo-"),
+					word:   makeList(kindSimple, Literal("1"), Literal("2")),
+				},
+				word: Brace{
+					prolog: Literal("-bar-"),
+					word:   makeList(kindSimple, Literal("3"), Literal("4")),
+				},
+			},
+			Values: []string{"foo-1-bar-3", "foo-1-bar-4", "foo-2-bar-3", "foo-2-bar-4"},
 		},
 	}
 	for _, d := range data {
@@ -53,8 +67,10 @@ func testExpandBraces(t *testing.T) {
 			continue
 		}
 		if len(vs) != len(d.Values) {
-			t.Errorf("%s: mismatched values! want %q, got %q", d.Word, vs, d.Values)
+			t.Errorf("%s: mismatched values! want %q, got %q", d.Word, d.Values, vs)
 		}
+		sort.Strings(vs)
+		sort.Strings(d.Values)
 		for i := 0; i < len(vs); i++ {
 			if vs[i] != d.Values[i] {
 				t.Errorf("%s: mismatched value! want %s, got %s", d.Word, d.Values[i], vs[i])
