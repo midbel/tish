@@ -63,7 +63,7 @@ func (p *parser) parseSequence() (Word, error) {
 			w, err = p.parseConditional(w)
 		case semicolon:
 		default:
-			return nil, fmt.Errorf("unexpected operator: %s", p.curr)
+			return nil, fmt.Errorf("sequence: unexpected operator: %s", p.curr)
 		}
 		if err != nil {
 			return nil, err
@@ -296,14 +296,44 @@ func (p *parser) parsePrefixExpr() (Evaluator, error) {
 	return e, err
 }
 
+func (p *parser) parseAssignment() (Word, error) {
+	a := Assignment{ident: p.curr.Literal}
+	p.next()
+	p.next()
+
+	ws := List{kind: kindSimple}
+	for !p.isDone() {
+		if p.curr.Type == semicolon {
+			break
+		}
+		w, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
+		ws.words = append(ws.words, w)
+		if p.isBlank() {
+			p.next()
+		}
+	}
+	a.word = ws.asWord()
+	return a, nil
+}
+
 func (p *parser) parseCommand() (Word, error) {
 	switch p.curr.Type {
 	default:
+		return nil, fmt.Errorf("command: unexpected operator %s", p.curr)
 	case tokBeginSub:
 		return p.parseSubstitution()
 	case tokBeginBrace:
 		return p.parseWord()
+	case tokWord:
 	}
+
+	if p.peek.Type == equal {
+		return p.parseAssignment()
+	}
+
 	ws := List{kind: kindPipe}
 	for {
 		xs := List{kind: kindSimple}

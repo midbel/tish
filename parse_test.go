@@ -14,6 +14,64 @@ func TestParse(t *testing.T) {
 	t.Run("substitution", testParseSubstitution)
 	t.Run("arithmetic", testParseArithmetic)
 	t.Run("braces", testParseBraces)
+	t.Run("assignments", testParseAssignments)
+}
+
+func testParseAssignments(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `VAR=FOOBAR`,
+			Word: Assignment{
+				ident: "VAR",
+				word:  Literal("FOOBAR"),
+			},
+		},
+		{
+			Input: `VAR=FOO BAR`,
+			Word: Assignment{
+				ident: "VAR",
+				word:  makeList(kindSimple, Literal("FOO"), Literal("BAR")),
+			},
+		},
+		{
+			Input: `VAR=$(echo foobar)`,
+			Word: Assignment{
+				ident: "VAR",
+				word: makeList(kindSub,
+					makeList(kindSimple, Literal("echo"), Literal("foobar")),
+				),
+			},
+		},
+		{
+			Input: `VAR=$((1+1))`,
+			Word: Assignment{
+				ident: "VAR",
+				word:  makeExpr(makeEval(plus, Number(1), Number(1))),
+			},
+		},
+		{
+			Input: `VAR=$((1+1)) {foo,bar}`,
+			Word: Assignment{
+				ident: "VAR",
+				word: makeList(kindSimple,
+					makeExpr(makeEval(plus, Number(1), Number(1))),
+					Brace{word: makeList(kindBraces, Literal("foo"), Literal("bar"))},
+				),
+			},
+		},
+		{
+			Input: `VAR=$FOO $(echo foobar) $((1+1))`,
+			Word: Assignment{
+				ident: "VAR",
+				word: makeList(kindSimple,
+					Variable("FOO"),
+					makeList(kindSub, makeList(kindSimple, Literal("echo"), Literal("foobar"))),
+					makeExpr(makeEval(plus, Number(1), Number(1))),
+				),
+			},
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseBraces(t *testing.T) {

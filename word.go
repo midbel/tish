@@ -246,6 +246,39 @@ func (n Number) asWord() Word {
 	return n
 }
 
+type Assignment struct {
+	ident string
+	word  Word
+}
+
+func (a Assignment) Expand(e *Env) ([]string, error) {
+	vs, err := a.word.Expand(e)
+	if err != nil {
+		return nil, err
+	}
+	e.Set(a.ident, vs)
+	return nil, nil
+}
+
+func (a Assignment) String() string {
+	return fmt.Sprintf("assigment(%s=%s)", a.ident, a.word.String())
+}
+
+func (a Assignment) Equal(w Word) bool {
+	other, ok := w.(Assignment)
+	if !ok {
+		return ok
+	}
+	if a.ident != other.ident {
+		return false
+	}
+	return a.word.Equal(other.word)
+}
+
+func (a Assignment) asWord() Word {
+	return a
+}
+
 func combineWords(ws, ps []string, prefix bool) []string {
 	var words []string
 	for i := range ws {

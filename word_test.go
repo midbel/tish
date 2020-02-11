@@ -10,6 +10,36 @@ func TestWordExpand(t *testing.T) {
 	t.Run("lists", testExpandLists)
 	t.Run("expr", testExpandExpr)
 	t.Run("braces", testExpandBraces)
+	t.Run("assignments", testExpandAssignments)
+}
+
+func testExpandAssignments(t *testing.T) {
+	data := []struct {
+		ident  string
+		values []string
+	}{
+		{ident: "FOO", values: []string{"FOOBAR"}},
+	}
+	for _, d := range data {
+		env := NewEnvironment()
+		env.Set(d.ident, d.values)
+
+		vs, err := env.Get(d.ident)
+		if err != nil {
+			t.Errorf("%s: %s", d.ident, err)
+			continue
+		}
+		if len(vs) != len(d.values) {
+			t.Errorf("%s: mismatched values! want %q, got %q", d.ident, d.values, vs)
+		}
+		sort.Strings(vs)
+		sort.Strings(d.values)
+		for i := 0; i < len(vs); i++ {
+			if vs[i] != d.values[i] {
+				t.Errorf("%s: mismatched values! want %s, got %s", d.ident, d.values[i], vs[i])
+			}
+		}
+	}
 }
 
 func testExpandBraces(t *testing.T) {
