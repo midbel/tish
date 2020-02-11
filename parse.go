@@ -108,7 +108,7 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 	return is, nil
 }
 
-func (p *parser) parseBraces(prolog Word) (Word, error) {
+func (p *parser) parsePreBraces(prolog Word) (Word, error) {
 	p.next()
 
 	ws := List{kind: kindBraces}
@@ -125,7 +125,7 @@ func (p *parser) parseBraces(prolog Word) (Word, error) {
 		switch p.curr.Type {
 		case tokBeginBrace:
 			n := len(ws.words) - 1
-			w, err := p.parseBraces(ws.words[n])
+			w, err := p.parsePreBraces(ws.words[n])
 			if err != nil {
 				return nil, err
 			}
@@ -148,11 +148,29 @@ func (p *parser) parseBraces(prolog Word) (Word, error) {
 			w = Literal(fmt.Sprintf("{%s}", string(i)))
 		}
 	default:
-		b := Brace{
+		w = Brace{
 			word:   ws,
 			prolog: prolog,
 		}
-		w = b
+	}
+	return w, nil
+}
+
+func (p *parser) parsePostBraces(w Word) (Word, error) {
+	if b, ok := w.(Brace); ok && !p.isBlank() {
+		epilog, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := epilog.(Brace); ok {
+			w = Brace{
+				prolog: b,
+				word:   epilog,
+			}
+		} else {
+			b.epilog = epilog
+			w = b
+		}
 	}
 	return w, nil
 }
@@ -330,24 +348,13 @@ func (p *parser) parseWord() (Word, error) {
 			}
 			xs = append(xs, w)
 		case tokBeginBrace:
-			w, err := p.parseBraces(asWord(xs))
+			w, err := p.parsePreBraces(asWord(xs))
 			if err != nil {
 				return nil, err
 			}
-			if b, ok := w.(Brace); ok && !p.isBlank() {
-				epilog, err := p.parseWord()
-				if err != nil {
-					return nil, err
-				}
-				if _, ok := epilog.(Brace); ok {
-					w = Brace{
-						prolog: b,
-						word:   epilog,
-					}
-				} else {
-					b.epilog = epilog
-					w = b
-				}
+			w, err = p.parsePostBraces(w)
+			if err != nil {
+				return nil, err
 			}
 			xs = []Word{w}
 		default:
