@@ -2,6 +2,7 @@ package tish
 
 import (
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -15,6 +16,57 @@ func TestScannerScan(t *testing.T) {
 	t.Run("substitution", testScanSubstitution)
 	t.Run("arithmetic", testScanArithmetic)
 	t.Run("braces", testScanBraces)
+	t.Run("lines", testScanLines)
+}
+
+func testScanLines(t *testing.T) {
+	data := []ScanCase{
+		{
+			Input: `
+echo foo
+echo bar
+echo \
+	foobar`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foobar", Type: tokWord},
+				{Type: semicolon},
+			},
+		},
+		{
+			Input: `
+echo foobar
+
+echo foo
+
+echo bar
+			`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foobar", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+				{Type: semicolon},
+			},
+		},
+	}
+	testValidTokens(t, data)
 }
 
 func testScanSimple(t *testing.T) {
@@ -645,7 +697,7 @@ func TestScannerScanWithError(t *testing.T) {
 func testInvalidTokens(t *testing.T, str string) {
 	t.Helper()
 
-	s := NewScanner(str)
+	s := NewScanner(strings.NewReader(str))
 	for {
 		tok, err := s.Scan()
 		if tok.Equal(eof) {
@@ -665,7 +717,7 @@ func testValidTokens(t *testing.T, data []ScanCase) {
 	t.Helper()
 
 	for _, d := range data {
-		s := NewScanner(d.Input)
+		s := NewScanner(strings.NewReader(d.Input))
 		for j := 0; ; j++ {
 			tok, err := s.Scan()
 			if tok.Equal(eof) {

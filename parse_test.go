@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -477,7 +478,7 @@ func runParseCase(t *testing.T, data []ParseCase) {
 	t.Helper()
 
 	for i, d := range data {
-		w, err := Parse(d.Input)
+		w, err := Parse(strings.NewReader(d.Input))
 		if err != nil {
 			t.Errorf("parsing %s: unexpected error: %s", d.Input, err)
 			continue

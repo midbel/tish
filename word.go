@@ -165,6 +165,11 @@ func (b Brace) asWord() Word {
 
 type Variable string
 
+// type Variable struct {
+// 	ident string
+// 	quoted bool
+// }
+
 func (v Variable) Expand(e *Env) ([]string, error) {
 	return e.Get(string(v))
 }

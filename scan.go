@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"unicode/utf8"
 )
 
@@ -18,9 +19,11 @@ type Scanner struct {
 	queue chan Token
 }
 
-func NewScanner(str string) *Scanner {
+// func NewScanner(r io.Reader) *Scanner
+func NewScanner(r io.Reader) *Scanner {
+	str, _ := ioutil.ReadAll(r)
 	s := &Scanner{
-		buffer: []byte(str),
+		buffer: str,
 		queue:  make(chan Token),
 	}
 	go s.run()
@@ -62,7 +65,10 @@ func (s *Scanner) run() {
 	defer close(s.queue)
 
 	s.readRune()
-	s.skip(isBlank)
+	skip := func(r rune) bool {
+		return isBlank(r) || r == newline
+	}
+	s.skip(skip)
 
 	scan := scanDefault
 	for scan != nil {
@@ -136,10 +142,22 @@ func (s *Scanner) skip(fn func(rune) bool) {
 func scanDefault(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
 		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
-			r == dollar || r == lcurly || r == equal
+			r == dollar || r == lcurly || r == equal || r == newline
 	}
 	for s.char != tokEOF {
 		switch s.char {
+		case newline:
+			s.emitTypeOf(semicolon)
+			s.readRune()
+			s.skip(func(r rune) bool {
+				return isBlank(r) || r == newline
+			})
+		case backslash:
+			if peek := s.peekRune(); peek == newline {
+				s.readRune()
+				s.readRune()
+				s.skip(isBlank)
+			}
 		case pound:
 			return scanComment
 		case space, tab:

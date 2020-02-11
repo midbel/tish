@@ -18,7 +18,7 @@ type parser struct {
 	prefix map[rune]func() (Evaluator, error)
 }
 
-func Parse(str string) (Word, error) {
+func Parse(r io.Reader) (Word, error) {
 	var p parser
 
 	p.infix = map[rune]func(Evaluator) (Evaluator, error){
@@ -38,7 +38,7 @@ func Parse(str string) (Word, error) {
 		tokVar:   p.parsePrefixExpr,
 	}
 
-	p.scan = NewScanner(str)
+	p.scan = NewScanner(r)
 	p.next()
 	p.next()
 
