@@ -110,35 +110,56 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 
 func (p *parser) parseBraces(prolog Word) (Word, error) {
 	p.next()
-	set := make(Set, 0, 10)
-	for !p.isDone() {
+
+	ws := List{kind: kindSimple}
+	for !p.isDone() && p.curr.Type != tokEndBrace {
 		if p.curr.Type != tokWord {
 			return nil, fmt.Errorf("braces: unexpected token %s", p.curr)
 		}
-		set = append(set, p.curr.Literal)
+		ws.words = append(ws.words, Literal(p.curr.Literal))
 
 		p.next()
 		if p.curr.Type == tokEndBrace {
 			break
 		}
-		if p.curr.Type != comma {
+		switch p.curr.Type {
+		// case lcurly:
+		case comma:
+		default:
 			return nil, fmt.Errorf("braces: unexpected token %s", p.curr)
 		}
 		p.next()
 	}
 	p.next()
-	switch len(set) {
+
+	var w Word
+	switch len(ws.words) {
 	case 0:
-		return nil, fmt.Errorf("braces: empty set")
+		w = Literal("{}")
 	case 1:
-		return Literal(fmt.Sprintf("{%s}", set[0])), nil
+		w = ws.words[0]
 	default:
 		b := Brace{
-			word:   set,
+			word:   ws,
 			prolog: prolog,
 		}
-		return b, nil
+		if !p.isBlank() {
+			epilog, err := p.parseWord()
+			// fmt.Println("epilog", epilog)
+			if err != nil {
+				return nil, err
+			}
+			b.epilog = epilog
+			// if x, ok := epilog.(Brace); ok {
+			// 	x.prolog = b
+			// 	b = x
+			// } else {
+			// 	b.epilog = epilog
+			// }
+		}
+		w = b
 	}
+	return w, nil
 }
 
 func (p *parser) parseSubstitution() (Word, error) {

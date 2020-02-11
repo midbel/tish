@@ -110,6 +110,9 @@ type Brace struct {
 }
 
 func (b Brace) Expand(e *Env) ([]string, error) {
+	if e.word == nil {
+		return nil, nil
+	}
 	ws, err := b.word.Expand(e)
 	if err != nil {
 		return nil, err
@@ -122,7 +125,7 @@ func (b Brace) Expand(e *Env) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		ws = combineWords(ws, xs, i==0)
+		ws = combineWords(ws, xs, i == 0)
 	}
 	return ws, nil
 }

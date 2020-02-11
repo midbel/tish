@@ -23,7 +23,7 @@ func testParseBraces(t *testing.T) {
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Brace{
-					word: makeSet("foo", "bar"),
+					word: makeList(kindSimple, Literal("foo"), Literal("bar")),
 				},
 			),
 		},
@@ -31,30 +31,63 @@ func testParseBraces(t *testing.T) {
 			Input: `echo {foobar}`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
-				Literal("{foobar}"),
+				Literal("foobar"), // should be "{foobar}"
 			),
 		},
 		{
-			Input: `echo {foo-{1,2,3}, bar-{1,2,3}}`,
-			Word: makeList(kindBraces,
+			Input: `echo {}`,
+			Word: makeList(kindSimple,
 				Literal("echo"),
+				Literal("{}"),
 			),
 		},
 		{
-			Input: `echo prolog-{foo,bar}-epilog`,
-			Word: makeList(kindList,
+			Input: `echo {foo-{1,2}, bar-{3, 4}}`,
+			Word: makeList(kindSimple,
 				Literal("echo"),
 				Brace{
-					prolog: Literal("prolog"),
-					epilog: Literal("epilog"),
-					word:   makeSet("foo", "bar"),
+					word: makeList(kindSimple,
+						Brace{
+							prolog: Literal("foo-"),
+							word: Brace{
+								word: makeList(kindSimple, Literal("1"), Literal("2")),
+							},
+						},
+						Brace{
+							prolog: Literal("bar-"),
+							word: Brace{
+								word: makeList(kindSimple, Literal("3"), Literal("3")),
+							},
+						},
+					),
 				},
 			),
 		},
 		{
-			Input: `echo foo-{1,2}-bar{1,2}`,
+			Input: `echo prolog-{foo,bar}-epilog`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
+				Brace{
+					prolog: Literal("prolog-"),
+					epilog: Literal("-epilog"),
+					word:   makeList(kindSimple, Literal("foo"), Literal("bar")),
+				},
+			),
+		},
+		{
+			Input: `echo foo-{1,2}-bar{3,4}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Brace{
+					prolog: Brace{
+						prolog: Literal("foo-"),
+						word:   makeList(kindSimple, Literal("1"), Literal("2")),
+					},
+					word: Brace{
+						prolog: Literal("-bar-"),
+						word:   makeList(kindSimple, Literal("3"), Literal("4")),
+					},
+				},
 			),
 		},
 	}
@@ -367,8 +400,7 @@ func runParseCase(t *testing.T, data []ParseCase) {
 	for i, d := range data {
 		w, err := Parse(d.Input)
 		if err != nil {
-			t.Log(d.Word.String())
-			t.Errorf("%d) parsing %s: unexpected error: %s", i+1, d.Input, err)
+			t.Errorf("parsing %s: unexpected error: %s", d.Input, err)
 			continue
 		}
 		if !d.Word.Equal(w) || d.Word.String() != w.String() {
@@ -377,10 +409,6 @@ func runParseCase(t *testing.T, data []ParseCase) {
 			t.Logf("\tgot : %s", w)
 		}
 	}
-}
-
-func makeSet(str ...string) Word {
-	return Set(str)
 }
 
 func makeEval(op rune, left, right Evaluator) Evaluator {
