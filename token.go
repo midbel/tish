@@ -71,6 +71,7 @@ var (
 type Token struct {
 	Literal string
 	Type    rune
+	Quoted  bool
 }
 
 func (t Token) Equal(other Token) bool {

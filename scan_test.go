@@ -11,6 +11,38 @@ type ScanCase struct {
 	Words []Token
 }
 
+func TestScannerQuote(t *testing.T) {
+	str := `echo $VAR "$VAR"`
+	words := []Token{
+		{Literal: "echo", Type: tokWord},
+		blank,
+		{Literal: "VAR", Type: tokWord, Quoted: false},
+		blank,
+		{Literal: "VAR", Type: tokWord, Quoted: true},
+	}
+	s := NewScanner(strings.NewReader(str))
+	for j := 0; ; j++ {
+		tok, err := s.Scan()
+		if tok.Equal(eof) {
+			break
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			t.Errorf("%s: unexpected error: %s", str, err)
+			break
+		}
+		if j >= len(words) {
+			t.Errorf("%s: too many tokens generated! want %d, got %d (%s)", str, len(words), j+1, tok)
+			break
+		}
+		if words[j].Quoted && !tok.Quoted {
+			t.Errorf("%s: token should be quoted but is not", tok)
+		}
+	}
+}
+
 func TestScannerScan(t *testing.T) {
 	t.Run("simple", testScanSimple)
 	t.Run("substitution", testScanSubstitution)

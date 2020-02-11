@@ -17,6 +17,8 @@ type Scanner struct {
 	next   int
 
 	queue chan Token
+
+	quoted int
 }
 
 // func NewScanner(r io.Reader) *Scanner
@@ -47,6 +49,18 @@ func (s *Scanner) Scan() (Token, error) {
 	return tok, err
 }
 
+func (s *Scanner) enterQuote() {
+	s.quoted++
+}
+
+func (s *Scanner) leaveQuote() {
+	s.quoted--
+}
+
+func (s *Scanner) isQuoted() bool {
+	return s.quoted > 0
+}
+
 func (s *Scanner) emit(str string, typof rune) {
 	if len(str) == 0 {
 		return
@@ -54,7 +68,12 @@ func (s *Scanner) emit(str string, typof rune) {
 	if typof == tokQuoted {
 		str, typof = str[1:len(str)-1], tokWord
 	}
-	s.queue <- Token{Literal: str, Type: typof}
+	tok := Token{
+		Literal: str,
+		Type:    typof,
+		Quoted:  s.isQuoted(),
+	}
+	s.queue <- tok
 }
 
 func (s *Scanner) emitTypeOf(typof rune) {
@@ -484,6 +503,9 @@ func scanSubstitution(s *Scanner) ScanFunc {
 }
 
 func scanQuotedWeak(s *Scanner) ScanFunc {
+	s.enterQuote()
+	defer s.leaveQuote()
+
 	var buf bytes.Buffer
 	// buf.WriteRune(dquote)
 
