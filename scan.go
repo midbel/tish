@@ -164,6 +164,7 @@ func scanDefault(s *Scanner) ScanFunc {
 			r == dollar || r == lcurly || r == equal || r == newline
 	}
 	for s.char != tokEOF {
+		scanRedirections(s)
 		switch s.char {
 		case newline:
 			s.emitTypeOf(semicolon)
@@ -220,6 +221,72 @@ func scanDefault(s *Scanner) ScanFunc {
 		return nil
 	}
 	return scanBlanks
+}
+
+func scanRedirections(s *Scanner) {
+	var (
+		peek = s.peekRune()
+		pos  = s.pos
+		tok  rune
+	)
+	switch s.char {
+	case langle:
+		tok = tokRedirectStdin
+	case rangle:
+		switch peek {
+		case ampersand:
+			s.readRune()
+			s.readRune()
+			if s.char == '2' {
+				tok = tokRedirectOutToErr
+			} else {
+				s.restore(pos)
+				return
+			}
+		case rangle:
+			s.readRune()
+			tok = tokAppendStdout
+		default:
+			tok = tokRedirectStdout
+		}
+	case ampersand:
+		if peek != rangle {
+			return
+		}
+		s.readRune()
+		if peek = s.peekRune(); peek == rangle {
+			s.readRune()
+			tok = tokAppendBoth
+		} else {
+			tok = tokRedirectBoth
+		}
+	case '2':
+		if peek != rangle {
+			return
+		}
+		s.readRune()
+		switch peek = s.peekRune(); peek {
+		case ampersand:
+			s.readRune()
+			s.readRune()
+			if s.char == '1' {
+				tok = tokRedirectErrToOut
+			} else {
+				s.restore(pos)
+			}
+		case rangle:
+			s.readRune()
+			tok = tokAppendStderr
+		default:
+			tok = tokRedirectStderr
+		}
+	default:
+		return
+	}
+	s.readRune()
+	s.emitTypeOf(tok)
+
+	s.skip(isBlank)
 }
 
 func scanList(s *Scanner) ScanFunc {
@@ -324,7 +391,7 @@ func scanComment(s *Scanner) ScanFunc {
 	var buf bytes.Buffer
 	for {
 		if delim() {
-				break
+			break
 		}
 		buf.WriteRune(s.char)
 		s.readRune()
@@ -582,9 +649,19 @@ func scanQuotedStrong(s *Scanner) {
 
 func scanBlanks(s *Scanner) ScanFunc {
 	s.skip(isBlank)
-	if s.char != ampersand && s.char != pipe {
+	switch s.char {
+	case ampersand:
+	case pipe:
+	case langle:
+	case rangle:
+	default:
+		if k := s.peekRune(); s.char == '2' && k == rangle {
+			break
+		}
 		s.emitTypeOf(tokBlank)
 	}
+	// if s.char != ampersand && s.char != pipe {
+	// }
 	return scanDefault
 }
 

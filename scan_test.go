@@ -130,6 +130,15 @@ func testScanRedirections(t *testing.T) {
 			},
 		},
 		{
+			Input: `cat foo.txt >&2`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokRedirectOutToErr},
+			},
+		},
+		{
 			Input: `cat foo.txt &> /dev/null`,
 			Words: []Token{
 				{Literal: "cat", Type: tokWord},
@@ -200,7 +209,7 @@ echo bar
 			},
 		},
 		{
-			Input:`
+			Input: `
 # prolog
 # comment
 echo foo # comment

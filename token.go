@@ -70,6 +70,7 @@ const (
 	tokAppendStderr
 	tokAppendBoth
 	tokRedirectErrToOut
+	tokRedirectOutToErr
 )
 
 var (
