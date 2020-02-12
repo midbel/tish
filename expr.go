@@ -9,6 +9,7 @@ import (
 const (
 	bindLowest int = iota
 	bindShift
+	bindLogical
 	bindPlus
 	bindMul
 	bindPrefix
@@ -22,6 +23,8 @@ var bindings = map[rune]int{
 	modulo:        bindMul,
 	tokLeftShift:  bindShift,
 	tokRightShift: bindShift,
+	ampersand:     bindLogical,
+	pipe:          bindLogical,
 }
 
 func bindPower(tok Token) int {
@@ -111,6 +114,10 @@ func (i infix) Eval(e *Env) (Number, error) {
 			return 0, fmt.Errorf("negative shift count: %d", right)
 		}
 		r = left >> right
+	case ampersand:
+		r = left & right
+	case pipe:
+		r = left | right
 	}
 	return r, nil
 }
