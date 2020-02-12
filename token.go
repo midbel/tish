@@ -61,6 +61,15 @@ const (
 	tokBackground
 	tokLeftShift
 	tokRightShift
+	tokRedirectStdin
+	tokRedirectStdout
+	tokRedirectStderr
+	tokRedirectBoth
+	tokAppendStdin
+	tokAppendStdout
+	tokAppendStderr
+	tokAppendBoth
+	tokRedirectErrToOut
 )
 
 var (

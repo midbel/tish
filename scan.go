@@ -179,6 +179,13 @@ func scanDefault(s *Scanner) ScanFunc {
 			}
 		case pound:
 			return scanComment
+		case colon:
+			s.readRune()
+			if s.char == squote {
+				return scanComment
+			}
+			s.emit("invalid syntax: missing single quote after colon", tokError)
+			return nil
 		case space, tab:
 			return scanBlanks
 		case dollar:
@@ -305,14 +312,25 @@ func scanBraces(s *Scanner) ScanFunc {
 }
 
 func scanComment(s *Scanner) ScanFunc {
+	var delim func() bool
+	if s.char == squote {
+		delim = func() bool { return s.char == squote }
+	} else {
+		delim = func() bool { return s.char == tokEOF || s.char == newline }
+	}
 	s.readRune()
 	s.skip(isBlank)
 
 	var buf bytes.Buffer
-	for s.char != tokEOF {
+	for {
+		if delim() {
+				break
+		}
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
+
+	s.skip(func(r rune) bool { return isBlank(s.char) || s.char == newline })
 
 	s.emit(buf.String(), tokComment)
 	return nil

@@ -29,7 +29,7 @@ func TestSplit(t *testing.T) {
 	}
 }
 
-func TestScannerQuote(t *testing.T) {
+func TestScannerQuoted(t *testing.T) {
 	str := `echo $VAR "$VAR"`
 	words := []Token{
 		{Literal: "echo", Type: tokWord},
@@ -67,6 +67,90 @@ func TestScannerScan(t *testing.T) {
 	t.Run("arithmetic", testScanArithmetic)
 	t.Run("braces", testScanBraces)
 	t.Run("lines", testScanLines)
+	t.Run("redirections", testScanRedirections)
+}
+
+func testScanRedirections(t *testing.T) {
+	data := []ScanCase{
+		{
+			Input: `cat < foo.txt`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				{Type: tokRedirectStdin},
+				{Literal: "foo.txt", Type: tokWord},
+			},
+		},
+		{
+			Input: `cat foo.txt > bar.txt`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokRedirectStdout},
+				{Literal: "bar.txt", Type: tokWord},
+			},
+		},
+		{
+			Input: `cat foo.txt >> bar.txt`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokAppendStdout},
+				{Literal: "bar.txt", Type: tokWord},
+			},
+		},
+		{
+			Input: `cat foo.txt 2> foo.err`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokRedirectStderr},
+				{Literal: "foo.err", Type: tokWord},
+			},
+		},
+		{
+			Input: `cat foo.txt 2>> foo.err`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokAppendStderr},
+				{Literal: "foo.err", Type: tokWord},
+			},
+		},
+		{
+			Input: `cat foo.txt 2>&1`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokRedirectErrToOut},
+			},
+		},
+		{
+			Input: `cat foo.txt &> /dev/null`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokRedirectBoth},
+				{Literal: "/dev/null", Type: tokWord},
+			},
+		},
+		{
+			Input: `cat foo.txt &>> /dev/null`,
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				blank,
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokAppendBoth},
+				{Literal: "/dev/null", Type: tokWord},
+			},
+		},
+	}
+	testValidTokens(t, data)
 }
 
 func testScanLines(t *testing.T) {
@@ -113,6 +197,50 @@ echo bar
 				blank,
 				{Literal: "bar", Type: tokWord},
 				{Type: semicolon},
+			},
+		},
+		{
+			Input:`
+# prolog
+# comment
+echo foo # comment
+echo bar # comment
+
+# epilog
+# comment
+			`,
+			Words: []Token{
+				{Literal: "prolog", Type: tokComment},
+				{Literal: "comment", Type: tokComment},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				{Literal: "comment", Type: tokComment},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
+				{Literal: "epilog", Type: tokComment},
+				{Literal: "comment", Type: tokComment},
+			},
+		},
+		{
+			Input: `
+echo foo
+:' comment 1
+comment 2
+comment 3
+'
+echo bar
+			`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "foo", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "comment 1\ncomment 2\ncomment 3\n", Type: tokComment},
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "bar", Type: tokWord},
 			},
 		},
 	}
@@ -584,6 +712,22 @@ func testScanArithmetic(t *testing.T) {
 				{Literal: "2", Type: tokInt},
 				{Type: plus},
 				{Literal: "3", Type: tokInt},
+				{Type: tokEndArith},
+			},
+		},
+		{
+			Input: `echo $(((2 | 4) >> 1 ))`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginArith},
+				{Type: lparen},
+				{Literal: "2", Type: tokInt},
+				{Type: pipe},
+				{Literal: "4", Type: tokInt},
+				{Type: rparen},
+				{Type: tokRightShift},
+				{Literal: "1", Type: tokInt},
 				{Type: tokEndArith},
 			},
 		},
