@@ -342,7 +342,7 @@ func (p *parser) parseCommand() (Word, error) {
 	ws := List{kind: kindPipe}
 	for {
 		xs := List{kind: kindSimple}
-		for !p.isControl() {
+		for !p.isControl() && !p.isRedirection() {
 			w, err := p.parseWord()
 			if err != nil {
 				return nil, err
@@ -353,6 +353,12 @@ func (p *parser) parseCommand() (Word, error) {
 			}
 		}
 		ws.words = append(ws.words, xs.asWord())
+		if p.isRedirection() {
+			_, err := p.parseRedirection()
+			if err != nil {
+				return nil, err
+			}
+		}
 		if p.curr.Type != tokPipe && p.isControl() {
 			break
 		}
@@ -362,6 +368,26 @@ func (p *parser) parseCommand() (Word, error) {
 		}
 	}
 	return ws.asWord(), p.err
+}
+
+func (p *parser) parseRedirection() (Word, error) {
+	for p.isRedirection() && !p.isDone() {
+		tok := p.curr
+		p.next()
+
+		for !p.isRedirection() && !p.isDone() {
+			w, err := p.parseWord()
+			if err != nil {
+				return nil, err
+			}
+		}
+		if typof := tok.Type; typof == tokRedirectOutToErr || typof == tokRedirectErrToOut {
+
+		} else {
+
+		}
+	}
+	return nil, nil
 }
 
 func (p *parser) parseWord() (Word, error) {
@@ -406,7 +432,7 @@ func (p *parser) parseWord() (Word, error) {
 		default:
 			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}
-		if p.isBlank() || p.isControl() {
+		if p.isBlank() || p.isControl() || p.isRedirection() {
 			break
 		}
 	}

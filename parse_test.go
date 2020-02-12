@@ -26,7 +26,20 @@ func testParseRedirections(t *testing.T) {
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Literal("foo"),
-				Literal("foo.txt"),
+			),
+		},
+		{
+			Input: `echo foo > foo.txt 2>&1`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Literal("foo"),
+			),
+		},
+		{
+			Input: `echo < foo.txt 2>&1 > bar.tx`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Literal("foo"),
 			),
 		},
 	}

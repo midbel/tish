@@ -68,11 +68,11 @@ func TestScannerScan(t *testing.T) {
 	t.Run("braces", testScanBraces)
 	t.Run("lines", testScanLines)
 	t.Run("redirections", testScanRedirections)
-	t.Run("parameters", textScanParameters)
+	t.Run("parameters", testScanParameters)
 }
 
 func testScanParameters(t *testing.T) {
-	data := []ScanCase {
+	data := []ScanCase{
 		{
 			Input: `echo ${FOO}`,
 			Words: []Token{
@@ -137,6 +137,7 @@ func testScanParameters(t *testing.T) {
 			},
 		},
 	}
+	testValidTokens(t, data)
 }
 
 func testScanRedirections(t *testing.T) {
