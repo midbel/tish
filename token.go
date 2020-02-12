@@ -141,6 +141,10 @@ func (t Token) String() string {
 		return "<assign>"
 	case comma:
 		return "<comma>"
+	case tokRedirectStdin, tokRedirectStdout, tokRedirectStderr, tokRedirectBoth:
+		return "<redirect>"
+	case tokAppendStdout, tokAppendStderr, tokAppendBoth:
+		return "<append>"
 	default:
 		return fmt.Sprintf("unknown(%d)", t.Type)
 	}

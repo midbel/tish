@@ -422,6 +422,9 @@ func scanDollar(s *Scanner) ScanFunc {
 
 func scanParameter(s *Scanner) ScanFunc {
 	s.readRune()
+	if s.char == pound {
+		s.emitTypeOf(pound)
+	}
 	var buf bytes.Buffer
 	for s.char != rcurly {
 		buf.WriteRune(s.char)

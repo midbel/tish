@@ -428,6 +428,23 @@ func (p *parser) isBlank() bool {
 	return p.curr.Type == tokBlank || p.curr.Type == tokEOF
 }
 
+func (p *parser) isRedirection() bool {
+	switch p.curr.Type {
+	case tokRedirectStdin:
+	case tokRedirectStdout:
+	case tokRedirectStderr:
+	case tokRedirectBoth:
+	case tokAppendStdout:
+	case tokAppendStderr:
+	case tokAppendBoth:
+	case tokRedirectErrToOut:
+	case tokRedirectOutToErr:
+	default:
+		return false
+	}
+	return true
+}
+
 func (p *parser) isControl() bool {
 	switch p.curr.Type {
 	case tokEOF:

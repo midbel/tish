@@ -68,6 +68,75 @@ func TestScannerScan(t *testing.T) {
 	t.Run("braces", testScanBraces)
 	t.Run("lines", testScanLines)
 	t.Run("redirections", testScanRedirections)
+	t.Run("parameters", textScanParameters)
+}
+
+func testScanParameters(t *testing.T) {
+	data := []ScanCase {
+		{
+			Input: `echo ${FOO}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${#FOO}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${FOO#pre}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${FOO%post}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${FOO/from/to}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${FOO:-BAR}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${FOO:=BAR}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${FOO:+BAR}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+		{
+			Input: `echo ${FOO:1:4}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+			},
+		},
+	}
 }
 
 func testScanRedirections(t *testing.T) {

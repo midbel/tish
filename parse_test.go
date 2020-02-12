@@ -16,6 +16,21 @@ func TestParse(t *testing.T) {
 	t.Run("arithmetic", testParseArithmetic)
 	t.Run("braces", testParseBraces)
 	t.Run("assignments", testParseAssignments)
+	t.Run("redirections", testParseRedirections)
+}
+
+func testParseRedirections(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `echo foo > foo.txt`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Literal("foo"),
+				Literal("foo.txt"),
+			),
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseAssignments(t *testing.T) {
