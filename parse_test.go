@@ -78,7 +78,7 @@ func testParseAssignments(t *testing.T) {
 			Word: Assignment{
 				ident: "VAR",
 				word: makeList(kindSimple,
-					Variable("FOO"),
+					Variable{ident: "FOO"},
 					makeList(kindSub, makeList(kindSimple, Literal("echo"), Literal("foobar"))),
 					makeExpr(makeEval(plus, Number(1), Number(1))),
 				),
@@ -177,7 +177,7 @@ func testParseArithmetic(t *testing.T) {
 				makeExpr(
 					makeEval(plus,
 						Number(1),
-						makeEval(mul, Number(2), Variable("VAR")),
+						makeEval(mul, Number(2), Variable{ident: "VAR"}),
 					),
 				),
 			),
@@ -190,7 +190,7 @@ func testParseArithmetic(t *testing.T) {
 					makeEval(
 						mul,
 						makeEval(plus, Number(1), Number(2)),
-						Variable("VAR"),
+						Variable{ident: "VAR"},
 					),
 				),
 			),
@@ -313,7 +313,7 @@ func testParseSimple(t *testing.T) {
 		},
 		{
 			Input: "echo $FOO",
-			Word:  makeList(kindSimple, Literal("echo"), Variable("FOO")),
+			Word:  makeList(kindSimple, Literal("echo"), Variable{ident: "FOO"}),
 		},
 		{
 			Input: "echo; cat; wc; grep",
@@ -328,7 +328,7 @@ func testParseSimple(t *testing.T) {
 			Input: "echo foo; echo $FOO",
 			Word: makeList(kindSeq,
 				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				makeList(kindSimple, Literal("echo"), Variable("FOO")),
+				makeList(kindSimple, Literal("echo"), Variable{ident: "FOO"}),
 			),
 		},
 		{
@@ -353,14 +353,14 @@ func testParseSimple(t *testing.T) {
 			Input: "echo foo && echo $FOO",
 			Word: makeList(kindAnd,
 				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				makeList(kindSimple, Literal("echo"), Variable("FOO")),
+				makeList(kindSimple, Literal("echo"), Variable{ident: "FOO"}),
 			),
 		},
 		{
 			Input: "echo $BAR || echo $FOO",
 			Word: makeList(kindOr,
-				makeList(kindSimple, Literal("echo"), Variable("BAR")),
-				makeList(kindSimple, Literal("echo"), Variable("FOO")),
+				makeList(kindSimple, Literal("echo"), Variable{ident: "BAR"}),
+				makeList(kindSimple, Literal("echo"), Variable{ident: "FOO"}),
 			),
 		},
 		{
@@ -378,7 +378,7 @@ func testParseSimple(t *testing.T) {
 			Word: makeList(kindSeq,
 				makeList(kindSimple, Literal("echo")),
 				makeList(kindAnd,
-					makeList(kindSimple, Literal("echo"), Variable("FOO")),
+					makeList(kindSimple, Literal("echo"), Variable{ident: "FOO"}),
 					makeList(kindSimple, Literal("echo")),
 				),
 			),

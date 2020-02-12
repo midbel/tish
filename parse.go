@@ -284,7 +284,10 @@ func (p *parser) parsePrefixExpr() (Evaluator, error) {
 			e = prefix{right: e, op: minus}
 		}
 	case tokVar:
-		e = Variable(p.curr.Literal)
+		e = Variable{
+			ident:  p.curr.Literal,
+			quoted: p.curr.Quoted,
+		}
 		p.next()
 	default:
 		n, err := strconv.ParseInt(p.curr.Literal, 10, 64)
@@ -372,7 +375,11 @@ func (p *parser) parseWord() (Word, error) {
 			xs = append(xs, Literal(p.curr.Literal))
 			p.next()
 		case tokVar:
-			xs = append(xs, Variable(p.curr.Literal))
+			v := Variable{
+				ident:  p.curr.Literal,
+				quoted: p.curr.Quoted,
+			}
+			xs = append(xs, v)
 			p.next()
 		case tokBeginSub:
 			w, err := p.parseSubstitution()

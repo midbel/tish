@@ -11,6 +11,24 @@ type ScanCase struct {
 	Words []Token
 }
 
+func TestSplit(t *testing.T) {
+	str := `echo foo bar`
+	words := []string{"echo", "foo", "bar"}
+
+	vs, err := Split(str)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if len(vs) != len(words) {
+		t.Fatalf("mismatched values! want %q, got %q", words, vs)
+	}
+	for i := 0; i < len(words); i++ {
+		if vs[i] != words[i] {
+			t.Errorf("word mismatch! want %q, got %q", words[i], vs[i])
+		}
+	}
+}
+
 func TestScannerQuote(t *testing.T) {
 	str := `echo $VAR "$VAR"`
 	words := []Token{

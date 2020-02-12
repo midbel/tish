@@ -163,19 +163,19 @@ func (b Brace) asWord() Word {
 	return b
 }
 
-type Variable string
+// type Variable string
 
-// type Variable struct {
-// 	ident string
-// 	quoted bool
-// }
+type Variable struct {
+	ident  string
+	quoted bool
+}
 
 func (v Variable) Expand(e *Env) ([]string, error) {
-	return e.Get(string(v))
+	return e.Get(v.ident)
 }
 
 func (v Variable) String() string {
-	return fmt.Sprintf("variable(%s)", string(v))
+	return fmt.Sprintf("variable(%s)", v.ident)
 }
 
 func (v Variable) Equal(w Word) bool {
@@ -183,11 +183,11 @@ func (v Variable) Equal(w Word) bool {
 	if !ok {
 		return false
 	}
-	return string(other) == string(v)
+	return other.ident == v.ident
 }
 
 func (v Variable) Eval(e *Env) (Number, error) {
-	vs, err := e.Get(string(v))
+	vs, err := e.Get(v.ident)
 	if err != nil {
 		return 0, err
 	}

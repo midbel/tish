@@ -130,13 +130,13 @@ func testExpandExpr(t *testing.T) {
 			Want: 1,
 		},
 		{
-			Expr: Variable("NINE"),
+			Expr: Variable{ident: "NINE"},
 			Want: 9,
 		},
 		{
 			Expr: infix{
 				left:  Number(1),
-				right: Variable("NINE"),
+				right: Variable{ident: "NINE"},
 				op:    plus,
 			},
 			Want: 10,
@@ -155,7 +155,7 @@ func testExpandExpr(t *testing.T) {
 
 	expr := infix{
 		left:  Number(1),
-		right: Variable("THREE"),
+		right: Variable{ident: "THREE"},
 		op:    tokLeftShift,
 	}
 	e := Expr{expr: expr}
@@ -178,12 +178,12 @@ func testExpandLists(t *testing.T) {
 			words: []Word{
 				Literal("echo"),
 				Literal("foobar"),
-				Variable("FOO"),
-				Variable("BAR"),
+				Variable{ident: "FOO"},
+				Variable{ident: "BAR"},
 				List{
 					words: []Word{
 						Literal("PWD"),
-						Variable("PWD"),
+						Variable{ident: "PWD"},
 					},
 				},
 			},
@@ -238,7 +238,7 @@ func testExpandVariables(t *testing.T) {
 	}
 
 	for _, d := range data {
-		v := Variable(d.Literal)
+		v := Variable{ident: d.Literal}
 		vs, err := v.Expand(env)
 		if d.Defined {
 			if err != nil {
