@@ -61,6 +61,8 @@ const (
 	tokBackground
 	tokLeftShift
 	tokRightShift
+	tokPipe
+	tokPipeBoth
 	tokRedirectStdin
 	tokRedirectStdout
 	tokRedirectStderr

@@ -660,8 +660,6 @@ func scanBlanks(s *Scanner) ScanFunc {
 		}
 		s.emitTypeOf(tokBlank)
 	}
-	// if s.char != ampersand && s.char != pipe {
-	// }
 	return scanDefault
 }
 
@@ -689,8 +687,11 @@ func scanPipe(s *Scanner) {
 	case pipe:
 		s.readRune()
 		s.emitTypeOf(tokOr)
+	case ampersand:
+		s.readRune()
+		s.emitTypeOf(tokPipeBoth)
 	default:
-		s.emitTypeOf(pipe)
+		s.emitTypeOf(tokPipe)
 	}
 }
 
