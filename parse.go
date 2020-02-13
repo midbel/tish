@@ -376,7 +376,7 @@ func (p *parser) parseRedirection() (Word, error) {
 		p.next()
 
 		for !p.isRedirection() && !p.isDone() {
-			w, err := p.parseWord()
+			_, err := p.parseWord()
 			if err != nil {
 				return nil, err
 			}

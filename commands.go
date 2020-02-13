@@ -57,12 +57,12 @@ func (r redirect) Open(e *Env) (*os.File, error) {
   if len(vs) == 0 {
     return nil, fmt.Errorf("")
   }
-  var flags int
+  var flag int
   switch r.mode {
   case modeReadOnly:
     flag = os.O_RDONLY
   case modeCreate:
-    flag = os.O_CREATE|os.O_TRUNC|os.OWRONLY
+    flag = os.O_CREATE|os.O_TRUNC|os.O_WRONLY
   case modeAppend:
     flag = os.O_APPEND|os.O_CREATE|os.O_WRONLY
   default:
