@@ -40,7 +40,6 @@ const (
 const (
 	tokEOF rune = -(iota + 1)
 	tokBlank
-	// tokChar
 	tokQuoted
 	tokWord
 	tokInt

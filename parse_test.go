@@ -17,6 +17,104 @@ func TestParse(t *testing.T) {
 	t.Run("braces", testParseBraces)
 	t.Run("assignments", testParseAssignments)
 	t.Run("redirections", testParseRedirections)
+	t.Run("parameters", testParseParameters)
+}
+
+func testParseParameters(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `echo ${VAR}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: Identity()},
+			),
+		},
+		{
+			Input: `echo ${#VAR}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: Length()},
+			),
+		},
+		{
+			Input: `echo ${VAR#prefix}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: TrimPrefix("prefix", false)},
+			),
+		},
+		{
+			Input: `echo ${VAR##prefix}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: TrimPrefix("prefix", true)},
+			),
+		},
+		{
+			Input: `echo ${VAR%suffix}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: TrimSuffix("suffix", false)},
+			),
+		},
+		{
+			Input: `echo ${VAR%%sufix}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: TrimSuffix("suffix", true)},
+			),
+		},
+		{
+			Input: `echo ${VAR/from/to}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: Replace("from", "to")},
+			),
+		},
+		{
+			Input: `echo ${VAR//from/to}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: ReplaceAll("from", "to")},
+			),
+		},
+		{
+			Input: `echo ${VAR/#from/to}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: ReplacePrefix("from", "to")},
+			),
+		},
+		{
+			Input: `echo ${VAR/%from/to}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: ReplaceSuffix("from", "to")},
+			),
+		},
+		{
+			Input: `echo ${VAR:-BAR}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: GetIfUndef("BAR")},
+			),
+		},
+		{
+			Input: `echo ${VAR:=BAR}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: SetIfUndef("BAR")},
+			),
+		},
+		{
+			Input: `echo ${VAR:+BAR}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: GetIfDef("BAR")},
+			),
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseRedirections(t *testing.T) {

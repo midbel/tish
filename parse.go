@@ -299,10 +299,6 @@ func (p *parser) parsePrefixExpr() (Evaluator, error) {
 	return e, err
 }
 
-func (p *parser) parseParameter() (Word, error) {
-	return nil, nil
-}
-
 func (p *parser) parseAssignment() (Word, error) {
 	a := Assignment{ident: p.curr.Literal}
 	p.next()
@@ -448,6 +444,105 @@ func (p *parser) parseWord() (Word, error) {
 		}
 	}
 	return asWord(xs), nil
+}
+
+func (p *parser) parseParameter() (Word, error) {
+	p.next()
+	if p.curr.Type == tokVarLength {
+		p.next()
+		if p.curr.Type != tokVar {
+			return nil, fmt.Errorf("parameter: unexpected token: %s", p.curr)
+		}
+		v := Variable{
+			ident:  p.curr.Literal,
+			quoted: p.curr.Quoted,
+			apply:  Length(),
+		}
+		p.next()
+		if p.curr.Type != tokEndParam {
+			return nil, fmt.Errorf("parameter: unexpected token: %s", p.curr)
+		}
+		p.next()
+		return v, nil
+	}
+	if p.curr.Type != tokVar {
+		return nil, fmt.Errorf("parameter: unexpected token: %s", p.curr)
+	}
+	v := Variable{
+		ident:  p.curr.Literal,
+		quoted: p.curr.Quoted,
+	}
+	p.next()
+	switch typof := p.curr.Type; typof {
+	case tokTrimSuffix, tokTrimSuffixLong:
+		p.next()
+		if p.curr.Type != tokWord {
+			return nil, fmt.Errorf("parameter(suffix): unexpected token %s", p.curr)
+		}
+		v.apply = TrimSuffix(p.curr.Literal, typof == tokTrimSuffixLong)
+		p.next()
+	case tokTrimPrefix, tokTrimPrefixLong:
+		p.next()
+		if p.curr.Type != tokWord {
+			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		}
+		v.apply = TrimSuffix(p.curr.Literal, typof == tokTrimPrefixLong)
+		p.next()
+	case tokReplace, tokReplaceAll, tokReplacePrefix, tokReplaceSuffix:
+		var from, to string
+		p.next()
+		if p.curr.Type != tokWord {
+			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		}
+		from = p.curr.Literal
+		p.next()
+		if p.curr.Type != tokReplace {
+
+		}
+		p.next()
+		if p.curr.Type != tokWord {
+			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		}
+		to = p.curr.Literal
+		switch typof {
+		case tokReplace:
+			v.apply = Replace(from, to)
+		case tokReplaceAll:
+			v.apply = ReplaceAll(from, to)
+		case tokReplacePrefix:
+			v.apply = ReplacePrefix(from, to)
+		case tokReplaceSuffix:
+			v.apply = ReplaceSuffix(from, to)
+		}
+		p.next()
+	case tokGetIfDef, tokGetIfUndef, tokSetIfUndef:
+		p.next()
+		if p.curr.Type != tokWord {
+			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		}
+		switch typof {
+		case tokGetIfDef:
+			v.apply = GetIfDef(p.curr.Literal)
+		case tokGetIfUndef:
+			v.apply = GetIfUndef(p.curr.Literal)
+		case tokSetIfUndef:
+			v.apply = SetIfUndef(p.curr.Literal)
+		}
+		p.next()
+	case tokLower, tokLowerAll:
+		p.next()
+		v.apply = Lower(typof == tokLowerAll)
+	case tokUpper, tokUpperAll:
+		v.apply = Lower(typof == tokUpperAll)
+	case tokEndParam:
+	default:
+		return nil, fmt.Errorf("parameter: unexpected token %s", p.curr)
+	}
+	if p.curr.Type != tokEndParam {
+		return nil, fmt.Errorf("parameter: unexpected token: %s", p.curr)
+	}
+	p.next()
+	return v, nil
 }
 
 func asWord(xs []Word) Word {
