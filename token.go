@@ -10,6 +10,7 @@ const (
 	squote     = '\''
 	dquote     = '"'
 	backslash  = '\\'
+	slash      = '/'
 	dollar     = '$'
 	semicolon  = ';'
 	colon      = ':'
@@ -33,6 +34,7 @@ const (
 	tilde      = '~'
 	langle     = '<'
 	rangle     = '>'
+	caret      = '^'
 )
 
 const (
@@ -55,7 +57,27 @@ const (
 	tokEndBrace
 	tokBeginList
 	tokEndList
+	tokBeginParam
+	tokEndParam
 	tokSequence
+	tokVarLength
+	tokTrimSuffix
+	tokTrimSuffixLong
+	tokTrimPrefix
+	tokTrimPrefixLong
+	tokReplace
+	tokReplacePrefix
+	tokReplaceSuffix
+	tokReplaceAll
+	tokSliceOffset
+	tokSliceLen
+	tokGetIfDef
+	tokGetIfUndef
+	tokSetIfUndef
+	tokLower
+	tokLowerAll
+	tokUpper
+	tokUpperAll
 	tokAnd
 	tokOr
 	tokBackground

@@ -107,7 +107,7 @@ func testScanParameters(t *testing.T) {
 			},
 		},
 		{
-			Input: `echo ${FOO##foobar}`, // trim prefix
+			Input: `echo ${FOO##foobar}`, // trim longest prefix
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
@@ -131,7 +131,7 @@ func testScanParameters(t *testing.T) {
 			},
 		},
 		{
-			Input: `echo ${FOO%%foobar}`, // trim suffix
+			Input: `echo ${FOO%%foobar}`, // trim longest suffix
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
@@ -150,6 +150,34 @@ func testScanParameters(t *testing.T) {
 				{Type: tokBeginParam},
 				{Literal: "FOO", Type: tokVar},
 				{Type: tokReplace},
+				{Literal: "foo", Type: tokWord},
+				{Type: tokReplace},
+				{Literal: "bar", Type: tokWord},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO/%foo/bar}`, // substitution
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokReplaceSuffix},
+				{Literal: "foo", Type: tokWord},
+				{Type: tokReplace},
+				{Literal: "bar", Type: tokWord},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO/#foo/bar}`, // substitution
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokReplacePrefix},
 				{Literal: "foo", Type: tokWord},
 				{Type: tokReplace},
 				{Literal: "bar", Type: tokWord},
@@ -216,6 +244,18 @@ func testScanParameters(t *testing.T) {
 				{Type: tokSliceOffset},
 				{Literal: "0", Type: tokInt},
 				{Type: tokSliceLen},
+				{Literal: "2", Type: tokInt},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO:2}`, // slicing
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokSliceOffset},
 				{Literal: "2", Type: tokInt},
 				{Type: tokEndParam},
 			},
@@ -291,6 +331,18 @@ func testScanParameters(t *testing.T) {
 			},
 		},
 		{
+			Input: `echo ${FOO: -7}`, // slicing from right
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokSliceOffset},
+				{Literal: "-7", Type: tokInt},
+				{Type: tokEndParam},
+			},
+		},
+		{
 			Input: `echo ${FOO:(-7):(-2)}`, // slicing from right
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
@@ -301,6 +353,50 @@ func testScanParameters(t *testing.T) {
 				{Literal: "-7", Type: tokInt},
 				{Type: tokSliceLen},
 				{Literal: "-2", Type: tokInt},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO,}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokLower},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO,,}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokLowerAll},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO^}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokUpper},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO^^}`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokUpperAll},
 				{Type: tokEndParam},
 			},
 		},

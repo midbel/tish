@@ -439,6 +439,22 @@ func scanParameter(s *Scanner) ScanFunc {
 	}
 	scanVariable(s)
 	switch s.char {
+	case comma:
+		s.readRune()
+		if s.char == comma {
+			s.readRune()
+			s.emitTypeOf(tokLowerAll)
+		} else {
+			s.emitTypeOf(tokLower)
+		}
+	case caret:
+		s.readRune()
+		if s.char == caret {
+			s.readRune()
+			s.emitTypeOf(tokUpperAll)
+		} else {
+			s.emitTypeOf(tokUpper)
+		}
 	case modulo:
 		s.readRune()
 		if s.char == modulo {
@@ -459,13 +475,19 @@ func scanParameter(s *Scanner) ScanFunc {
 		scanWord(s, func(r rune) bool { return r == rcurly })
 	case slash:
 		s.readRune()
-		if s.char == slash {
+		switch s.char {
+		case slash:
 			s.readRune()
 			s.emitTypeOf(tokReplaceAll)
-		} else {
+		case modulo:
+			s.readRune()
+			s.emitTypeOf(tokReplaceSuffix)
+		case pound:
+			s.readRune()
+			s.emitTypeOf(tokReplacePrefix)
+		default:
 			s.emitTypeOf(tokReplace)
 		}
-
 		scanWord(s, func(r rune) bool { return r == slash })
 		if s.char != slash {
 			s.emit(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char), tokError)
@@ -524,7 +546,7 @@ func scanSlice(s *Scanner) {
 			if s.char == rparen {
 				s.readRune()
 			} else {
-				s.emit("unterminated parenthese in slice offset", tokError)
+				s.emit("unterminated parenthese in slice", tokError)
 				return false
 			}
 		}
