@@ -421,18 +421,142 @@ func scanDollar(s *Scanner) ScanFunc {
 }
 
 func scanParameter(s *Scanner) ScanFunc {
+	s.emitTypeOf(tokBeginParam)
+
 	s.readRune()
 	if s.char == pound {
-		s.emitTypeOf(pound)
-	}
-	var buf bytes.Buffer
-	for s.char != rcurly {
-		buf.WriteRune(s.char)
+		s.emitTypeOf(tokVarLength)
 		s.readRune()
+
+		scanVariable(s)
+		if s.char != rcurly {
+			s.emit("unterminated parameter expansion", tokError)
+			return nil
+		}
+		s.readRune()
+		s.emitTypeOf(tokEndParam)
+		return scanDefault
 	}
-	s.emit(buf.String(), tokVar)
+	scanVariable(s)
+	switch s.char {
+	case modulo:
+		s.readRune()
+		if s.char == modulo {
+			s.readRune()
+			s.emitTypeOf(tokTrimSuffixLong)
+		} else {
+			s.emitTypeOf(tokTrimSuffix)
+		}
+		scanWord(s, func(r rune) bool { return r == rcurly })
+	case pound:
+		s.readRune()
+		if s.char == pound {
+			s.readRune()
+			s.emitTypeOf(tokTrimPrefixLong)
+		} else {
+			s.emitTypeOf(tokTrimPrefix)
+		}
+		scanWord(s, func(r rune) bool { return r == rcurly })
+	case slash:
+		s.readRune()
+		if s.char == slash {
+			s.readRune()
+			s.emitTypeOf(tokReplaceAll)
+		} else {
+			s.emitTypeOf(tokReplace)
+		}
+
+		scanWord(s, func(r rune) bool { return r == slash })
+		if s.char != slash {
+			s.emit(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char), tokError)
+			return nil
+		}
+		s.readRune()
+
+		s.emitTypeOf(tokReplace)
+		scanWord(s, func(r rune) bool { return r == rcurly })
+	case colon:
+		s.readRune()
+		if s.char == minus || s.char == equal || s.char == plus {
+			var typof rune
+			switch s.char {
+			case minus:
+				typof = tokGetIfUndef
+			case equal:
+				typof = tokSetIfUndef
+			case plus:
+				typof = tokGetIfDef
+			}
+			s.readRune()
+			s.emitTypeOf(typof)
+			scanWord(s, func(r rune) bool { return r == rcurly })
+		} else {
+			scanSlice(s)
+		}
+	case rcurly:
+	default:
+		s.emit(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char), tokError)
+		return nil
+	}
+	if s.char != rcurly {
+		s.emit("unterminated parameter expansion", tokError)
+		return nil
+	}
 	s.readRune()
+
+	s.emitTypeOf(tokEndParam)
 	return scanDefault
+}
+
+func scanSlice(s *Scanner) {
+	s.emitTypeOf(tokSliceOffset)
+	s.skip(isBlank)
+
+	scan := func() bool {
+		closed := s.char == lparen
+		if closed {
+			s.readRune()
+			s.skip(isBlank)
+		}
+		scanNumber(s)
+		if closed {
+			s.skip(isBlank)
+			if s.char == rparen {
+				s.readRune()
+			} else {
+				s.emit("unterminated parenthese in slice offset", tokError)
+				return false
+			}
+		}
+		return true
+	}
+
+	switch {
+	case isDigit(s.char) || s.char == minus || s.char == lparen:
+		if !scan() {
+			return
+		}
+	case s.char == colon:
+		s.emit("0", tokInt)
+	default:
+		s.emit(fmt.Sprintf("invalid char in slice: '%c'", s.char), tokError)
+		return
+	}
+	if s.char != colon {
+		return
+	}
+	s.readRune()
+	s.emitTypeOf(tokSliceLen)
+	switch {
+	case s.char == rcurly:
+		s.emit("0", tokInt)
+	case isDigit(s.char) || s.char == minus || s.char == lparen:
+		if !scan() {
+			return
+		}
+	default:
+		s.emit(fmt.Sprintf("invalid char in slice: '%c'", s.char), tokError)
+	}
 }
 
 func scanArithmetic(s *Scanner) ScanFunc {
@@ -510,6 +634,14 @@ func scanGroup(s *Scanner) {
 
 func scanNumber(s *Scanner) {
 	var buf bytes.Buffer
+	if s.char != minus && !isDigit(s.char) {
+		s.emit(fmt.Sprintf("number: invalid char: '%c'", s.char), tokError)
+		return
+	}
+	if s.char == minus {
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
 	for isDigit(s.char) {
 		buf.WriteRune(s.char)
 		s.readRune()
@@ -523,10 +655,10 @@ func scanNumber(s *Scanner) {
 			s.readRune()
 		}
 		s.emit(buf.String(), tokFloat)
-	case isOperator(s.char) || isBlank(s.char) || s.char == rparen:
+	case isOperator(s.char) || isBlank(s.char) || s.char == rparen || s.char == rcurly || s.char == colon:
 		s.emit(buf.String(), tokInt)
 	default:
-		s.emit(fmt.Sprintf("number: invalid character: %c", s.char), tokError)
+		s.emit(fmt.Sprintf("number: invalid char: '%c'", s.char), tokError)
 	}
 }
 
@@ -669,6 +801,9 @@ func scanBlanks(s *Scanner) ScanFunc {
 func scanVariable(s *Scanner) ScanFunc {
 	if s.char == dollar {
 		s.readRune()
+	}
+	if isDigit(s.char) {
+		s.emit(fmt.Sprintf("invalid char in variable name: %c", s.char), tokError)
 	}
 
 	var buf bytes.Buffer
