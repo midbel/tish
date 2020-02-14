@@ -113,6 +113,34 @@ func testParseParameters(t *testing.T) {
 				Variable{ident: "VAR", apply: GetIfDef("BAR")},
 			),
 		},
+		{
+			Input: `echo ${VAR:0:10}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: Substring(0, 10)},
+			),
+		},
+		{
+			Input: `echo ${VAR:(-10):10}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: Substring(-10, 10)},
+			),
+		},
+		{
+			Input: `echo ${VAR::10}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: Substring(0, 10)},
+			),
+		},
+		{
+			Input: `echo ${VAR:10}`,
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Variable{ident: "VAR", apply: Substring(10, 0)},
+			),
+		},
 	}
 	runParseCase(t, data)
 }

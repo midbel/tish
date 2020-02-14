@@ -534,6 +534,30 @@ func (p *parser) parseParameter() (Word, error) {
 		v.apply = Lower(typof == tokLowerAll)
 	case tokUpper, tokUpperAll:
 		v.apply = Lower(typof == tokUpperAll)
+	case tokSliceOffset:
+		var (
+			offset int
+			length int
+			err    error
+		)
+		p.next()
+		if p.curr.Type != tokInt {
+			return nil, fmt.Errorf("parameter(offset): unexpected token %s", p.curr)
+		}
+		if offset, err = strconv.Atoi(p.curr.Literal); err != nil {
+			return nil, err
+		}
+		p.next()
+		if p.curr.Type != tokSliceLen {
+			return nil, fmt.Errorf("parameter(length): unexpected token %s", p.curr)
+		}
+		p.next()
+		if length, err = strconv.Atoi(p.curr.Literal); err != nil {
+			return nil, err
+		}
+		p.next()
+
+		v.apply = Substring(offset, length)
 	case tokEndParam:
 	default:
 		return nil, fmt.Errorf("parameter: unexpected token %s", p.curr)
