@@ -299,6 +299,10 @@ func (p *parser) parsePrefixExpr() (Evaluator, error) {
 	return e, err
 }
 
+func (p *parser) parseParameter() (Word, error) {
+	return nil, nil
+}
+
 func (p *parser) parseAssignment() (Word, error) {
 	a := Assignment{ident: p.curr.Literal}
 	p.next()
@@ -404,6 +408,7 @@ func (p *parser) parseWord() (Word, error) {
 			v := Variable{
 				ident:  p.curr.Literal,
 				quoted: p.curr.Quoted,
+				apply:  Identity(),
 			}
 			xs = append(xs, v)
 			p.next()
@@ -429,6 +434,12 @@ func (p *parser) parseWord() (Word, error) {
 				return nil, err
 			}
 			xs = []Word{w}
+		case tokBeginParam:
+			w, err := p.parseParameter()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
 		default:
 			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}

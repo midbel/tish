@@ -111,6 +111,25 @@ type Redirect struct {
 	Word
 }
 
+func (r Redirect) Equal(w Word) bool {
+	other, ok := w.(Redirect)
+	if !ok {
+		return ok
+	}
+	if r.kind != other.kind {
+		return false
+	}
+	return r.Word.Equal(other.Word)
+}
+
+func (r Redirect) String() string {
+	return fmt.Sprintf("redirect(%s)", r.Word.String())
+}
+
+func (r Redirect) asWord() Word {
+	return r
+}
+
 type Brace struct {
 	prolog Word
 	epilog Word
@@ -169,15 +188,17 @@ func (b Brace) asWord() Word {
 	return b
 }
 
-// type Variable string
-
 type Variable struct {
 	ident  string
 	quoted bool
+	apply  Apply
 }
 
 func (v Variable) Expand(e *Env) ([]string, error) {
-	return e.Get(v.ident)
+	if v.apply == nil {
+		return e.Get(v.ident)
+	}
+	return v.apply.Apply(v.ident, e)
 }
 
 func (v Variable) String() string {
