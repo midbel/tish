@@ -564,10 +564,9 @@ func scanSlice(s *Scanner) {
 		s.emit(fmt.Sprintf("invalid char in slice: '%c'", s.char), tokError)
 		return
 	}
-	if s.char != colon {
-		return
+	if s.char == colon {
+		s.readRune()
 	}
-	s.readRune()
 	s.emitTypeOf(tokSliceLen)
 	switch {
 	case s.char == rcurly:
