@@ -80,8 +80,8 @@ type trimPrefix struct {
 	longest bool
 }
 
-func TrimPrefix(str string) Apply {
-	return trimPrefix{pattern: str}
+func TrimPrefix(str string, longest bool) Apply {
+	return trimPrefix{pattern: str, longest: longest}
 }
 
 func (p trimPrefix) Apply(ident string, e *Env) ([]string, error) {
@@ -90,6 +90,9 @@ func (p trimPrefix) Apply(ident string, e *Env) ([]string, error) {
 		return vs, err
 	}
 	str := strings.TrimPrefix(vs[0], p.pattern)
+	for p.longest && strings.HasPrefix(str, p.pattern) {
+		str = strings.TrimPrefix(str, p.pattern)
+	}
 	return []string{str}, nil
 }
 
@@ -102,8 +105,8 @@ type trimSuffix struct {
 	longest bool
 }
 
-func TrimSuffix(str string) Apply {
-	return trimSuffix{pattern: str}
+func TrimSuffix(str string, longest bool) Apply {
+	return trimSuffix{pattern: str, longest: longest}
 }
 
 func (s trimSuffix) Apply(ident string, e *Env) ([]string, error) {
@@ -112,6 +115,9 @@ func (s trimSuffix) Apply(ident string, e *Env) ([]string, error) {
 		return vs, err
 	}
 	str := strings.TrimSuffix(vs[0], s.pattern)
+	for s.longest && strings.HasSuffix(str, s.pattern) {
+		str = strings.TrimSuffix(str, s.pattern)
+	}
 	return []string{str}, nil
 }
 

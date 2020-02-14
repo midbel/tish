@@ -96,11 +96,18 @@ func testApplyTrim(t *testing.T) {
 	env.Set(ident, []string{str})
 
 	data := []ApplyCase{
-		{Ident: ident, Want: prefix, Apply: TrimSuffix(suffix)},
-		{Ident: ident, Want: suffix, Apply: TrimPrefix(prefix)},
-		{Ident: ident, Want: str, Apply: TrimSuffix(prefix)},
-		{Ident: ident, Want: str, Apply: TrimPrefix(suffix)},
+		{Ident: ident, Want: prefix, Apply: TrimSuffix(suffix, false)},
+		{Ident: ident, Want: suffix, Apply: TrimPrefix(prefix, false)},
+		{Ident: ident, Want: str, Apply: TrimSuffix(prefix, false)},
+		{Ident: ident, Want: str, Apply: TrimPrefix(suffix, false)},
+		{Ident: "FOO", Want: "FOOBAR", Apply: TrimPrefix("FOO", false)},
+		{Ident: "FOO", Want: "BAR", Apply: TrimPrefix("FOO", true)},
+		{Ident: "BAR", Want: "FOOBAR", Apply: TrimSuffix("BAR", false)},
+		{Ident: "BAR", Want: "FOO", Apply: TrimSuffix("BAR", true)},
 	}
+
+	env.Set("FOO", []string{"FOOFOOBAR"})
+	env.Set("BAR", []string{"FOOBARBAR"})
 	runApplyTest(t, env, data...)
 }
 
