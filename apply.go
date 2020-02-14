@@ -27,6 +27,10 @@ func (s substring) Apply(ident string, e *Env) ([]string, error) {
 		return vs, err
 	}
 
+	if s.offset == 0 && s.length == 0 {
+		return []string{}, nil
+	}
+
 	var (
 		offset = s.offset
 		str    = vs[0]

@@ -149,7 +149,7 @@ func testApplySubstring(t *testing.T) {
 	env.Set(ident, []string{str})
 
 	data := []ApplyCase{
-		{Ident: ident, Want: str, Apply: Substring(0, 0)},
+		{Ident: ident, Want: "", Apply: Substring(0, 0)},
 		{Ident: ident, Want: "0123", Apply: Substring(0, 4)},
 		{Ident: ident, Want: "4567", Apply: Substring(4, 4)},
 		{Ident: ident, Want: "456789", Apply: Substring(4, -6)},
@@ -176,8 +176,14 @@ func runApplyTest(t *testing.T, env *Env, data ...ApplyCase) {
 			t.Errorf("%d) apply failure: %s", i+1, err)
 			continue
 		}
-		if len(vs) == 0 {
+		if len(vs) == 0 && d.Want != "" {
 			t.Errorf("%d) no values returned", i+1)
+			continue
+		}
+		if d.Want == "" {
+			if len(vs) > 0 {
+				t.Errorf("%d) no values expected but got %q", i+1, vs)
+			}
 			continue
 		}
 		if vs[0] != d.Want {
