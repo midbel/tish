@@ -54,8 +54,9 @@ type Word interface {
 }
 
 type List struct {
-	words []Word
-	kind  Kind
+	words    []Word
+	redirect []Word
+	kind     Kind
 }
 
 func (i List) Expand(e *Env) ([]string, error) {
@@ -103,6 +104,11 @@ func (i List) asWord() Word {
 	}
 	return i.words[0].asWord()
 	// return i.words[0] //.asWord()
+}
+
+type Redirect struct {
+	kind rune
+	Word
 }
 
 type Brace struct {

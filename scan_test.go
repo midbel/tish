@@ -119,7 +119,7 @@ func testScanParameters(t *testing.T) {
 			},
 		},
 		{
-			Input: `echo ${FOO:=BAR}`,  // set BAR to FOO if FOO is not set
+			Input: `echo ${FOO:=BAR}`, // set BAR to FOO if FOO is not set
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,

@@ -371,23 +371,23 @@ func (p *parser) parseCommand() (Word, error) {
 }
 
 func (p *parser) parseRedirection() (Word, error) {
+	var ws []Word
 	for p.isRedirection() && !p.isDone() {
-		tok := p.curr
+		r := Redirect{kind: p.curr.Type}
 		p.next()
 
+		var xs []Word
 		for !p.isRedirection() && !p.isDone() {
-			_, err := p.parseWord()
+			w, err := p.parseWord()
 			if err != nil {
 				return nil, err
 			}
+			xs = append(xs, w)
 		}
-		if typof := tok.Type; typof == tokRedirectOutToErr || typof == tokRedirectErrToOut {
-
-		} else {
-
-		}
+		r.Word = asWord(xs)
+		ws = append(ws, r)
 	}
-	return nil, nil
+	return asWord(ws), nil
 }
 
 func (p *parser) parseWord() (Word, error) {
