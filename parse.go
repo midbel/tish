@@ -353,12 +353,6 @@ func (p *parser) parseCommand() (Word, error) {
 			}
 		}
 		ws.words = append(ws.words, xs.asWord())
-		if p.isRedirection() {
-			_, err := p.parseRedirection()
-			if err != nil {
-				return nil, err
-			}
-		}
 		if p.curr.Type != tokPipe && p.isControl() {
 			break
 		}
@@ -371,23 +365,42 @@ func (p *parser) parseCommand() (Word, error) {
 }
 
 func (p *parser) parseRedirection() (Word, error) {
-	var ws []Word
-	for p.isRedirection() && !p.isDone() {
-		r := Redirect{kind: p.curr.Type}
-		p.next()
-
-		var xs []Word
-		for !p.isRedirection() && !p.isDone() {
-			w, err := p.parseWord()
-			if err != nil {
-				return nil, err
-			}
-			xs = append(xs, w)
-		}
-		r.Word = asWord(xs)
-		ws = append(ws, r)
+	var r Redirect
+	switch p.curr.Type {
+	default:
+		return nil, fmt.Errorf("unsupported redirection operator: %s", p.curr)
+	case tokRedirectStdin:
+		r.file, r.mode = fdIn, modRead
+	case tokRedirectStdout:
+		r.file, r.mode = fdOut, modWrite
+	case tokRedirectStderr:
+		r.file, r.mode = fdErr, modWrite
+	case tokRedirectBoth:
+		r.file, r.mode = fdBoth, modWrite
+	case tokAppendStdout:
+		r.file, r.mode = fdOut, modAppend
+	case tokAppendStderr:
+		r.file, r.mode = fdErr, modAppend
+	case tokAppendBoth:
+		r.file, r.mode = fdBoth, modAppend
+	case tokRedirectErrToOut:
+		r.file, r.mode = fdOut, modRelink
+	case tokRedirectOutToErr:
+		r.file, r.mode = fdErr, modRelink
 	}
-	return asWord(ws), nil
+	var ws []Word
+	for {
+		if p.isRedirection() || p.isDone() {
+			break
+		}
+		w, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
+		ws = append(ws, w)
+	}
+	r.Word = asWord(ws)
+	return r, nil
 }
 
 func (p *parser) parseWord() (Word, error) {
@@ -395,6 +408,14 @@ func (p *parser) parseWord() (Word, error) {
 	for !p.isDone() {
 		if p.curr.Type == tokEOF {
 			break
+		}
+		if p.isRedirection() {
+			w, err := p.parseRedirection()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
+			continue
 		}
 		switch p.curr.Type {
 		case tokWord:

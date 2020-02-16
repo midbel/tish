@@ -152,6 +152,11 @@ func testParseRedirections(t *testing.T) {
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Literal("foo"),
+				Redirect{
+					Word: Literal("foo.txt"),
+					file: fdOut,
+					mode: modWrite,
+				},
 			),
 		},
 		{
@@ -159,13 +164,36 @@ func testParseRedirections(t *testing.T) {
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Literal("foo"),
+				Redirect{
+					Word: Literal("foo.txt"),
+					file: fdOut,
+					mode: modWrite,
+				},
+				Redirect{
+					file: fdOut,
+					mode: modRelink,
+				},
 			),
 		},
 		{
-			Input: `echo < foo.txt 2>&1 > bar.tx`,
+			Input: `echo < foo.txt 2>&1 >> bar.tx`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Literal("foo"),
+				Redirect{
+					Word: Literal("foo.txt"),
+					file: fdIn,
+					mode: modRead,
+				},
+				Redirect{
+					file: fdOut,
+					mode: modRelink,
+				},
+				Redirect{
+					Word: Literal("bar.txt"),
+					file: fdOut,
+					mode: modAppend,
+				},
 			),
 		},
 	}

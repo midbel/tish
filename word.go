@@ -54,9 +54,8 @@ type Word interface {
 }
 
 type List struct {
-	words    []Word
-	redirect []Word
-	kind     Kind
+	words []Word
+	kind  Kind
 }
 
 func (i List) Expand(e *Env) ([]string, error) {
@@ -106,8 +105,21 @@ func (i List) asWord() Word {
 	// return i.words[0] //.asWord()
 }
 
+const (
+	fdIn int = iota
+	fdOut
+	fdErr
+	fdBoth
+
+	modRead int = iota
+	modWrite
+	modAppend
+	modRelink
+)
+
 type Redirect struct {
-	kind rune
+	file int
+	mode int
 	Word
 }
 
@@ -116,10 +128,7 @@ func (r Redirect) Equal(w Word) bool {
 	if !ok {
 		return ok
 	}
-	if r.kind != other.kind {
-		return false
-	}
-	return r.Word.Equal(other.Word)
+	return r.file == other.file && r.mode == other.mode && r.Word.Equal(other.Word)
 }
 
 func (r Redirect) String() string {
