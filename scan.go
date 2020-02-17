@@ -224,69 +224,71 @@ func scanDefault(s *Scanner) ScanFunc {
 }
 
 func scanRedirections(s *Scanner) {
-	var (
-		peek = s.peekRune()
-		pos  = s.pos
-		tok  rune
-	)
-	switch s.char {
-	case langle:
-		tok = tokRedirectStdin
-	case rangle:
-		switch peek {
+	for {
+		var (
+			peek = s.peekRune()
+			pos  = s.pos
+			tok  rune
+		)
+		switch s.char {
+		case langle:
+			tok = tokRedirectStdin
+		case rangle:
+			switch peek {
+			case ampersand:
+				s.readRune()
+				s.readRune()
+				if s.char == '2' {
+					tok = tokRedirectOutToErr
+				} else {
+					s.restore(pos)
+					return
+				}
+			case rangle:
+				s.readRune()
+				tok = tokAppendStdout
+			default:
+				tok = tokRedirectStdout
+			}
 		case ampersand:
-			s.readRune()
-			s.readRune()
-			if s.char == '2' {
-				tok = tokRedirectOutToErr
-			} else {
-				s.restore(pos)
+			if peek != rangle {
 				return
 			}
-		case rangle:
 			s.readRune()
-			tok = tokAppendStdout
-		default:
-			tok = tokRedirectStdout
-		}
-	case ampersand:
-		if peek != rangle {
-			return
-		}
-		s.readRune()
-		if peek = s.peekRune(); peek == rangle {
-			s.readRune()
-			tok = tokAppendBoth
-		} else {
-			tok = tokRedirectBoth
-		}
-	case '2':
-		if peek != rangle {
-			return
-		}
-		s.readRune()
-		switch peek = s.peekRune(); peek {
-		case ampersand:
-			s.readRune()
-			s.readRune()
-			if s.char == '1' {
-				tok = tokRedirectErrToOut
+			if peek = s.peekRune(); peek == rangle {
+				s.readRune()
+				tok = tokAppendBoth
 			} else {
-				s.restore(pos)
+				tok = tokRedirectBoth
 			}
-		case rangle:
+		case '2':
+			if peek != rangle {
+				return
+			}
 			s.readRune()
-			tok = tokAppendStderr
+			switch peek = s.peekRune(); peek {
+			case ampersand:
+				s.readRune()
+				s.readRune()
+				if s.char == '1' {
+					tok = tokRedirectErrToOut
+				} else {
+					s.restore(pos)
+				}
+			case rangle:
+				s.readRune()
+				tok = tokAppendStderr
+			default:
+				tok = tokRedirectStderr
+			}
 		default:
-			tok = tokRedirectStderr
+			return
 		}
-	default:
-		return
-	}
-	s.readRune()
-	s.emitTypeOf(tok)
+		s.readRune()
+		s.emitTypeOf(tok)
 
-	s.skip(isBlank)
+		s.skip(isBlank)
+	}
 }
 
 func scanList(s *Scanner) ScanFunc {
@@ -811,6 +813,7 @@ func scanBlanks(s *Scanner) ScanFunc {
 	case langle:
 	case rangle:
 	default:
+		// fmt.Printf("scanBlanks: default: %c - %c\n", s.char, s.peekRune())
 		if k := s.peekRune(); s.char == '2' && k == rangle {
 			break
 		}

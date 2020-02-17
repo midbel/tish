@@ -179,7 +179,6 @@ func testParseRedirections(t *testing.T) {
 			Input: `echo < foo.txt 2>&1 >> bar.txt`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
-				Literal("foo"),
 				Redirect{
 					Word: Literal("foo.txt"),
 					file: fdIn,
