@@ -245,7 +245,7 @@ func (v Variable) Equal(w Word) bool {
 	if !ok {
 		return false
 	}
-	return other.ident == v.ident
+	return other.ident == v.ident && other.quoted == v.quoted // && other.apply.Equal(v.apply)
 }
 
 func (v Variable) Eval(e *Env) (Number, error) {
