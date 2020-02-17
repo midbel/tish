@@ -9,6 +9,7 @@ import (
 
 type Apply interface {
 	Apply(string, *Env) ([]string, error)
+	Equal(Apply) bool
 	fmt.Stringer
 }
 
@@ -60,6 +61,14 @@ func (s substring) Apply(ident string, e *Env) ([]string, error) {
 	return []string{str}, nil
 }
 
+func (s substring) Equal(a Apply) bool {
+	other, ok := a.(substring)
+	if !ok {
+		return ok
+	}
+	return s.offset.Equal(other.offset) && s.length.Equal(other.length)
+}
+
 func (s substring) String() string {
 	return fmt.Sprintf("substring(%d, %d)", s.offset, s.length)
 }
@@ -104,10 +113,6 @@ func Length() Apply {
 	return length{}
 }
 
-func (n length) String() string {
-	return "length"
-}
-
 func (n length) Apply(ident string, e *Env) ([]string, error) {
 	vs, err := e.Get(ident)
 	if err != nil || len(vs) == 0 {
@@ -115,6 +120,15 @@ func (n length) Apply(ident string, e *Env) ([]string, error) {
 	}
 	x := len(vs[0])
 	return []string{strconv.Itoa(x)}, nil
+}
+
+func (n length) Equal(a Apply) bool {
+	_, ok := a.(length)
+	return ok
+}
+
+func (n length) String() string {
+	return "length"
 }
 
 type trimPrefix struct {
@@ -140,6 +154,14 @@ func (p trimPrefix) Apply(ident string, e *Env) ([]string, error) {
 		str = strings.TrimPrefix(str, xs[0])
 	}
 	return []string{str}, nil
+}
+
+func (p trimPrefix) Equal(a Apply) bool {
+	other, ok := a.(trimPrefix)
+	if !ok {
+		return ok
+	}
+	return p.pattern.Equal(other.pattern) && p.longest == other.longest
 }
 
 func (p trimPrefix) String() string {
@@ -169,6 +191,14 @@ func (s trimSuffix) Apply(ident string, e *Env) ([]string, error) {
 		str = strings.TrimSuffix(str, xs[0])
 	}
 	return []string{str}, nil
+}
+
+func (s trimSuffix) Equal(a Apply) bool {
+	other, ok := a.(trimSuffix)
+	if !ok {
+		return ok
+	}
+	return s.pattern.Equal(other.pattern) && s.longest == other.longest
 }
 
 func (s trimSuffix) String() string {
@@ -238,6 +268,18 @@ func (r replace) Apply(ident string, e *Env) ([]string, error) {
 	return []string{str}, nil
 }
 
+func (r replace) Equal(a Apply) bool {
+	other, ok := a.(replace)
+	if !ok {
+		return ok
+	}
+	ok = r.prefix == other.prefix && r.suffix == other.suffix
+	if !ok {
+		return ok
+	}
+	return r.src.Equal(other.src) && r.dst.Equal(other.dst)
+}
+
 func (r replace) String() string {
 	return fmt.Sprintf("replace(%s, %s)", r.src, r.dst)
 }
@@ -281,6 +323,11 @@ func (o lower) Apply(ident string, e *Env) ([]string, error) {
 	return []string{str}, nil
 }
 
+func (o lower) Equal(a Apply) bool {
+	other, ok := a.(lower)
+	return ok && o.all == other.all
+}
+
 func (o lower) String() string {
 	return "lower"
 }
@@ -311,6 +358,11 @@ func (u upper) Apply(ident string, e *Env) ([]string, error) {
 	return []string{str}, nil
 }
 
+func (u upper) Equal(a Apply) bool {
+	other, ok := a.(upper)
+	return ok && u.all == other.all
+}
+
 func (u upper) String() string {
 	return "upper"
 }
@@ -331,6 +383,11 @@ func (s setifundef) Apply(ident string, e *Env) ([]string, error) {
 		e.Set(ident, vs)
 	}
 	return vs, err
+}
+
+func (s setifundef) Equal(a Apply) bool {
+	other, ok := a.(setifundef)
+	return ok && s.str.Equal(other.str)
 }
 
 func (s setifundef) String() string {
@@ -354,6 +411,11 @@ func (g getifundef) Apply(ident string, e *Env) ([]string, error) {
 	return vs, err
 }
 
+func (g getifundef) Equal(a Apply) bool {
+	other, ok := a.(getifundef)
+	return ok && g.str.Equal(other.str)
+}
+
 func (g getifundef) String() string {
 	return fmt.Sprintf("getifundef(%s)", g.str)
 }
@@ -375,20 +437,30 @@ func (g getifdef) Apply(ident string, e *Env) ([]string, error) {
 	return vs, err
 }
 
+func (g getifdef) Equal(a Apply) bool {
+	other, ok := a.(getifdef)
+	return ok && g.str.Equal(other.str)
+}
+
 func (g getifdef) String() string {
 	return fmt.Sprintf("getifdef(%s)", g.str)
 }
 
 type identity struct{}
 
-func (i identity) String() string {
-	return "identity"
+func Identity() Apply {
+	return identity{}
 }
 
 func (i identity) Apply(ident string, e *Env) ([]string, error) {
 	return e.Get(ident)
 }
 
-func Identity() Apply {
-	return identity{}
+func (_ identity) Equal(a Apply) bool {
+	_, ok := a.(identity)
+	return ok
+}
+
+func (i identity) String() string {
+	return "identity"
 }
