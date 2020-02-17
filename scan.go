@@ -465,7 +465,11 @@ func scanParameter(s *Scanner) ScanFunc {
 		} else {
 			s.emitTypeOf(tokTrimSuffix)
 		}
-		scanWord(s, func(r rune) bool { return r == rcurly })
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanWord(s, func(r rune) bool { return r == rcurly })
+		}
 	case pound:
 		s.readRune()
 		if s.char == pound {
@@ -474,7 +478,11 @@ func scanParameter(s *Scanner) ScanFunc {
 		} else {
 			s.emitTypeOf(tokTrimPrefix)
 		}
-		scanWord(s, func(r rune) bool { return r == rcurly })
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanWord(s, func(r rune) bool { return r == rcurly })
+		}
 	case slash:
 		s.readRune()
 		switch s.char {
@@ -490,7 +498,11 @@ func scanParameter(s *Scanner) ScanFunc {
 		default:
 			s.emitTypeOf(tokReplace)
 		}
-		scanWord(s, func(r rune) bool { return r == slash })
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanWord(s, func(r rune) bool { return r == slash })
+		}
 		if s.char != slash {
 			s.emit(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char), tokError)
 			return nil
@@ -498,7 +510,11 @@ func scanParameter(s *Scanner) ScanFunc {
 		s.readRune()
 
 		s.emitTypeOf(tokReplace)
-		scanWord(s, func(r rune) bool { return r == rcurly })
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanWord(s, func(r rune) bool { return r == rcurly })
+		}
 	case colon:
 		s.readRune()
 		if s.char == minus || s.char == equal || s.char == plus {
@@ -513,9 +529,37 @@ func scanParameter(s *Scanner) ScanFunc {
 			}
 			s.readRune()
 			s.emitTypeOf(typof)
-			scanWord(s, func(r rune) bool { return r == rcurly })
+			if s.char == dollar {
+				scanDollar(s)(s)
+			} else {
+				scanWord(s, func(r rune) bool { return r == rcurly })
+			}
 		} else {
 			scanSlice(s)
+		}
+	case minus:
+		s.readRune()
+		s.emitTypeOf(tokGetIfUndef)
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanWord(s, func(r rune) bool { return r == rcurly })
+		}
+	case equal:
+		s.readRune()
+		s.emitTypeOf(tokSetIfUndef)
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanWord(s, func(r rune) bool { return r == rcurly })
+		}
+	case plus:
+		s.readRune()
+		s.emitTypeOf(tokGetIfDef)
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanWord(s, func(r rune) bool { return r == rcurly })
 		}
 	case rcurly:
 	default:
@@ -542,7 +586,11 @@ func scanSlice(s *Scanner) {
 			s.readRune()
 			s.skip(isBlank)
 		}
-		scanNumber(s)
+		if s.char == dollar {
+			scanDollar(s)(s)
+		} else {
+			scanNumber(s)
+		}
 		if closed {
 			s.skip(isBlank)
 			if s.char == rparen {
@@ -556,7 +604,7 @@ func scanSlice(s *Scanner) {
 	}
 
 	switch {
-	case isDigit(s.char) || s.char == minus || s.char == lparen:
+	case isDigit(s.char) || s.char == minus || s.char == lparen || s.char == dollar:
 		if !scan() {
 			return
 		}
@@ -573,7 +621,7 @@ func scanSlice(s *Scanner) {
 	switch {
 	case s.char == rcurly:
 		s.emit("0", tokInt)
-	case isDigit(s.char) || s.char == minus || s.char == lparen:
+	case isDigit(s.char) || s.char == minus || s.char == lparen || s.char == dollar:
 		if !scan() {
 			return
 		}

@@ -396,7 +396,6 @@ func (p *parser) parseRedirection() (Word, error) {
 	}
 
 	if r.mode == modRelink {
-		fmt.Println("parseRedirect: relink", r)
 		return r, nil
 	}
 
@@ -424,7 +423,6 @@ func (p *parser) parseRedirection() (Word, error) {
 		}
 	}
 	r.Word = asWord(ws)
-	fmt.Println("parseRedirect: default", ws)
 	return r, nil
 }
 
