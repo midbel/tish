@@ -1,4 +1,4 @@
-# tish
+# Tish
 
 tish is a tiny shell interpreter largely inspired by bash. But tish is not bash and does not try to be compliant with the bash
 (even if most of its syntax is inspired by it) and does not try to be compliant with the shell specification of the opengroup.
@@ -15,5 +15,16 @@ The element syntax already supported/recognized by tish are:
 * braces expansion: pre-{foo,bar-{hello,world}}-post
 * parameter expansion: trim prefix, suffix, replacement, slicing, length,...
 * 9 kind of redirections: <, >, >>, 2>>, 2>&1,...
-* maybe other constructs will be added later
+
+Maybe other constructs will be added later.
+
+Nex steps are:
+
+* execute simple scripts with all already supported construct
+* add conditional and loop constructs: if, case, for,...
+* braces expansion for range: {1..10..1}
+* builtin: export, echo, now,...
+* modules system to extend the "command" available
+* support for environment variable
+* loading configuration via "shell" script
 
