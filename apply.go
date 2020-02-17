@@ -13,12 +13,15 @@ type Apply interface {
 }
 
 type substring struct {
-	offset int
-	length int
+	offset Word
+	length Word
 }
 
-func Substring(offset, length int) Apply {
-	return substring{offset, length}
+func Substring(offset, length Word) Apply {
+	return substring{
+		offset: offset,
+		length: length,
+	}
 }
 
 func (s substring) Apply(ident string, e *Env) ([]string, error) {
@@ -27,30 +30,31 @@ func (s substring) Apply(ident string, e *Env) ([]string, error) {
 		return vs, err
 	}
 
-	if s.offset == 0 && s.length == 0 {
+	offset, length, err := s.expandValues(e)
+	if err != nil {
+		return nil, err
+	}
+	if offset == 0 && length == 0 {
 		return []string{}, nil
 	}
 
-	var (
-		offset = s.offset
-		str    = vs[0]
-	)
+	var str = vs[0]
 	if offset < 0 {
 		offset = len(str) + offset
 	}
 	if offset < 0 || offset >= len(str) {
 		return vs, nil
 	}
-	str = str[offset:]
-	switch sz := s.length; {
-	case sz == 0:
-	case sz < 0:
-		if sz = len(str) + sz; sz >= 0 {
+
+	switch str = str[offset:]; {
+	case length == 0:
+	case length < 0:
+		if sz := len(str) + length; sz >= 0 {
 			str = str[:sz]
 		}
-	case sz > 0:
-		if sz < len(str) {
-			str = str[:sz]
+	case length > 0:
+		if length < len(str) {
+			str = str[:length]
 		}
 	}
 	return []string{str}, nil
@@ -58,6 +62,40 @@ func (s substring) Apply(ident string, e *Env) ([]string, error) {
 
 func (s substring) String() string {
 	return fmt.Sprintf("substring(%d, %d)", s.offset, s.length)
+}
+
+func (s substring) expandValues(e *Env) (int, int, error) {
+	var offset, length int
+
+	if off, ok := s.offset.(Number); !ok {
+		vs, err := s.offset.Expand(e)
+		if err != nil {
+			return offset, length, err
+		}
+		if len(vs) > 0 {
+			offset, err = strconv.Atoi(vs[0])
+			if err != nil {
+				return offset, length, err
+			}
+		}
+	} else {
+		offset = int(off)
+	}
+	if lgt, ok := s.length.(Number); !ok {
+		vs, err := s.length.Expand(e)
+		if err != nil {
+			return offset, length, err
+		}
+		if len(vs) > 0 {
+			length, err = strconv.Atoi(vs[0])
+			if err != nil {
+				return offset, length, err
+			}
+		}
+	} else {
+		length = int(lgt)
+	}
+	return offset, length, nil
 }
 
 type length struct{}
@@ -80,12 +118,12 @@ func (n length) Apply(ident string, e *Env) ([]string, error) {
 }
 
 type trimPrefix struct {
-	pattern string
+	pattern Word
 	longest bool
 }
 
-func TrimPrefix(str string, longest bool) Apply {
-	return trimPrefix{pattern: str, longest: longest}
+func TrimPrefix(w Word, longest bool) Apply {
+	return trimPrefix{pattern: w, longest: longest}
 }
 
 func (p trimPrefix) Apply(ident string, e *Env) ([]string, error) {
@@ -93,9 +131,13 @@ func (p trimPrefix) Apply(ident string, e *Env) ([]string, error) {
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
-	str := strings.TrimPrefix(vs[0], p.pattern)
-	for p.longest && strings.HasPrefix(str, p.pattern) {
-		str = strings.TrimPrefix(str, p.pattern)
+	xs, err := p.pattern.Expand(e)
+	if err != nil || len(xs) == 0 {
+		return nil, err
+	}
+	str := strings.TrimPrefix(vs[0], xs[0])
+	for p.longest && strings.HasPrefix(str, xs[0]) {
+		str = strings.TrimPrefix(str, xs[0])
 	}
 	return []string{str}, nil
 }
@@ -105,12 +147,12 @@ func (p trimPrefix) String() string {
 }
 
 type trimSuffix struct {
-	pattern string
+	pattern Word
 	longest bool
 }
 
-func TrimSuffix(str string, longest bool) Apply {
-	return trimSuffix{pattern: str, longest: longest}
+func TrimSuffix(w Word, longest bool) Apply {
+	return trimSuffix{pattern: w, longest: longest}
 }
 
 func (s trimSuffix) Apply(ident string, e *Env) ([]string, error) {
@@ -118,9 +160,13 @@ func (s trimSuffix) Apply(ident string, e *Env) ([]string, error) {
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
-	str := strings.TrimSuffix(vs[0], s.pattern)
-	for s.longest && strings.HasSuffix(str, s.pattern) {
-		str = strings.TrimSuffix(str, s.pattern)
+	xs, err := s.pattern.Expand(e)
+	if err != nil || len(xs) == 0 {
+		return nil, err
+	}
+	str := strings.TrimSuffix(vs[0], xs[0])
+	for s.longest && strings.HasSuffix(str, xs[0]) {
+		str = strings.TrimSuffix(str, xs[0])
 	}
 	return []string{str}, nil
 }
@@ -130,17 +176,17 @@ func (s trimSuffix) String() string {
 }
 
 type replace struct {
-	src    string
-	dst    string
+	src    Word
+	dst    Word
 	prefix bool
 	suffix bool
 }
 
-func Replace(src, dst string) Apply {
+func Replace(src, dst Word) Apply {
 	return replace{src: src, dst: dst}
 }
 
-func ReplaceAll(src, dst string) Apply {
+func ReplaceAll(src, dst Word) Apply {
 	return replace{
 		src:    src,
 		dst:    dst,
@@ -149,7 +195,7 @@ func ReplaceAll(src, dst string) Apply {
 	}
 }
 
-func ReplacePrefix(src, dst string) Apply {
+func ReplacePrefix(src, dst Word) Apply {
 	return replace{
 		src:    src,
 		dst:    dst,
@@ -157,7 +203,7 @@ func ReplacePrefix(src, dst string) Apply {
 	}
 }
 
-func ReplaceSuffix(src, dst string) Apply {
+func ReplaceSuffix(src, dst Word) Apply {
 	return replace{
 		src:    src,
 		dst:    dst,
@@ -171,18 +217,22 @@ func (r replace) Apply(ident string, e *Env) ([]string, error) {
 		return vs, err
 	}
 	str := vs[0]
+	src, dst, err := r.expandValues(e)
+	if err != nil {
+		return nil, err
+	}
 	switch {
 	default:
-		str = strings.Replace(str, r.src, r.dst, 1)
+		str = strings.Replace(str, src, dst, 1)
 	case r.prefix && r.suffix:
-		str = strings.ReplaceAll(str, r.src, r.dst)
+		str = strings.ReplaceAll(str, src, dst)
 	case r.prefix && !r.suffix:
-		if strings.HasPrefix(str, r.src) {
-			str = r.dst + strings.TrimPrefix(str, r.src)
+		if strings.HasPrefix(str, src) {
+			str = dst + strings.TrimPrefix(str, src)
 		}
 	case r.suffix && !r.prefix:
-		if strings.HasSuffix(str, r.src) {
-			str = strings.TrimSuffix(str, r.src) + r.dst
+		if strings.HasSuffix(str, src) {
+			str = strings.TrimSuffix(str, src) + dst
 		}
 	}
 	return []string{str}, nil
@@ -190,6 +240,19 @@ func (r replace) Apply(ident string, e *Env) ([]string, error) {
 
 func (r replace) String() string {
 	return fmt.Sprintf("replace(%s, %s)", r.src, r.dst)
+}
+
+func (r replace) expandValues(e *Env) (string, string, error) {
+	var src, dst string
+	vs, err := r.src.Expand(e)
+	if err == nil && len(vs) > 0 {
+		src = vs[0]
+	}
+	vs, err = r.dst.Expand(e)
+	if err == nil && len(vs) > 0 {
+		dst = vs[0]
+	}
+	return src, dst, err
 }
 
 type lower struct {
@@ -254,20 +317,20 @@ func (u upper) String() string {
 
 // ${FOO:=BAR}
 type setifundef struct {
-	str string
+	str Word
 }
 
-func SetIfUndef(str string) Apply {
+func SetIfUndef(str Word) Apply {
 	return setifundef{str}
 }
 
 func (s setifundef) Apply(ident string, e *Env) ([]string, error) {
 	vs, err := e.Get(ident)
 	if err != nil {
-		vs = []string{s.str}
+		vs, err = s.str.Expand(e)
 		e.Set(ident, vs)
 	}
-	return vs, nil
+	return vs, err
 }
 
 func (s setifundef) String() string {
@@ -276,19 +339,19 @@ func (s setifundef) String() string {
 
 // ${FOO:-BAR}
 type getifundef struct {
-	str string
+	str Word
 }
 
-func GetIfUndef(str string) Apply {
+func GetIfUndef(str Word) Apply {
 	return getifundef{str}
 }
 
 func (g getifundef) Apply(ident string, e *Env) ([]string, error) {
 	vs, err := e.Get(ident)
 	if err != nil {
-		vs = []string{g.str}
+		vs, err = g.str.Expand(e)
 	}
-	return vs, nil
+	return vs, err
 }
 
 func (g getifundef) String() string {
@@ -297,19 +360,19 @@ func (g getifundef) String() string {
 
 // ${FOO:+BAR}
 type getifdef struct {
-	str string
+	str Word
 }
 
-func GetIfDef(str string) Apply {
+func GetIfDef(str Word) Apply {
 	return getifdef{str}
 }
 
 func (g getifdef) Apply(ident string, e *Env) ([]string, error) {
 	vs, err := e.Get(ident)
 	if err == nil {
-		vs = []string{g.str}
+		vs, err = g.str.Expand(e)
 	}
-	return vs, nil
+	return vs, err
 }
 
 func (g getifdef) String() string {

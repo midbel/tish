@@ -249,6 +249,18 @@ func testScanParameters(t *testing.T) {
 			},
 		},
 		{
+			Input: `echo ${FOO:-$BAR}`, // BAR if FOO is not set
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokGetIfUndef},
+				{Literal: "BAR", Type: tokVar},
+				{Type: tokEndParam},
+			},
+		},
+		{
 			Input: `echo ${FOO-BAR}`, // BAR if FOO is not set
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
@@ -273,6 +285,18 @@ func testScanParameters(t *testing.T) {
 			},
 		},
 		{
+			Input: `echo ${FOO:=$BAR}`, // set BAR to FOO if FOO is not set
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokSetIfUndef},
+				{Literal: "BAR", Type: tokVar},
+				{Type: tokEndParam},
+			},
+		},
+		{
 			Input: `echo ${FOO=BAR}`, // set BAR to FOO if FOO is not set
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
@@ -293,6 +317,18 @@ func testScanParameters(t *testing.T) {
 				{Literal: "FOO", Type: tokVar},
 				{Type: tokGetIfDef},
 				{Literal: "BAR", Type: tokWord},
+				{Type: tokEndParam},
+			},
+		},
+		{
+			Input: `echo ${FOO:+$BAR}`, // get BAR if FOO is set
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginParam},
+				{Literal: "FOO", Type: tokVar},
+				{Type: tokGetIfDef},
+				{Literal: "BAR", Type: tokVar},
 				{Type: tokEndParam},
 			},
 		},
@@ -373,15 +409,15 @@ func testScanParameters(t *testing.T) {
 				{Literal: "FOO", Type: tokVar},
 				{Type: tokSliceOffset},
 				{Type: tokBeginArith},
-				{Literal: "1", Type:tokInt},
+				{Literal: "1", Type: tokInt},
 				{Type: plus},
-				{Literal: "5", Type:tokInt},
+				{Literal: "5", Type: tokInt},
 				{Type: tokEndArith},
 				{Type: tokSliceLen},
 				{Type: tokBeginArith},
-				{Literal: "8", Type:tokInt},
+				{Literal: "8", Type: tokInt},
 				{Type: modulo},
-				{Literal: "5", Type:tokInt},
+				{Literal: "5", Type: tokInt},
 				{Type: tokEndArith},
 				{Type: tokEndParam},
 			},

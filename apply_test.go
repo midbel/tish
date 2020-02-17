@@ -29,13 +29,41 @@ func testApplyReplace(t *testing.T) {
 	env.Set(ident, []string{str})
 
 	data := []ApplyCase{
-		{Ident: ident, Want: "F--BAR", Apply: Replace("OO", "--")},
-		{Ident: ident, Want: "F--BAR", Apply: ReplaceAll("O", "-")},
-		{Ident: ident, Want: str, Apply: Replace("foobar", "")},
-		{Ident: ident, Want: str, Apply: ReplaceAll("foobar", "")},
-		{Ident: ident, Want: str, Apply: ReplacePrefix("BAR", "FOO")},
-		{Ident: ident, Want: "---BAR", Apply: ReplacePrefix("FOO", "---")},
-		{Ident: ident, Want: "FOO---", Apply: ReplaceSuffix("BAR", "---")},
+		{
+			Ident: ident,
+			Want:  "F--BAR",
+			Apply: Replace(Literal("OO"), Literal("--")),
+		},
+		{
+			Ident: ident,
+			Want:  "F--BAR",
+			Apply: ReplaceAll(Literal("O"), Literal("-")),
+		},
+		{
+			Ident: ident,
+			Want:  str,
+			Apply: Replace(Literal("foobar"), Literal("")),
+		},
+		{
+			Ident: ident,
+			Want:  str,
+			Apply: ReplaceAll(Literal("foobar"), Literal("")),
+		},
+		{
+			Ident: ident,
+			Want:  str,
+			Apply: ReplacePrefix(Literal("BAR"), Literal("FOO")),
+		},
+		{
+			Ident: ident,
+			Want:  "---BAR",
+			Apply: ReplacePrefix(Literal("FOO"), Literal("---")),
+		},
+		{
+			Ident: ident,
+			Want:  "FOO---",
+			Apply: ReplaceSuffix(Literal("BAR"), Literal("---")),
+		},
 	}
 
 	runApplyTest(t, env, data...)
@@ -70,9 +98,21 @@ func testApplyGetOrSet(t *testing.T) {
 	env.Set(ident, []string{str})
 
 	data := []ApplyCase{
-		{Ident: "FOO", Want: "FOO", Apply: SetIfUndef("FOO")},
-		{Ident: "BAR", Want: "BAR", Apply: GetIfUndef("BAR")},
-		{Ident: ident, Want: "BAR", Apply: GetIfDef("BAR")},
+		{
+			Ident: "FOO",
+			Want:  "FOO",
+			Apply: SetIfUndef(Literal("FOO")),
+		},
+		{
+			Ident: "BAR",
+			Want:  "BAR",
+			Apply: GetIfUndef(Literal("BAR")),
+		},
+		{
+			Ident: ident,
+			Want:  "BAR",
+			Apply: GetIfDef(Literal("BAR")),
+		},
 	}
 
 	runApplyTest(t, env, data...)
@@ -96,14 +136,46 @@ func testApplyTrim(t *testing.T) {
 	env.Set(ident, []string{str})
 
 	data := []ApplyCase{
-		{Ident: ident, Want: prefix, Apply: TrimSuffix(suffix, false)},
-		{Ident: ident, Want: suffix, Apply: TrimPrefix(prefix, false)},
-		{Ident: ident, Want: str, Apply: TrimSuffix(prefix, false)},
-		{Ident: ident, Want: str, Apply: TrimPrefix(suffix, false)},
-		{Ident: "FOO", Want: "FOOBAR", Apply: TrimPrefix("FOO", false)},
-		{Ident: "FOO", Want: "BAR", Apply: TrimPrefix("FOO", true)},
-		{Ident: "BAR", Want: "FOOBAR", Apply: TrimSuffix("BAR", false)},
-		{Ident: "BAR", Want: "FOO", Apply: TrimSuffix("BAR", true)},
+		{
+			Ident: ident,
+			Want:  prefix,
+			Apply: TrimSuffix(Literal(suffix), false),
+		},
+		{
+			Ident: ident,
+			Want:  suffix,
+			Apply: TrimPrefix(Literal(prefix), false),
+		},
+		{
+			Ident: ident,
+			Want:  str,
+			Apply: TrimSuffix(Literal(prefix), false),
+		},
+		{
+			Ident: ident,
+			Want:  str,
+			Apply: TrimPrefix(Literal(suffix), false),
+		},
+		{
+			Ident: "FOO",
+			Want:  "FOOBAR",
+			Apply: TrimPrefix(Literal("FOO"), false),
+		},
+		{
+			Ident: "FOO",
+			Want:  "BAR",
+			Apply: TrimPrefix(Literal("FOO"), true),
+		},
+		{
+			Ident: "BAR",
+			Want:  "FOOBAR",
+			Apply: TrimSuffix(Literal("BAR"), false),
+		},
+		{
+			Ident: "BAR",
+			Want:  "FOO",
+			Apply: TrimSuffix(Literal("BAR"), true),
+		},
 	}
 
 	env.Set("FOO", []string{"FOOFOOBAR"})
@@ -149,15 +221,50 @@ func testApplySubstring(t *testing.T) {
 	env.Set(ident, []string{str})
 
 	data := []ApplyCase{
-		{Ident: ident, Want: "", Apply: Substring(0, 0)},
-		{Ident: ident, Want: "0123", Apply: Substring(0, 4)},
-		{Ident: ident, Want: "4567", Apply: Substring(4, 4)},
-		{Ident: ident, Want: "456789", Apply: Substring(4, -6)},
-		{Ident: ident, Want: "ABCDEF", Apply: Substring(-6, 0)},
-		{Ident: ident, Want: "ABCD", Apply: Substring(-6, 4)},
-		{Ident: ident, Want: "ABCD", Apply: Substring(-6, -2)},
-		{Ident: ident, Want: str, Apply: Substring(-20, 0)},
-		{Ident: ident, Want: str, Apply: Substring(20, 0)},
+		{
+			Ident: ident,
+			Want:  "",
+			Apply: Substring(Number(0), Number(0)),
+		},
+		{
+			Ident: ident,
+			Want:  "0123",
+			Apply: Substring(Number(0), Number(4)),
+		},
+		{
+			Ident: ident,
+			Want:  "4567",
+			Apply: Substring(Number(4), Number(4)),
+		},
+		{
+			Ident: ident,
+			Want:  "456789",
+			Apply: Substring(Number(4), Number(-6)),
+		},
+		{
+			Ident: ident,
+			Want:  "ABCDEF",
+			Apply: Substring(Number(-6), Number(0)),
+		},
+		{
+			Ident: ident,
+			Want:  "ABCD",
+			Apply: Substring(Number(-6), Number(4)),
+		},
+		{
+			Ident: ident, Want: "ABCD",
+			Apply: Substring(Number(-6), Number(-2)),
+		},
+		{
+			Ident: ident,
+			Want:  str,
+			Apply: Substring(Number(-20), Number(0)),
+		},
+		{
+			Ident: ident,
+			Want:  str,
+			Apply: Substring(Number(20), Number(0)),
+		},
 	}
 
 	runApplyTest(t, env, data...)

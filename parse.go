@@ -499,7 +499,7 @@ func (p *parser) parseParameter() (Word, error) {
 		}
 		p.next()
 		if p.curr.Type != tokEndParam {
-			return nil, fmt.Errorf("parameter: unexpected token: %s", p.curr)
+			return nil, fmt.Errorf("parameter(length): unexpected token: %s", p.curr)
 		}
 		p.next()
 		return v, nil
@@ -511,38 +511,73 @@ func (p *parser) parseParameter() (Word, error) {
 		ident:  p.curr.Literal,
 		quoted: p.curr.Quoted,
 	}
+
+	nextWord := func() (Word, error) {
+		var (
+			w   Word
+			err error
+		)
+		switch p.curr.Type {
+		case tokInt:
+			x, err := strconv.ParseInt(p.curr.Literal, 0, 64)
+			if err != nil {
+				return nil, err
+			}
+			w = Number(x)
+		case tokWord:
+			w = Literal(p.curr.Literal)
+		case tokVar:
+			w = Variable{
+				ident:  p.curr.Literal,
+				quoted: p.curr.Quoted,
+				apply:  Identity(),
+			}
+		case tokBeginSub:
+			w, err = p.parseSubstitution()
+		case tokBeginArith:
+			w, err = p.parseArithmetic()
+		default:
+			err = fmt.Errorf("unexpected token %s", p.curr)
+		}
+		return w, err
+	}
+
 	p.next()
 	switch typof := p.curr.Type; typof {
 	case tokTrimSuffix, tokTrimSuffixLong:
 		p.next()
-		if p.curr.Type != tokWord {
-			return nil, fmt.Errorf("parameter(suffix): unexpected token %s", p.curr)
+		w, err := nextWord()
+		if err != nil {
+			return nil, fmt.Errorf("parameter(suffix): %s", err)
 		}
-		v.apply = TrimSuffix(p.curr.Literal, typof == tokTrimSuffixLong)
+		v.apply = TrimSuffix(w, typof == tokTrimSuffixLong)
 		p.next()
 	case tokTrimPrefix, tokTrimPrefixLong:
 		p.next()
-		if p.curr.Type != tokWord {
-			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		w, err := nextWord()
+		if err != nil {
+			return nil, fmt.Errorf("parameter(prefix): %s", err)
 		}
-		v.apply = TrimSuffix(p.curr.Literal, typof == tokTrimPrefixLong)
+		v.apply = TrimPrefix(w, typof == tokTrimPrefixLong)
 		p.next()
 	case tokReplace, tokReplaceAll, tokReplacePrefix, tokReplaceSuffix:
-		var from, to string
+		var (
+			from Word
+			to   Word
+			err  error
+		)
 		p.next()
-		if p.curr.Type != tokWord {
-			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		if from, err = nextWord(); err != nil {
+			return nil, fmt.Errorf("parameter(replace): %s", err)
 		}
-		from = p.curr.Literal
 		p.next()
 		if p.curr.Type != tokReplace {
-
+			return nil, fmt.Errorf("parameter(replace): %s", err)
 		}
 		p.next()
-		if p.curr.Type != tokWord {
-			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		if to, err = nextWord(); err != nil {
+			return nil, err
 		}
-		to = p.curr.Literal
 		switch typof {
 		case tokReplace:
 			v.apply = Replace(from, to)
@@ -556,16 +591,17 @@ func (p *parser) parseParameter() (Word, error) {
 		p.next()
 	case tokGetIfDef, tokGetIfUndef, tokSetIfUndef:
 		p.next()
-		if p.curr.Type != tokWord {
-			return nil, fmt.Errorf("parameter(prefix): unexpected token %s", p.curr)
+		w, err := nextWord()
+		if err != nil {
+			return nil, fmt.Errorf("parameter(def/undef): %s", err)
 		}
 		switch typof {
 		case tokGetIfDef:
-			v.apply = GetIfDef(p.curr.Literal)
+			v.apply = GetIfDef(w)
 		case tokGetIfUndef:
-			v.apply = GetIfUndef(p.curr.Literal)
+			v.apply = GetIfUndef(w)
 		case tokSetIfUndef:
-			v.apply = SetIfUndef(p.curr.Literal)
+			v.apply = SetIfUndef(w)
 		}
 		p.next()
 	case tokLower, tokLowerAll:
@@ -575,24 +611,21 @@ func (p *parser) parseParameter() (Word, error) {
 		v.apply = Lower(typof == tokUpperAll)
 	case tokSliceOffset:
 		var (
-			offset int
-			length int
+			offset Word
+			length Word
 			err    error
 		)
 		p.next()
-		if p.curr.Type != tokInt {
-			return nil, fmt.Errorf("parameter(offset): unexpected token %s", p.curr)
-		}
-		if offset, err = strconv.Atoi(p.curr.Literal); err != nil {
-			return nil, err
+		if offset, err = nextWord(); err != nil {
+			return nil, fmt.Errorf("parameter(offset): %s", err)
 		}
 		p.next()
 		if p.curr.Type != tokSliceLen {
 			return nil, fmt.Errorf("parameter(length): unexpected token %s", p.curr)
 		}
 		p.next()
-		if length, err = strconv.Atoi(p.curr.Literal); err != nil {
-			return nil, err
+		if length, err = nextWord(); err != nil {
+			return nil, fmt.Errorf("parameter(length): %s", err)
 		}
 		p.next()
 
