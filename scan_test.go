@@ -496,6 +496,17 @@ func testScanRedirections(t *testing.T) {
 				{Literal: "/dev/null", Type: tokWord},
 			},
 		},
+		{
+			Input: `echo < foo.txt 2>&1 >> bar.txt`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				{Type: tokRedirectStdin},
+				{Literal: "foo.txt", Type: tokWord},
+				{Type: tokRedirectErrToOut},
+				{Type: tokAppendStdout},
+				{Literal: "bar.txt", Type: tokWord},
+			},
+		},
 	}
 	testValidTokens(t, data)
 }

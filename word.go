@@ -128,11 +128,37 @@ func (r Redirect) Equal(w Word) bool {
 	if !ok {
 		return ok
 	}
-	return r.file == other.file && r.mode == other.mode && r.Word.Equal(other.Word)
+	if r.file == other.file && r.mode == other.mode {
+		if r.Word == nil && other.Word == nil {
+			return true
+		}
+		if r.Word != nil && other.Word == nil {
+			return false
+		}
+		if r.Word == nil && other.Word != nil {
+			return false
+		}
+		return r.Word.Equal(other.Word)
+	}
+	return false
 }
 
 func (r Redirect) String() string {
-	return fmt.Sprintf("redirect(%s)", r.Word.String())
+	var str string
+	switch r.mode {
+	case modRead:
+		str = "read"
+	case modWrite:
+		str = "write"
+	case modAppend:
+		str = "append"
+	case modRelink:
+		str = "relink"
+	}
+	if r.Word == nil {
+		return str
+	}
+	return fmt.Sprintf("%s(%s)", str, r.Word.String())
 }
 
 func (r Redirect) asWord() Word {

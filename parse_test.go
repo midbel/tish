@@ -176,7 +176,7 @@ func testParseRedirections(t *testing.T) {
 			),
 		},
 		{
-			Input: `echo < foo.txt 2>&1 >> bar.tx`,
+			Input: `echo < foo.txt 2>&1 >> bar.txt`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				Literal("foo"),

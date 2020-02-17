@@ -342,7 +342,7 @@ func (p *parser) parseCommand() (Word, error) {
 	ws := List{kind: kindPipe}
 	for {
 		xs := List{kind: kindSimple}
-		for !p.isControl() && !p.isRedirection() {
+		for !p.isControl() {
 			w, err := p.parseWord()
 			if err != nil {
 				return nil, err
@@ -365,41 +365,66 @@ func (p *parser) parseCommand() (Word, error) {
 }
 
 func (p *parser) parseRedirection() (Word, error) {
-	var r Redirect
+	var file, mode int
 	switch p.curr.Type {
 	default:
 		return nil, fmt.Errorf("unsupported redirection operator: %s", p.curr)
 	case tokRedirectStdin:
-		r.file, r.mode = fdIn, modRead
+		file, mode = fdIn, modRead
 	case tokRedirectStdout:
-		r.file, r.mode = fdOut, modWrite
+		file, mode = fdOut, modWrite
 	case tokRedirectStderr:
-		r.file, r.mode = fdErr, modWrite
+		file, mode = fdErr, modWrite
 	case tokRedirectBoth:
-		r.file, r.mode = fdBoth, modWrite
+		file, mode = fdBoth, modWrite
 	case tokAppendStdout:
-		r.file, r.mode = fdOut, modAppend
+		file, mode = fdOut, modAppend
 	case tokAppendStderr:
-		r.file, r.mode = fdErr, modAppend
+		file, mode = fdErr, modAppend
 	case tokAppendBoth:
-		r.file, r.mode = fdBoth, modAppend
+		file, mode = fdBoth, modAppend
 	case tokRedirectErrToOut:
-		r.file, r.mode = fdOut, modRelink
+		file, mode = fdOut, modRelink
 	case tokRedirectOutToErr:
-		r.file, r.mode = fdErr, modRelink
+		file, mode = fdErr, modRelink
 	}
+	p.next()
+
+	r := Redirect{
+		file: file,
+		mode: mode,
+	}
+
+	if r.mode == modRelink {
+		fmt.Println("parseRedirect: relink", r)
+		return r, nil
+	}
+
 	var ws []Word
 	for {
-		if p.isRedirection() || p.isDone() {
+		if p.isRedirection() || p.isControl() || p.isDone() {
 			break
 		}
-		w, err := p.parseWord()
-		if err != nil {
-			return nil, err
+		switch p.curr.Type {
+		case tokWord:
+			ws = append(ws, Literal(p.curr.Literal))
+		case tokVar:
+			v := Variable{
+				ident:  p.curr.Literal,
+				quoted: p.curr.Quoted,
+				apply:  Identity(),
+			}
+			ws = append(ws, v)
+		default:
+			return nil, fmt.Errorf("redirection: unexpected token type %s", p.curr)
 		}
-		ws = append(ws, w)
+		p.next()
+		if p.isBlank() {
+			p.next()
+		}
 	}
 	r.Word = asWord(ws)
+	fmt.Println("parseRedirect: default", ws)
 	return r, nil
 }
 
@@ -410,12 +435,7 @@ func (p *parser) parseWord() (Word, error) {
 			break
 		}
 		if p.isRedirection() {
-			w, err := p.parseRedirection()
-			if err != nil {
-				return nil, err
-			}
-			xs = append(xs, w)
-			continue
+			return p.parseRedirection()
 		}
 		switch p.curr.Type {
 		case tokWord:
