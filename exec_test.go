@@ -14,6 +14,7 @@ func ExampleExecuteWithEnv() {
 		`echo '$HOME'`,
 		`echo pre-" <$HOME> "-post`,
 		`echo pre-{foo,bar}-post`,
+		`echo foo $(( 1 + (2*3)))`,
 	}
 	for _, s := range scripts {
 		if err := ExecuteWithEnv(strings.NewReader(s), env); err != nil {
@@ -26,4 +27,5 @@ func ExampleExecuteWithEnv() {
 	// $HOME
 	// pre- </home/midbel> -post
 	// pre-foo-post pre-bar-post
+	// foo 7
 }
