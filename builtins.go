@@ -59,6 +59,11 @@ func init() {
 			Short: "write the formatted arguments to standard output",
 			Run:   Printf,
 		},
+		"local": {
+			Usage: "local name[=value]...",
+			Short: "create a variable with name and assign a optional value",
+			Run:   Local,
+		},
 		// "env":     {},
 		// "export":  {},
 		// "alias":   {},
@@ -69,6 +74,14 @@ func init() {
 		// "time":    {},
 		// "type":    {},
 	}
+}
+
+func Local(c Command, args []string) error {
+	set := flag.NewFlagSet(c.String(), flag.ContinueOnError)
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	return nil
 }
 
 func Printf(c Command, args []string) error {
