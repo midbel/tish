@@ -272,7 +272,7 @@ func testExpandVariables(t *testing.T) {
 func testExpandWords(t *testing.T) {
 	env := buildEnv()
 	i := List{
-		kind: kindSimple,
+		kind: kindWord,
 		words: []Word{
 			Literal("pre-"),
 			Literal(" <"),

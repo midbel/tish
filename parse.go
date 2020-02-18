@@ -647,7 +647,7 @@ func asWord(xs []Word) Word {
 	} else if n == 1 {
 		w = xs[0]
 	} else {
-		w = List{words: xs}
+		w = List{words: xs, kind: kindWord}
 	}
 	return w
 }

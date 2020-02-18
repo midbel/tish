@@ -18,6 +18,7 @@ const (
 	kindSub
 	kindExpr
 	kindBraces
+	kindWord
 )
 
 func (k Kind) String() string {
@@ -66,6 +67,9 @@ func (i List) Expand(e *Env) ([]string, error) {
 			return nil, err
 		}
 		ws = append(ws, xs...)
+	}
+	if i.kind == kindWord {
+		ws = []string{strings.Join(ws, "")}
 	}
 	return ws, nil
 }
