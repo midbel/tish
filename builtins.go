@@ -54,13 +54,41 @@ func init() {
 			Short: fmt.Sprintf("generate a random integer between 0 and %d", math.MaxUint32),
 			Run:   Random,
 		},
-		// "env":     Env,
-		// "export":  Export,
-		// "alias":   Alias,
-		// "unalias": Unalias,
-		// "pwd":     Pwd,
-		// "cd":      Cd,
+		"printf": {
+			Usage: "printf [-v var] format [arg...]",
+			Short: "write the formatted arguments to standard output",
+			Run:   Printf,
+		},
+		// "env":     {},
+		// "export":  {},
+		// "alias":   {},
+		// "unalias": {},
+		// "pwd":     {},
+		// "cd":      {},
+		// "pwd":     {},
+		// "time":    {},
+		// "type":    {},
 	}
+}
+
+func Printf(c Command, args []string) error {
+	var (
+		set  = flag.NewFlagSet(c.String(), flag.ContinueOnError)
+		name = set.String("v", "", "variable")
+	)
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	args := flag.Args()
+	if len(args) < 2 {
+		return nil
+	}
+	str := fmt.Sprintf(args[0], args[1:]...)
+	if *name != "" {
+		return nil
+	}
+	_, err := fmt.Println(str)
+	return err
 }
 
 func Random(c Command, args []string) error {
@@ -83,8 +111,10 @@ func Echo(c Command, args []string) error {
 }
 
 func Date(c Command, args []string) error {
-	set := flag.NewFlagSet(c.String(), flag.ContinueOnError)
-	utc := set.Bool("u", false, "utc time")
+	var (
+		set = flag.NewFlagSet(c.String(), flag.ContinueOnError)
+		utc = set.Bool("u", false, "utc time")
+	)
 	if err := set.Parse(args); err != nil {
 		return err
 	}
