@@ -11,6 +11,7 @@ func TestWordExpand(t *testing.T) {
 	t.Run("expr", testExpandExpr)
 	t.Run("braces", testExpandBraces)
 	t.Run("assignments", testExpandAssignments)
+	t.Run("words", testExpandWords)
 }
 
 func testExpandAssignments(t *testing.T) {
@@ -265,6 +266,32 @@ func testExpandVariables(t *testing.T) {
 		if _, err := env.Get(d.Literal); err == nil {
 			t.Errorf("%s: deleted variable has been resolved", v)
 		}
+	}
+}
+
+func testExpandWords(t *testing.T) {
+	env := buildEnv()
+	i := List{
+		kind: kindSimple,
+		words: []Word{
+			Literal("pre-"),
+			Literal(" <"),
+			Literal(" middle "),
+			Literal("> "),
+			Literal("-post"),
+		},
+	}
+	want := "pre- < middle > -post"
+
+	vs, err := i.Expand(env)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if len(vs) != 1 {
+		t.Fatalf("values mismatched: %s", vs)
+	}
+	if vs[0] != want {
+		t.Fatalf("values mismatched! want %s, got %s", want, vs[0])
 	}
 }
 
