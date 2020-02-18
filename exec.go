@@ -5,7 +5,69 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 )
+
+const MaxHistSize = 100
+
+type Shell struct {
+	time.Time
+	uid int // user id
+	pid int // pid of current shell
+
+	depth int // nesting of shell
+
+	globals *Env
+	locals  *Env
+
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
+
+	alias map[string]string
+
+	dirs struct {
+		ptr  int
+		hist []string
+	}
+	proc struct {
+		exit int // exit code of the last executed process
+		pid  int // pid of the last executed process
+	}
+}
+
+func NewShell() *Shell {
+	s := Shell{
+		uid:     os.Getuid(),
+		pid:     os.Getpid(),
+		Time:    time.Now(),
+		globals: NewEnvironment(),
+		locals:  NewEnvironment(),
+		stdin:   os.Stdin,
+		stdout:  os.Stdout,
+		stderr:  os.Stderr,
+		alias:   make(map[string]string),
+	}
+	s.dirs.hist = make([]string, MaxHistSize)
+	return &s
+}
+
+func (s *Shell) workingDir() string {
+	return s.dirs.hist[s.dirs.ptr-1]
+}
+
+func (s *Shell) popDir() {
+	s.dirs.ptr--
+}
+
+func (s *Shell) pushDir(dir string) {
+	s.dirs.hist[s.dirs.ptr] = dir
+	s.dirs.ptr++
+}
+
+func (s *Shell) subshell() *Shell {
+	return nil
+}
 
 func Execute(r io.Reader) error {
 	return ExecuteWithEnv(r, NewEnvironment())
@@ -104,16 +166,13 @@ func executeSequence(ws []Word, e *Env) error {
 
 func executeSimple(w Word, e *Env) error {
 	vs, err := w.Expand(e)
-	if err != nil {
+	if err != nil || len(vs) == 0 {
 		return err
 	}
 	if c, ok := builtins[vs[0]]; ok && c.Runnable() {
 		return c.Run(c, vs[1:])
 	}
-	cmd := exec.Command(vs[0], vs[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return prepare(vs, os.Stdin, os.Stdout, os.Stderr).Run()
 }
 
 func executeLiteral(i Literal, e *Env) error {
@@ -124,8 +183,15 @@ func executeLiteral(i Literal, e *Env) error {
 	if c, ok := builtins[vs[0]]; ok && c.Runnable() {
 		return c.Run(c, vs[1:])
 	}
-	cmd := exec.Command(vs[0], vs[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return prepare(vs, os.Stdin, os.Stdout, os.Stderr).Run()
+}
+
+func prepare(args []string, in io.Reader, out, err io.Writer) *exec.Cmd {
+	cmd := exec.Command(args[0], args[1:]...)
+
+	cmd.Stdin = in
+	cmd.Stdout = out
+	cmd.Stderr = err
+
+	return cmd
 }
