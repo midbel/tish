@@ -23,6 +23,7 @@ Nex steps are:
 * execute simple scripts with all already supported construct
 * add conditional and loop constructs: if, case, for,...
 * braces expansion for range: {1..10..1}
+* filename expansion
 * builtin: export, echo, now,...
 * modules system to extend the "command" available
 * support for environment variable
