@@ -5,24 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"sort"
 )
-
-var builtins = []string{
-	"export",
-	"date",
-	"alias",
-	"unalias",
-	"pwd",
-	"cd",
-	"vars",
-	"env",
-	// "echo",
-}
-
-func init() {
-	sort.Strings(builtins)
-}
 
 func Execute(r io.Reader) error {
 	return ExecuteWithEnv(r, NewEnvironment())
@@ -124,7 +107,9 @@ func executeSimple(w Word, e *Env) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%q\n", vs[1:])
+	if c, ok := builtins[vs[0]]; ok && c.Runnable() {
+		return c.Run(c, vs[1:])
+	}
 	cmd := exec.Command(vs[0], vs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -135,6 +120,9 @@ func executeLiteral(i Literal, e *Env) error {
 	vs, err := i.Expand(e)
 	if err != nil || len(vs) == 0 {
 		return err
+	}
+	if c, ok := builtins[vs[0]]; ok && c.Runnable() {
+		return c.Run(c, vs[1:])
 	}
 	cmd := exec.Command(vs[0], vs[1:]...)
 	cmd.Stdout = os.Stdout
