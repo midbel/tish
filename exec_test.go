@@ -9,6 +9,7 @@ func ExampleExecuteWithEnv() {
 	env.Set("HOME", []string{"/home/midbel"})
 
 	scripts := []string{
+		`echo`,
 		`echo foobar`,
 		`echo $HOME`,
 		`echo '$HOME'`,
@@ -16,6 +17,9 @@ func ExampleExecuteWithEnv() {
 		`echo pre-{foo,bar}-post`,
 		`echo foo $(( 1 + (2*3)))`,
 		`printf "%s-%s" foo bar`,
+		`echo foo; echo bar`,
+		`echo foo && echo bar`,
+		`echo foo || echo bar`,
 	}
 	for _, s := range scripts {
 		if err := ExecuteWithEnv(strings.NewReader(s), env); err != nil {
@@ -23,6 +27,7 @@ func ExampleExecuteWithEnv() {
 		}
 	}
 	// Output:
+	//
 	// foobar
 	// /home/midbel
 	// $HOME
@@ -30,4 +35,9 @@ func ExampleExecuteWithEnv() {
 	// pre-foo-post pre-bar-post
 	// foo 7
 	// foo-bar
+	// foo
+	// bar
+	// foo
+	// bar
+	// foo
 }

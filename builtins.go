@@ -3,66 +3,131 @@ package tish
 import (
 	"flag"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"strings"
 	"time"
 )
 
-type Command struct {
+type Command interface {
+	Start() error
+	Wait() error
+	Run() error
+}
+
+type builtin struct {
 	Usage string
 	Short string
 	Desc  string
-	Run   func(Command, []string) error
+
+	args []string
+	run  func(builtin) error
+
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
+
+	finished bool
+	done     chan error
 }
 
-func (c Command) String() string {
-	ps := strings.Split(c.Usage, " ")
-	return ps[0]
+func (b *builtin) String() string {
+	if i := strings.Index(b.Usage, " "); i > 0 {
+		return b.Usage[:i]
+	}
+	return b.Usage
 }
 
-func (c Command) Runnable() bool {
-	return c.Run != nil
+func (b *builtin) Help() string {
+	var buf strings.Builder
+	buf.WriteString(b.Short)
+	if b.Desc != "" {
+		buf.WriteRune(newline)
+		buf.WriteString(b.Desc)
+	}
+	buf.WriteRune(newline)
+	buf.WriteString(b.Usage)
+	return buf.String()
 }
 
-var builtins map[string]Command
+func (b *builtin) Runnable() bool {
+	return b.run != nil
+}
+
+func (b *builtin) Start() error {
+	if !b.Runnable() {
+		return fmt.Errorf("%s: not runnable", b.String())
+	}
+	if b.finished {
+		return fmt.Errorf("%s: already executed", b.String())
+	}
+
+	b.done = make(chan error, 1)
+	go func() {
+		b.done <- b.run(*b)
+		close(b.done)
+	}()
+	return nil
+}
+
+func (b *builtin) Wait() error {
+	if !b.Runnable() {
+		return fmt.Errorf("%s: not runnable", b.String())
+	}
+	if b.finished {
+		return fmt.Errorf("%s: already done", b.String())
+	}
+	b.finished = true
+
+	return <-b.done
+}
+
+func (b *builtin) Run() error {
+	if err := b.Start(); err != nil {
+		return err
+	}
+	return b.Wait()
+}
+
+var builtins map[string]builtin
 
 func init() {
-	builtins = map[string]Command{
+	builtins = map[string]builtin{
 		"echo": {
 			Usage: "echo [arg...]",
 			Short: "write arguments to standard output",
-			Run:   Echo,
+			run:   Echo,
 		},
 		"date": {
 			Usage: "date [-u]",
 			Short: "write current date time to standart output",
-			Run:   Date,
+			run:   Date,
 		},
 		"help": {
 			Usage: "help builtin",
 			Short: "print help text for a builtin command",
-			Run:   Help,
+			run:   Help,
 		},
 		"builtins": {
 			Usage: "builtins",
 			Short: "print list of builtins and a short description",
-			Run:   Builtins,
+			run:   Builtins,
 		},
 		"rand": {
 			Usage: "rand",
 			Short: fmt.Sprintf("generate a random integer between 0 and %d", math.MaxUint32),
-			Run:   Random,
+			run:   Random,
 		},
 		"printf": {
 			Usage: "printf [-v var] format [arg...]",
 			Short: "write the formatted arguments to standard output",
-			Run:   Printf,
+			run:   Printf,
 		},
 		"local": {
 			Usage: "local name[=value]...",
 			Short: "create a variable with name and assign a optional value",
-			Run:   Local,
+			run:   Local,
 		},
 		// "env":     {},
 		// "export":  {},
@@ -76,23 +141,29 @@ func init() {
 	}
 }
 
-func Local(c Command, args []string) error {
-	set := flag.NewFlagSet(c.String(), flag.ContinueOnError)
-	if err := set.Parse(args); err != nil {
+func Local(b builtin) error {
+	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	set.Usage = func() {
+		fmt.Println(b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func Printf(c Command, args []string) error {
+func Printf(b builtin) error {
 	var (
-		set  = flag.NewFlagSet(c.String(), flag.ContinueOnError)
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		name = set.String("v", "", "variable")
 	)
-	if err := set.Parse(args); err != nil {
+	set.Usage = func() {
+		fmt.Println(b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	args = set.Args()
+	args := set.Args()
 	if len(args) < 2 {
 		return nil
 	}
@@ -108,9 +179,12 @@ func Printf(c Command, args []string) error {
 	return err
 }
 
-func Random(c Command, args []string) error {
-	set := flag.NewFlagSet(c.String(), flag.ContinueOnError)
-	if err := set.Parse(args); err != nil {
+func Random(b builtin) error {
+	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	set.Usage = func() {
+		fmt.Println(b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	_, err := fmt.Printf("%d\n", rand.Uint32())
@@ -118,21 +192,27 @@ func Random(c Command, args []string) error {
 
 }
 
-func Echo(c Command, args []string) error {
-	set := flag.NewFlagSet(c.String(), flag.ContinueOnError)
-	if err := set.Parse(args); err != nil {
+func Echo(b builtin) error {
+	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	set.Usage = func() {
+		fmt.Println(b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	_, err := fmt.Println(strings.Join(set.Args(), " "))
 	return err
 }
 
-func Date(c Command, args []string) error {
+func Date(b builtin) error {
 	var (
-		set = flag.NewFlagSet(c.String(), flag.ContinueOnError)
+		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		utc = set.Bool("u", false, "utc time")
 	)
-	if err := set.Parse(args); err != nil {
+	set.Usage = func() {
+		fmt.Println(b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	now := time.Now()
@@ -143,13 +223,16 @@ func Date(c Command, args []string) error {
 	return err
 }
 
-func Builtins(c Command, args []string) error {
-	set := flag.NewFlagSet("builtins", flag.ContinueOnError)
-	if err := set.Parse(args); err != nil {
+func Builtins(b builtin) error {
+	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	set.Usage = func() {
+		fmt.Println(b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	for k, c := range builtins {
-		if c.Run == nil {
+		if !c.Runnable() {
 			continue
 		}
 		fmt.Printf("%s: %s\n", k, c.Short)
@@ -157,9 +240,12 @@ func Builtins(c Command, args []string) error {
 	return nil
 }
 
-func Help(c Command, args []string) error {
-	set := flag.NewFlagSet("builtins", flag.ContinueOnError)
-	if err := set.Parse(args); err != nil {
+func Help(b builtin) error {
+	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	set.Usage = func() {
+		fmt.Println(b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	if set.NArg() == 0 {

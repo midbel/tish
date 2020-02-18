@@ -10,12 +10,18 @@ import (
 
 const MaxHistSize = 100
 
+var (
+	stdout = os.Stdout
+	stderr = os.Stderr
+	stdin  = os.Stdin
+)
+
 type Shell struct {
 	time.Time
 	uid int // user id
 	pid int // pid of current shell
 
-	depth int // nesting of shell
+	level int // nesting of shell
 
 	globals *Env
 	locals  *Env
@@ -43,9 +49,9 @@ func NewShell() *Shell {
 		Time:    time.Now(),
 		globals: NewEnvironment(),
 		locals:  NewEnvironment(),
-		stdin:   os.Stdin,
-		stdout:  os.Stdout,
-		stderr:  os.Stderr,
+		stdin:   stdin,
+		stdout:  stdout,
+		stderr:  stderr,
 		alias:   make(map[string]string),
 	}
 	s.dirs.hist = make([]string, MaxHistSize)
@@ -67,7 +73,7 @@ func (s *Shell) pushDir(dir string) {
 
 func (s *Shell) subshell() *Shell {
 	sh := NewShell()
-	sh.level = s.level+1
+	sh.level = s.level + 1
 	return sh
 }
 
@@ -98,7 +104,7 @@ func executeList(i List, e *Env) error {
 	case kindSimple:
 		err = executeSimple(i, e)
 	case kindPipe:
-		err = executePipeline(i, e)
+		err = executePipeline(i.words, e)
 	case kindSeq:
 		err = executeSequence(i.words, e)
 	case kindAnd:
@@ -147,7 +153,7 @@ func executeAnd(ws []Word, e *Env) error {
 	return err
 }
 
-func executePipeline(i List, e *Env) error {
+func executePipeline(ws []Word, e *Env) error {
 	return nil
 }
 
@@ -171,10 +177,7 @@ func executeSimple(w Word, e *Env) error {
 	if err != nil || len(vs) == 0 {
 		return err
 	}
-	if c, ok := builtins[vs[0]]; ok && c.Runnable() {
-		return c.Run(c, vs[1:])
-	}
-	return prepare(vs, os.Stdin, os.Stdout, os.Stderr).Run()
+	return prepare(vs, stdin, stdout, stderr).Run()
 }
 
 func executeLiteral(i Literal, e *Env) error {
@@ -182,13 +185,18 @@ func executeLiteral(i Literal, e *Env) error {
 	if err != nil || len(vs) == 0 {
 		return err
 	}
-	if c, ok := builtins[vs[0]]; ok && c.Runnable() {
-		return c.Run(c, vs[1:])
-	}
-	return prepare(vs, os.Stdin, os.Stdout, os.Stderr).Run()
+	return prepare(vs, stdin, stdout, stderr).Run()
 }
 
-func prepare(args []string, in io.Reader, out, err io.Writer) *exec.Cmd {
+func prepare(args []string, in io.Reader, out, err io.Writer) Command {
+	if c, ok := builtins[args[0]]; ok && c.Runnable() {
+		c.args = args[1:]
+		c.stdin = in
+		c.stdout = out
+		c.stderr = err
+
+		return &c
+	}
 	cmd := exec.Command(args[0], args[1:]...)
 
 	cmd.Stdin = in
