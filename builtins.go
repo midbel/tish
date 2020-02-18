@@ -112,6 +112,6 @@ func Help(c Command, args []string) error {
 		fmt.Println(x.Desc)
 	}
 	fmt.Println()
-	fmt.Println(x.Usage)
+	fmt.Println("usage:", x.Usage)
 	return nil
 }

@@ -4,13 +4,26 @@ import (
 	"strings"
 )
 
-func ExampleExecute() {
+func ExampleExecuteWithEnv() {
 	env := NewEnvironment()
 	env.Set("HOME", []string{"/home/midbel"})
 
-	ExecuteWithEnv(strings.NewReader("echo foobar"), env)
-	ExecuteWithEnv(strings.NewReader("echo $HOME"), env)
+	scripts := []string{
+		`echo foobar`,
+		`echo $HOME`,
+		`echo '$HOME'`,
+		`echo pre-" <$HOME> "-post`,
+		`echo pre-{foo,bar}-post`,
+	}
+	for _, s := range scripts {
+		if err := ExecuteWithEnv(strings.NewReader(s), env); err != nil {
+			break
+		}
+	}
 	// Output:
 	// foobar
 	// /home/midbel
+	// $HOME
+	// pre- </home/midbel> -post
+	// pre-foo-post pre-bar-post
 }
