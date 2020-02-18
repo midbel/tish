@@ -23,6 +23,8 @@ const (
 
 func (k Kind) String() string {
 	switch k {
+	case kindWord:
+		return "word"
 	case kindSimple:
 		return "simple"
 	case kindSeq:

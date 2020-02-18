@@ -66,7 +66,9 @@ func (s *Shell) pushDir(dir string) {
 }
 
 func (s *Shell) subshell() *Shell {
-	return nil
+	sh := NewShell()
+	sh.level = s.level+1
+	return sh
 }
 
 func Execute(r io.Reader) error {
