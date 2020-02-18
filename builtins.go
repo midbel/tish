@@ -3,6 +3,8 @@ package tish
 import (
 	"flag"
 	"fmt"
+	"math"
+	"math/rand"
 	"strings"
 	"time"
 )
@@ -47,6 +49,11 @@ func init() {
 			Short: "print list of builtins and a short description",
 			Run:   Builtins,
 		},
+		"rand": {
+			Usage: "rand",
+			Short: fmt.Sprintf("generate a random integer between 0 and %d", math.MaxUint32),
+			Run:   Random,
+		},
 		// "env":     Env,
 		// "export":  Export,
 		// "alias":   Alias,
@@ -54,6 +61,16 @@ func init() {
 		// "pwd":     Pwd,
 		// "cd":      Cd,
 	}
+}
+
+func Random(c Command, args []string) error {
+	set := flag.NewFlagSet(c.String(), flag.ContinueOnError)
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	_, err := fmt.Printf("%d\n", rand.Uint32())
+	return err
+
 }
 
 func Echo(c Command, args []string) error {
