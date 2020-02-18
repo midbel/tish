@@ -79,11 +79,15 @@ func Printf(c Command, args []string) error {
 	if err := set.Parse(args); err != nil {
 		return err
 	}
-	args := flag.Args()
+	args = set.Args()
 	if len(args) < 2 {
 		return nil
 	}
-	str := fmt.Sprintf(args[0], args[1:]...)
+	vs := make([]interface{}, len(args)-1)
+	for i := 0; i < len(vs); i++ {
+		vs[i] = args[i+1]
+	}
+	str := fmt.Sprintf(args[0], vs...)
 	if *name != "" {
 		return nil
 	}
