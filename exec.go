@@ -220,40 +220,9 @@ func executeSimple(ws []Word, e *Env) error {
 		err = stderr
 	)
 	if len(rs) > 0 {
-		var (
-			ins  []io.Reader
-			outs []io.Writer
-			errs []io.Writer
-		)
 		for _, r := range rs {
-			f, err := r.Open(e)
-			if err != nil {
-				return err
-			}
-			switch r.mode {
-			case modRead:
-				ins = append(ins, f)
-			case modWrite, modAppend:
-				switch r.file {
-				case 1:
-					outs = append(outs, f)
-				case 2:
-					errs = append(errs, f)
-				default:
-					return fmt.Errorf("invalid file descriptor %d", r.file)
-				}
-			case modRelink:
-        switch r.file {
-        case 1: // redirect stderr to stdout
-        case 2: // redirect stdout to stderr
-        default:
-          return fmt.Errorf("invalid file descriptor %d", r.file)
-        }
-			}
+			_ = r
 		}
-		in = io.MultiReader(ins...)
-		out = io.MultiWriter(outs...)
-		err = io.MultiWriter(errs...)
 	}
 	return prepare(args, in, out, err).Run()
 }
