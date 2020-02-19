@@ -243,6 +243,12 @@ func executeSimple(ws []Word, e *Env) error {
 					return fmt.Errorf("invalid file descriptor %d", r.file)
 				}
 			case modRelink:
+        switch r.file {
+        case 1: // redirect stderr to stdout
+        case 2: // redirect stdout to stderr
+        default:
+          return fmt.Errorf("invalid file descriptor %d", r.file)
+        }
 			}
 		}
 		in = io.MultiReader(ins...)
