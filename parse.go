@@ -399,30 +399,22 @@ func (p *parser) parseRedirection() (Word, error) {
 		return r, nil
 	}
 
-	var ws []Word
-	for {
-		if p.isRedirection() || p.isControl() || p.isDone() {
-			break
+	switch p.curr.Type {
+	case tokWord:
+		r.Word = Literal(p.curr.Literal)
+	case tokVar:
+		r.Word = Variable{
+			ident:  p.curr.Literal,
+			quoted: p.curr.Quoted,
+			apply:  Identity(),
 		}
-		switch p.curr.Type {
-		case tokWord:
-			ws = append(ws, Literal(p.curr.Literal))
-		case tokVar:
-			v := Variable{
-				ident:  p.curr.Literal,
-				quoted: p.curr.Quoted,
-				apply:  Identity(),
-			}
-			ws = append(ws, v)
-		default:
-			return nil, fmt.Errorf("redirection: unexpected token type %s", p.curr)
-		}
-		p.next()
-		if p.isBlank() {
-			p.next()
-		}
+	default:
+		return nil, fmt.Errorf("redirection: unexpected token type %s", p.curr)
 	}
-	r.Word = asWord(ws)
+	p.next()
+	if p.isBlank() {
+		p.next()
+	}
 	return r, nil
 }
 
