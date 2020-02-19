@@ -338,8 +338,8 @@ func False(b builtin) error {
 func Seq(b builtin) error {
 	var (
 		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		pat = flag.String("f", "%d", "format output number")
-		sep = flag.String("s", "\n", "separate number with string")
+		pat = set.String("f", "%d", "format output number")
+		sep = set.String("s", "\n", "separate number with string")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
@@ -394,11 +394,16 @@ func Seq(b builtin) error {
 	default:
 		return fmt.Errorf("too many arguments given")
 	}
-	for i := lower; i < upper; i += incr {
-		_, err := fmt.Fprintf(b.stdout, *pat+"%s", i, *sep)
+	i := lower
+	for i <= upper {
+		_, err := fmt.Fprintf(b.stdout, *pat, i)
 		if err != nil {
 			return err
 		}
+		if i < upper {
+			fmt.Fprint(b.stdout, *sep)
+		}
+		i += incr
 	}
 	return nil
 }
