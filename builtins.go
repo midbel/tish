@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -144,7 +145,7 @@ func init() {
 func Local(b builtin) error {
 	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
 	set.Usage = func() {
-		fmt.Println(b.Help())
+		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
@@ -158,7 +159,7 @@ func Printf(b builtin) error {
 		name = set.String("v", "", "variable")
 	)
 	set.Usage = func() {
-		fmt.Println(b.Help())
+		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
@@ -175,33 +176,46 @@ func Printf(b builtin) error {
 	if *name != "" {
 		return nil
 	}
-	_, err := fmt.Println(str)
+	_, err := fmt.Fprintln(b.stdout, str)
 	return err
 }
 
 func Random(b builtin) error {
 	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
 	set.Usage = func() {
-		fmt.Println(b.Help())
+		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	_, err := fmt.Printf("%d\n", rand.Uint32())
+	_, err := fmt.Fprintf(b.stdout, "%d\n", rand.Uint32())
 	return err
 
 }
 
 func Echo(b builtin) error {
-	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	var (
+		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		in = set.Bool("i", false, "read arguments from stdin")
+	)
 	set.Usage = func() {
-		fmt.Println(b.Help())
+		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	_, err := fmt.Println(strings.Join(set.Args(), " "))
-	return err
+	if !*in {
+		_, err := fmt.Fprintln(b.stdout, strings.Join(set.Args(), " "))
+		return err
+	}
+	s := bufio.NewScanner(b.stdin)
+	for s.Scan() {
+		_, err := fmt.Fprintln(b.stdout, s.Text())
+		if err != nil {
+			return err
+		}
+	}
+	return s.Err()
 }
 
 func Date(b builtin) error {
@@ -210,7 +224,7 @@ func Date(b builtin) error {
 		utc = set.Bool("u", false, "utc time")
 	)
 	set.Usage = func() {
-		fmt.Println(b.Help())
+		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
@@ -219,14 +233,14 @@ func Date(b builtin) error {
 	if *utc {
 		now = now.UTC()
 	}
-	_, err := fmt.Println(now.Format("2006-01-02 15:04:05"))
+	_, err := fmt.Fprintln(b.stdout, now.Format("2006-01-02 15:04:05"))
 	return err
 }
 
 func Builtins(b builtin) error {
 	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
 	set.Usage = func() {
-		fmt.Println(b.Help())
+		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
@@ -243,7 +257,7 @@ func Builtins(b builtin) error {
 func Help(b builtin) error {
 	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
 	set.Usage = func() {
-		fmt.Println(b.Help())
+		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
@@ -255,13 +269,13 @@ func Help(b builtin) error {
 	if !ok {
 		return fmt.Errorf("unknown builtin: %s", flag.Arg(0))
 	}
-	fmt.Println(x.String())
-	fmt.Println(x.Short)
+	fmt.Fprintln(b.stdout, x.String())
+	fmt.Fprintln(b.stdout, x.Short)
 	if x.Desc != "" {
-		fmt.Println()
-		fmt.Println(x.Desc)
+		fmt.Fprintln(b.stdout)
+		fmt.Fprintln(b.stdout, x.Desc)
 	}
-	fmt.Println()
-	fmt.Println("usage:", x.Usage)
+	fmt.Fprintln(b.stdout)
+	fmt.Fprintln(b.stdout, "usage:", x.Usage)
 	return nil
 }

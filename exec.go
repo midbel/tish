@@ -11,9 +11,9 @@ import (
 const MaxHistSize = 100
 
 var (
-	stdout = os.Stdout
-	stderr = os.Stderr
-	stdin  = os.Stdin
+	stdout io.Writer = os.Stdout
+	stderr io.Writer = os.Stderr
+	stdin io.Reader  = os.Stdin
 )
 
 type Shell struct {
