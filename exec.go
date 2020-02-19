@@ -48,12 +48,12 @@ func NewShell() *Shell {
 		pid:     os.Getpid(),
 		Time:    time.Now(),
 		globals: NewEnvironment(),
-		locals:  NewEnvironment(),
 		stdin:   stdin,
 		stdout:  stdout,
 		stderr:  stderr,
 		alias:   make(map[string]string),
 	}
+	s.locals = NewEnclosedEnvironment(s.globals)
 	s.dirs.hist = make([]string, MaxHistSize)
 	return &s
 }
@@ -90,8 +90,8 @@ func ExecuteWithEnv(r io.Reader, env *Env) error {
 	switch w := ws.(type) {
 	case Literal:
 		err = executeLiteral(w, env)
-  case Assignment:
-    err = executeAssignment(w, env)
+	case Assignment:
+		err = executeAssignment(w, env)
 	case List:
 		err = executeList(w, env)
 	default:
@@ -101,15 +101,15 @@ func ExecuteWithEnv(r io.Reader, env *Env) error {
 }
 
 func executeAssignment(a Assignment, e *Env) error {
-  _, err := a.Expand(e)
-  return err
+	_, err := a.Expand(e)
+	return err
 }
 
 func executeList(i List, e *Env) error {
 	var err error
 	switch i.kind {
 	case kindSimple:
-		err = executeSimple(i, e)
+		err = executeSimple(i.words, e)
 	case kindPipe:
 		err = executePipeline(i.words, e)
 	case kindSeq:
@@ -189,8 +189,8 @@ func executeSequence(ws []Word, e *Env) error {
 			err = executeLiteral(w, e)
 		case List:
 			err = executeList(w, e)
-    case Assignment:
-      err = executeAssignment(w, e)
+		case Assignment:
+			err = executeAssignment(w, e)
 		default:
 			return fmt.Errorf("exec: %T can not be executed", w)
 		}
@@ -198,12 +198,58 @@ func executeSequence(ws []Word, e *Env) error {
 	return err
 }
 
-func executeSimple(w Word, e *Env) error {
-	vs, err := w.Expand(e)
-	if err != nil || len(vs) == 0 {
-		return err
+func executeSimple(ws []Word, e *Env) error {
+	var (
+		rs   []Redirect
+		args []string
+	)
+	for _, w := range ws {
+		if r, ok := w.(Redirect); ok {
+			rs = append(rs, r)
+			continue
+		}
+		xs, err := w.Expand(e)
+		if err != nil {
+			return err
+		}
+		args = append(args, xs...)
 	}
-	return prepare(vs, stdin, stdout, stderr).Run()
+	var (
+		in  = stdin
+		out = stdout
+		err = stderr
+	)
+	if len(rs) > 0 {
+		var (
+			ins  []io.Reader
+			outs []io.Writer
+			errs []io.Writer
+		)
+		for _, r := range rs {
+			f, err := r.Open(e)
+			if err != nil {
+				return err
+			}
+			switch r.mode {
+			case modRead:
+				ins = append(ins, f)
+			case modWrite, modAppend:
+				switch r.file {
+				case 1:
+					outs = append(outs, f)
+				case 2:
+					errs = append(errs, f)
+				default:
+					return fmt.Errorf("invalid file descriptor %d", r.file)
+				}
+			case modRelink:
+			}
+		}
+		in = io.MultiReader(ins...)
+		out = io.MultiWriter(outs...)
+		err = io.MultiWriter(errs...)
+	}
+	return prepare(args, in, out, err).Run()
 }
 
 func executeLiteral(i Literal, e *Env) error {

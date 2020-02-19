@@ -93,13 +93,13 @@ func (b *builtin) Run() error {
 }
 
 func (b *builtin) closeStreams() {
-	if c, ok := b.stdin.(io.Closer); ok {
+	if c, ok := b.stdin.(io.Closer); ok && b.stdin != stdin {
 		c.Close()
 	}
-	if c, ok := b.stdout.(io.Closer); ok {
+	if c, ok := b.stdout.(io.Closer); ok && b.stdout != stdout {
 		c.Close()
 	}
-	if c, ok := b.stdout.(io.Closer); ok {
+	if c, ok := b.stdout.(io.Closer); ok && b.stderr != stderr {
 		c.Close()
 	}
 }
@@ -143,6 +143,16 @@ func init() {
 			Short: "create a variable with name and assign a optional value",
 			run:   Local,
 		},
+		"true": {
+			Usage: "true",
+			Short: "always returns a successfull result",
+			run:   True,
+		},
+		"false": {
+			Usage: "false",
+			Short: "always returns a unsuccessfull result",
+			run:   False,
+		}
 		// "env":     {},
 		// "export":  {},
 		// "alias":   {},
@@ -291,4 +301,26 @@ func Help(b builtin) error {
 	fmt.Fprintln(b.stdout)
 	fmt.Fprintln(b.stdout, "usage:", x.Usage)
 	return nil
+}
+
+func True(b builtin) error {
+	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func False(b builtin) error {
+	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	return fmt.Errorf(b.String())
 }

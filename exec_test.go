@@ -72,7 +72,11 @@ func TestExecuteWithEnv(t *testing.T) {
 		},
 		{
 			Input: `FOO=foobar; echo $FOO`,
-			Want: "foobar",
+			Want:  "foobar",
+		},
+		{
+			Input: `echo -i < testdata/foo.txt`,
+			Want:  "foo",
 		},
 	}
 	for _, d := range data {
