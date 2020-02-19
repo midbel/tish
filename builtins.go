@@ -82,7 +82,7 @@ func (b *builtin) Wait() error {
 	}
 	b.finished = true
 
-	return <- b.done
+	return <-b.done
 }
 
 func (b *builtin) Run() error {

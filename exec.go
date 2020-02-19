@@ -154,35 +154,24 @@ func executeAnd(ws []Word, e *Env) error {
 }
 
 func executePipeline(ws []Word, e *Env) error {
-  var (
-    pr io.Reader
-    n  = len(ws)-1
-    cs = make([]Command, len(ws))
-  )
-	for i := 0; i < len(ws); i++ {
-		w := ws[i]
-		args, err := w.Expand(e)
+	in := stdin
+	for i := 0; ; i++ {
+		args, err := ws[i].Expand(e)
 		if err != nil || len(args) == 0 {
 			return err
 		}
-    var cmd Command
-    if i == 0 {
-      r, w := io.Pipe()
-      cmd, pr = prepare(args, stdin, w, stderr), r
-    } else if i == n {
-      cmd = prepare(args, pr, stdout, stderr)
-    } else {
-      r, w := io.Pipe()
-      cmd, pr = prepare(args, pr, w, stderr), r
-    }
-    cs[i] = cmd
+		if i == len(ws)-1 {
+			return prepare(args, in, stdout, stderr).Run()
+		}
+		r, w, err := os.Pipe()
+		if err != nil {
+			return err
+		}
+		if err := prepare(args, in, w, stderr).Start(); err != nil {
+			return err
+		}
+		in = r
 	}
-  for i := 0; i < n; i++ {
-    if err := cs[i].Start(); err != nil {
-      return err
-    }
-  }
-	return cs[n].Run()
 }
 
 func executeSequence(ws []Word, e *Env) error {

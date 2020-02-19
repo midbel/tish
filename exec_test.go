@@ -68,7 +68,7 @@ func TestExecuteWithEnv(t *testing.T) {
 		},
 		{
 			Input: `echo foo bar | echo -i`,
-			Want: "foo bar",
+			Want:  "foo bar",
 		},
 	}
 	for _, d := range data {
