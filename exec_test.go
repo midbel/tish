@@ -70,6 +70,10 @@ func TestExecuteWithEnv(t *testing.T) {
 			Input: `echo foo bar | echo -i`,
 			Want:  "foo bar",
 		},
+		{
+			Input: `FOO=foobar; echo $FOO`,
+			Want: "foobar",
+		},
 	}
 	for _, d := range data {
 		sout.Reset()

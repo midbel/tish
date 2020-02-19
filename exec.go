@@ -90,12 +90,19 @@ func ExecuteWithEnv(r io.Reader, env *Env) error {
 	switch w := ws.(type) {
 	case Literal:
 		err = executeLiteral(w, env)
+  case Assignment:
+    err = executeAssignment(w, env)
 	case List:
 		err = executeList(w, env)
 	default:
 		err = fmt.Errorf("exec: %T can not be executed", w)
 	}
 	return err
+}
+
+func executeAssignment(a Assignment, e *Env) error {
+  _, err := a.Expand(e)
+  return err
 }
 
 func executeList(i List, e *Env) error {
@@ -182,6 +189,8 @@ func executeSequence(ws []Word, e *Env) error {
 			err = executeLiteral(w, e)
 		case List:
 			err = executeList(w, e)
+    case Assignment:
+      err = executeAssignment(w, e)
 		default:
 			return fmt.Errorf("exec: %T can not be executed", w)
 		}
