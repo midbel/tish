@@ -210,13 +210,17 @@ func Printf(b builtin) error {
 }
 
 func Random(b builtin) error {
-	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		seed = flag.Int64("s", time.Now().Unix(), "use SEED to seed the generator")
+	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	rand.Seed(*seed)
 	_, err := fmt.Fprintf(b.stdout, "%d\n", rand.Uint32())
 	return err
 
