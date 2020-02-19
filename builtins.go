@@ -67,6 +67,7 @@ func (b *builtin) Start() error {
 	b.done = make(chan error, 1)
 	go func() {
 		b.done <- b.run(*b)
+		b.closeStreams()
 		close(b.done)
 	}()
 	return nil
@@ -81,7 +82,7 @@ func (b *builtin) Wait() error {
 	}
 	b.finished = true
 
-	return <-b.done
+	return <- b.done
 }
 
 func (b *builtin) Run() error {
@@ -89,6 +90,18 @@ func (b *builtin) Run() error {
 		return err
 	}
 	return b.Wait()
+}
+
+func (b *builtin) closeStreams() {
+	if c, ok := b.stdin.(io.Closer); ok {
+		c.Close()
+	}
+	if c, ok := b.stdout.(io.Closer); ok {
+		c.Close()
+	}
+	if c, ok := b.stdout.(io.Closer); ok {
+		c.Close()
+	}
 }
 
 var builtins map[string]builtin
@@ -196,7 +209,7 @@ func Random(b builtin) error {
 func Echo(b builtin) error {
 	var (
 		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		in = set.Bool("i", false, "read arguments from stdin")
+		in  = set.Bool("i", false, "read arguments from stdin")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())

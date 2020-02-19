@@ -13,7 +13,7 @@ const MaxHistSize = 100
 var (
 	stdout io.Writer = os.Stdout
 	stderr io.Writer = os.Stderr
-	stdin io.Reader  = os.Stdin
+	stdin  io.Reader = os.Stdin
 )
 
 type Shell struct {
@@ -154,7 +154,35 @@ func executeAnd(ws []Word, e *Env) error {
 }
 
 func executePipeline(ws []Word, e *Env) error {
-	return nil
+  var (
+    pr io.Reader
+    n  = len(ws)-1
+    cs = make([]Command, len(ws))
+  )
+	for i := 0; i < len(ws); i++ {
+		w := ws[i]
+		args, err := w.Expand(e)
+		if err != nil || len(args) == 0 {
+			return err
+		}
+    var cmd Command
+    if i == 0 {
+      r, w := io.Pipe()
+      cmd, pr = prepare(args, stdin, w, stderr), r
+    } else if i == n {
+      cmd = prepare(args, pr, stdout, stderr)
+    } else {
+      r, w := io.Pipe()
+      cmd, pr = prepare(args, pr, w, stderr), r
+    }
+    cs[i] = cmd
+	}
+  for i := 0; i < n; i++ {
+    if err := cs[i].Start(); err != nil {
+      return err
+    }
+  }
+	return cs[n].Run()
 }
 
 func executeSequence(ws []Word, e *Env) error {

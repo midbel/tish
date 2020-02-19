@@ -1,14 +1,14 @@
 package tish
 
 import (
+	"bytes"
 	"strings"
 	"testing"
-	"bytes"
 )
 
 func TestExecuteWithEnv(t *testing.T) {
 	var (
-		env = NewEnvironment()
+		env  = NewEnvironment()
 		sout bytes.Buffer
 		serr bytes.Buffer
 	)
@@ -18,53 +18,57 @@ func TestExecuteWithEnv(t *testing.T) {
 	stdout = &sout
 	stderr = &serr
 
-	data := []struct{
+	data := []struct {
 		Input string
 		Want  string
-	} {
+	}{
 		{
 			Input: `echo`,
-			Want: "",
+			Want:  "",
 		},
 		{
 			Input: `echo foobar`,
-			Want: "foobar",
+			Want:  "foobar",
 		},
 		{
 			Input: `echo $HOME`,
-			Want: "/home/midbel",
+			Want:  "/home/midbel",
 		},
 		{
 			Input: `echo '$HOME'`,
-			Want: "$HOME",
+			Want:  "$HOME",
 		},
 		{
 			Input: `echo pre-" <$HOME> "-post`,
-			Want: "pre- </home/midbel> -post",
+			Want:  "pre- </home/midbel> -post",
 		},
 		{
 			Input: `echo pre-{foo,bar}-post`,
-			Want: "pre-foo-post pre-bar-post",
+			Want:  "pre-foo-post pre-bar-post",
 		},
 		{
 			Input: `echo foobar $(( 1 + (2*3)))`,
-			Want: "foobar 7",
+			Want:  "foobar 7",
 		},
 		{
 			Input: `echo foo; echo bar`,
-			Want: "foo\nbar",
+			Want:  "foo\nbar",
 		},
 		{
 			Input: `echo foo && echo bar `,
-			Want: "foo\nbar",
+			Want:  "foo\nbar",
 		},
 		{
 			Input: `echo foo || echo bar`,
-			Want: "foo",
+			Want:  "foo",
 		},
 		{
 			Input: `printf "%s-%s" foo bar`,
-			Want: "foo-bar",
+			Want:  "foo-bar",
+		},
+		{
+			Input: `echo foo bar | echo -i`,
+			Want: "foo bar",
 		},
 	}
 	for _, d := range data {
