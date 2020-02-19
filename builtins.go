@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"strconv"
 	"time"
 )
 
@@ -152,7 +153,12 @@ func init() {
 			Usage: "false",
 			Short: "always returns a unsuccessfull result",
 			run:   False,
-		}
+		},
+		"seq": {
+			Usage: "seq [lower] [upper] [increment]",
+			Short: "print a sequence of numbers",
+			run:   Seq,
+		},
 		// "env":     {},
 		// "export":  {},
 		// "alias":   {},
@@ -323,4 +329,72 @@ func False(b builtin) error {
 		return err
 	}
 	return fmt.Errorf(b.String())
+}
+
+func Seq(b builtin) error {
+	var (
+		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		pat = flag.String("f", "%d", "format output number")
+		sep = flag.String("s", "\n", "separate number with string")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	var lower, upper, incr int64
+	switch set.NArg() {
+	case 0:
+		return fmt.Errorf("not enough arguments given")
+	case 1:
+		x, err := strconv.ParseInt(set.Arg(0), 10, 64)
+		if err != nil {
+			return err
+		}
+		if x > 0 {
+			upper = x
+		} else if x < 0 {
+			lower = x
+		} else {
+			return nil
+		}
+		incr++
+	case 2:
+		var err error
+		if lower, err = strconv.ParseInt(set.Arg(0), 10, 64); err != nil {
+			return err
+		}
+		if upper, err = strconv.ParseInt(set.Arg(1), 10, 64); err != nil {
+			return err
+		}
+		if lower < upper {
+			incr++
+		} else {
+			incr--
+		}
+	case 3:
+		var err error
+		if lower, err = strconv.ParseInt(set.Arg(0), 10, 64); err != nil {
+			return err
+		}
+		if upper, err = strconv.ParseInt(set.Arg(1), 10, 64); err != nil {
+			return err
+		}
+		if incr, err = strconv.ParseInt(set.Arg(2), 10, 64); err != nil {
+			return err
+		}
+		if lower > upper && incr > 0 {
+			incr = -incr
+		}
+	default:
+		return fmt.Errorf("too many arguments given")
+	}
+	for i := lower; i < upper; i += incr {
+		_, err := fmt.Fprintf(b.stdout, *pat+"%s", i, *sep)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
