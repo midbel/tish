@@ -5,9 +5,23 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"os"
+	"path/filepath"
 )
 
 func TestExecuteWithEnv(t *testing.T) {
+	defer func() {
+		filepath.Walk("testdata", func(f string, i os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if i.Mode().IsRegular() && filepath.Ext(f) == ".txt~" {
+				os.Remove(f)
+			}
+			return nil
+		})
+	}()
+	
 	var (
 		env  = NewEnvironment()
 		sout bytes.Buffer

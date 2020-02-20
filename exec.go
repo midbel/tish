@@ -201,11 +201,16 @@ func executeSequence(ws []Word, e *Env) error {
 func executeSimple(ws []Word, e *Env) error {
 	var (
 		rs   []Redirect
+		as   []Assignment
 		args []string
 	)
 	for _, w := range ws {
 		if r, ok := w.(Redirect); ok {
 			rs = append(rs, r)
+			continue
+		}
+		if a, ok := w.(Assignment); ok {
+			as = append(as, a)
 			continue
 		}
 		xs, err := w.Expand(e)
@@ -233,19 +238,18 @@ func executeSimple(ws []Word, e *Env) error {
 
 		switch r.file {
 		case fdIn:
+			closeFile(in, stdin)
 			in = f
 		case fdOut:
-			closeWriter(out, stdout)
+			closeFile(out, stdout)
 			out = f
 		case fdErr:
-			closeWriter(err, stderr)
+			closeFile(err, stderr)
 			err = f
 		case fdBoth:
-			closeWriter(out, stdout)
-			closeWriter(err, stderr)
-
-			out = f
-			err = f
+			closeFile(out, stdout)
+			closeFile(err, stderr)
+			out, err = f, f
 		default:
 			return fmt.Errorf("invalid file descriptor %d", r.file)
 		}
@@ -253,8 +257,8 @@ func executeSimple(ws []Word, e *Env) error {
 	return prepare(args, in, out, err).Run()
 }
 
-func closeWriter(f, std io.Writer) {
-	c, ok := f.(*os.File)
+func closeFile(f, std interface{}) {
+	c, ok := f.(io.Closer)
 	if ok && f != std {
 		c.Close()
 	}
