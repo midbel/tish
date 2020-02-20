@@ -277,6 +277,16 @@ func testParseAssignments(t *testing.T) {
 				),
 			},
 		},
+		{
+			Input: `FOO=FOO BAR=BAR echo $FOO $BAR`,
+			Word: makeList(kindSimple,
+				Assignment{ident: "FOO", word: Literal("FOO")},
+				Assignment{ident: "BAR", word: Literal("BAR")},
+				Literal("echo"),
+				Variable{ident: "FOO", quoted: false, apply: Identity()},
+				Variable{ident: "BAR", quoted: false, apply: Identity()},
+			),
+		},
 	}
 	runParseCase(t, data)
 }
@@ -543,6 +553,33 @@ func testParseSimple(t *testing.T) {
 			Word: makeList(kindPipe,
 				makeList(kindSimple, Literal("echo"), Literal("foo")),
 				makeList(kindSimple, Literal("echo")),
+			),
+		},
+		{
+			Input: "echo foo |& echo",
+			Word: makeList(kindPipeBoth,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				makeList(kindSimple, Literal("echo")),
+			),
+		},
+		{
+			Input: "echo foo |& echo | echo",
+			Word: makeList(kindPipe,
+				makeList(kindPipeBoth,
+					makeList(kindSimple, Literal("echo"), Literal("foo")),
+					makeList(kindSimple, Literal("echo")),
+				),
+				makeList(kindSimple, Literal("echo")),
+			),
+		},
+		{
+			Input: "echo foo | echo |& echo",
+			Word: makeList(kindPipe,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				makeList(kindPipeBoth,
+					makeList(kindSimple, Literal("echo")),
+					makeList(kindSimple, Literal("echo")),
+				),
 			),
 		},
 		{

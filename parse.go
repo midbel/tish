@@ -353,7 +353,7 @@ func (p *parser) parseCommand() (Word, error) {
 			}
 		}
 		ws.words = append(ws.words, xs.asWord())
-		if p.curr.Type != tokPipe && p.isControl() {
+		if !p.isPipe() && p.isControl() {
 			break
 		}
 		p.next()
@@ -665,12 +665,17 @@ func (p *parser) isRedirection() bool {
 	return true
 }
 
+func (p *parser) isPipe() bool {
+	return p.curr.Type == tokPipe || p.curr.Type == tokPipeBoth
+}
+
 func (p *parser) isControl() bool {
 	switch p.curr.Type {
 	case tokEOF:
 	case tokAnd:
 	case tokOr:
 	case tokPipe:
+	case tokPipeBoth:
 	case tokEndSub:
 	case tokEndArith:
 	default:

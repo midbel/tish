@@ -13,6 +13,7 @@ const (
 	kindSimple Kind = iota
 	kindSeq
 	kindPipe
+	kindPipeBoth
 	kindAnd
 	kindOr
 	kindList
@@ -31,7 +32,9 @@ func (k Kind) String() string {
 	case kindSeq:
 		return "sequence"
 	case kindPipe:
-		return "pipeline"
+		return "pipe1"
+	case kindPipeBoth:
+		return "pipe2"
 	case kindAnd:
 		return "and"
 	case kindOr:
