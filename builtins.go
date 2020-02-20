@@ -186,12 +186,17 @@ func Printf(b builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		name = set.String("v", "", "variable")
+		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
 	}
 	args := set.Args()
 	if len(args) < 2 {
@@ -212,13 +217,18 @@ func Printf(b builtin) error {
 func Random(b builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		seed = flag.Int64("s", time.Now().Unix(), "use SEED to seed the generator")
+		seed = set.Int64("s", time.Now().Unix(), "use SEED to seed the generator")
+		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
 	}
 	rand.Seed(*seed)
 	_, err := fmt.Fprintf(b.stdout, "%d\n", rand.Uint32())
@@ -231,6 +241,7 @@ func Echo(b builtin) error {
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		in   = set.Bool("i", false, "read arguments from stdin")
 		nonl = set.Bool("n", false, "do not append newline at end of line")
+		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
@@ -238,6 +249,11 @@ func Echo(b builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+
 	if !*in {
 		_, err := fmt.Fprint(b.stdout, strings.Join(set.Args(), " "))
 		if !*nonl {
@@ -260,14 +276,19 @@ func Echo(b builtin) error {
 
 func Date(b builtin) error {
 	var (
-		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		utc = set.Bool("u", false, "utc time")
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		utc  = set.Bool("u", false, "utc time")
+		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
 	}
 	now := time.Now()
 	if *utc {
@@ -278,12 +299,19 @@ func Date(b builtin) error {
 }
 
 func Builtins(b builtin) error {
-	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
 	}
 	for k, c := range builtins {
 		if !c.Runnable() {
@@ -314,7 +342,7 @@ func Help(b builtin) error {
 	}
 	x, ok := builtins[set.Arg(0)]
 	if !ok {
-		return fmt.Errorf("unknown builtin: %s", flag.Arg(0))
+		return fmt.Errorf("unknown builtin: %s", set.Arg(0))
 	}
 	fmt.Fprintln(b.stdout, x.String())
 	fmt.Fprintln(b.stdout, x.Short)
@@ -328,38 +356,57 @@ func Help(b builtin) error {
 }
 
 func True(b builtin) error {
-	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
-	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
-	}
-	if err := set.Parse(b.args); err != nil {
-		return err
-	}
-	return nil
-}
-
-func False(b builtin) error {
-	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
-	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
-	}
-	if err := set.Parse(b.args); err != nil {
-		return err
-	}
-	return fmt.Errorf(b.String())
-}
-
-func Seq(b builtin) error {
 	var (
-		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		pat = set.String("f", "%d", "format output number")
-		sep = set.String("s", "\n", "separate number with string")
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+	return nil
+}
+
+func False(b builtin) error {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+	return fmt.Errorf(b.String())
+}
+
+func Seq(b builtin) error {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		pat  = set.String("f", "%d", "format output number")
+		sep  = set.String("s", "\n", "separate number with string")
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
 	}
 	var (
 		lower int64
