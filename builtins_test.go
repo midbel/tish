@@ -12,7 +12,7 @@ func TestTrue(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := b.Run(); err != nil {
-		t.Fatal("run true:", err)
+		t.Fatalf("run true: should return a nil error: %s", err)
 	}
 }
 
@@ -22,7 +22,7 @@ func TestFalse(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := b.Run(); err == nil {
-		t.Fatal("run false: should returns a no nil error")
+		t.Fatal("run false: should return a non-nil error")
 	}
 }
 
@@ -32,24 +32,36 @@ func TestSeq(t *testing.T) {
 		Want string
 	}{
 		{
-			Args: []string{"-s", ", ", "5"},
-			Want: "0, 1, 2, 3, 4, 5",
+			Args: []string{"-s", ", ", "--", "5"}, // seq -s ", " 5
+			Want: "0, 1, 2, 3, 4, 5\n",
 		},
 		{
-			Args: []string{"-s", ", ", "--", "-5"},
-			Want: "-5, -4, -3, -2, -1, 0",
+			Args: []string{"-s", ", ", "--", "0"}, // seq -s ", " 0
+			Want: "",
 		},
 		{
-			Args: []string{"-s", ", ", "3", "5"},
-			Want: "3, 4, 5",
+			Args: []string{"-s", ", ", "--", "-5"}, // seq -s ", " -5
+			Want: "-5, -4, -3, -2, -1, 0\n",
 		},
 		{
-			Args: []string{"-s", ", ", "--", "-5", "-3"},
-			Want: "-5, -4, -3",
+			Args: []string{"-s", ", ", "3", "5"}, // seq -s ", " 3 5
+			Want: "3, 4, 5\n",
 		},
 		{
-			Args: []string{"-s", ", ", "1", "5", "2"},
-			Want: "1, 3, 5",
+			Args: []string{"-s", ", ", "--", "-5", "-3"}, // seq -s ", " -5 -3
+			Want: "-5, -4, -3\n",
+		},
+		{
+			Args: []string{"-s", ", ", "--", "-3", "-5"}, // seq -s ", " -3 -5
+			Want: "-3, -4, -5\n",
+		},
+		{
+			Args: []string{"-s", ", ", "1", "5", "2"}, // seq -s ", " 1 5 2
+			Want: "1, 3, 5\n",
+		},
+		{
+			Args: []string{"-s", ", ", "1", "5", "-1"}, // seq -s ", " 1 5 -1
+			Want: "",
 		},
 	}
 	for _, d := range data {

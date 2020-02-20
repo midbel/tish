@@ -347,10 +347,16 @@ func Seq(b builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	var lower, upper, incr int64
+	var (
+		lower int64
+		upper int64
+		incr  int64
+		err   error
+		cmp   = func(lower, upper int64) bool { return lower <= upper }
+	)
 	switch set.NArg() {
 	case 0:
-		return fmt.Errorf("not enough arguments given")
+		err = fmt.Errorf("not enough arguments given")
 	case 1:
 		x, err := strconv.ParseInt(set.Arg(0), 10, 64)
 		if err != nil {
@@ -367,43 +373,45 @@ func Seq(b builtin) error {
 	case 2:
 		var err error
 		if lower, err = strconv.ParseInt(set.Arg(0), 10, 64); err != nil {
-			return err
+			break
 		}
 		if upper, err = strconv.ParseInt(set.Arg(1), 10, 64); err != nil {
-			return err
+			break
 		}
 		if lower < upper {
 			incr++
 		} else {
 			incr--
 		}
+
+		if lower < 0 && upper < 0 && lower > upper {
+			cmp = func(lower, upper int64) bool { return lower >= upper }
+		}
 	case 3:
 		var err error
 		if lower, err = strconv.ParseInt(set.Arg(0), 10, 64); err != nil {
-			return err
+			break
 		}
 		if upper, err = strconv.ParseInt(set.Arg(1), 10, 64); err != nil {
-			return err
+			break
 		}
 		if incr, err = strconv.ParseInt(set.Arg(2), 10, 64); err != nil {
-			return err
+			break
 		}
-		if lower > upper && incr > 0 {
-			incr = -incr
+		if x := lower + incr; x < lower {
+			return nil
 		}
 	default:
-		return fmt.Errorf("too many arguments given")
+		err = fmt.Errorf("too many arguments given")
 	}
-	i := lower
-	for i <= upper {
-		_, err := fmt.Fprintf(b.stdout, *pat, i)
-		if err != nil {
-			return err
-		}
-		if i < upper {
-			fmt.Fprint(b.stdout, *sep)
-		}
-		i += incr
+	if err != nil {
+		return err
 	}
+	var str []string
+	for cmp(lower, upper) {
+		str = append(str, fmt.Sprintf(*pat, lower))
+		lower += incr
+	}
+	fmt.Fprintln(b.stdout, strings.Join(str, *sep))
 	return nil
 }
