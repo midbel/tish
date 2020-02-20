@@ -341,18 +341,18 @@ func (p *parser) parseCommand() (Word, error) {
 
 	ws := List{kind: kindPipe}
 	for {
-		xs := List{kind: kindSimple}
-		for !p.isControl() {
-			w, err := p.parseWord()
-			if err != nil {
-				return nil, err
-			}
-			xs.words = append(xs.words, w)
-			if p.isBlank() {
-				p.next()
+		w, err := p.parseSimple()
+		if err != nil {
+			return nil, err
+		}
+		ws.words = append(ws.words, w)
+		if p.isPipe() {
+			if p.curr.Type == tokPipe {
+				ws.kind = kindPipe
+			} else {
+				ws.kind = kindPipeBoth
 			}
 		}
-		ws.words = append(ws.words, xs.asWord())
 		if !p.isPipe() && p.isControl() {
 			break
 		}
@@ -362,6 +362,21 @@ func (p *parser) parseCommand() (Word, error) {
 		}
 	}
 	return ws.asWord(), p.err
+}
+
+func (p *parser) parseSimple() (Word, error) {
+	xs := List{kind: kindSimple}
+	for !p.isControl() {
+		w, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
+		xs.words = append(xs.words, w)
+		if p.isBlank() {
+			p.next()
+		}
+	}
+	return xs.asWord(), nil
 }
 
 func (p *parser) parseRedirection() (Word, error) {
