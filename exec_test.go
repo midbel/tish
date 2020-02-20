@@ -2,6 +2,7 @@ package tish
 
 import (
 	"bytes"
+	"io/ioutil"
 	"strings"
 	"testing"
 )
@@ -21,6 +22,7 @@ func TestExecuteWithEnv(t *testing.T) {
 	data := []struct {
 		Input string
 		Want  string
+		File  string
 	}{
 		{
 			Input: `echo`,
@@ -78,6 +80,11 @@ func TestExecuteWithEnv(t *testing.T) {
 			Input: `echo -i < testdata/foo.txt`,
 			Want:  "foo",
 		},
+		{
+			Input: `echo bar > testdata/bar.txt.out`,
+			Want:  "bar",
+			File:  "testdata/bar.txt.out",
+		},
 	}
 	for _, d := range data {
 		sout.Reset()
@@ -93,7 +100,18 @@ func TestExecuteWithEnv(t *testing.T) {
 			t.Errorf("%s: expected stderr empty, got %s (%d)", d.Input, str, len(str))
 			continue
 		}
-		got := strings.TrimSpace(sout.String())
+		var got string
+		if d.File == "" {
+			got = sout.String()
+		} else {
+			str, err := ioutil.ReadFile(d.File)
+			if err != nil {
+				t.Errorf("%s: fail read %s: %s", d.Input, d.File, err)
+				continue
+			}
+			got = string(str)
+		}
+		got = strings.TrimSpace(got)
 		if got != d.Want {
 			t.Errorf("%s: values mismatched! want %s, got %s", d.Input, d.Want, got)
 		}

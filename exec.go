@@ -219,9 +219,26 @@ func executeSimple(ws []Word, e *Env) error {
 		out = stdout
 		err = stderr
 	)
-	if len(rs) > 0 {
-		for _, r := range rs {
-			_ = r
+
+	for _, r := range rs {
+		f, errf := r.Open(e)
+		if errf != nil {
+			return errf
+		}
+		defer f.Close()
+
+		switch r.file {
+		case fdIn:
+			in = f
+		case fdOut:
+			out = f
+		case fdErr:
+			err = f
+		case fdBoth:
+			out = f
+			err = f
+		default:
+			return fmt.Errorf("invalid file descriptor %d", r.file)
 		}
 	}
 	return prepare(args, in, out, err).Run()
