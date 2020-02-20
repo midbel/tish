@@ -20,65 +20,80 @@ func TestExecuteWithEnv(t *testing.T) {
 	stderr = &serr
 
 	data := []struct {
-		Input string
-		Want  string
-		File  string
+		Input  string
+		Want   string
+		File   string
+		Stream *bytes.Buffer
 	}{
 		{
-			Input: `echo`,
-			Want:  "",
+			Input:  `echo`,
+			Want:   "",
+			Stream: &sout,
 		},
 		{
-			Input: `echo foobar`,
-			Want:  "foobar",
+			Input:  `echo foobar`,
+			Want:   "foobar",
+			Stream: &sout,
 		},
 		{
-			Input: `echo $HOME`,
-			Want:  "/home/midbel",
+			Input:  `echo $HOME`,
+			Want:   "/home/midbel",
+			Stream: &sout,
 		},
 		{
-			Input: `echo '$HOME'`,
-			Want:  "$HOME",
+			Input:  `echo '$HOME'`,
+			Want:   "$HOME",
+			Stream: &sout,
 		},
 		{
-			Input: `echo pre-" <$HOME> "-post`,
-			Want:  "pre- </home/midbel> -post",
+			Input:  `echo pre-" <$HOME> "-post`,
+			Want:   "pre- </home/midbel> -post",
+			Stream: &sout,
 		},
 		{
-			Input: `echo pre-{foo,bar}-post`,
-			Want:  "pre-foo-post pre-bar-post",
+			Input:  `echo pre-{foo,bar}-post`,
+			Want:   "pre-foo-post pre-bar-post",
+			Stream: &sout,
 		},
 		{
-			Input: `echo foobar $(( 1 + (2*3)))`,
-			Want:  "foobar 7",
+			Input:  `echo foobar $(( 1 + (2*3)))`,
+			Want:   "foobar 7",
+			Stream: &sout,
 		},
 		{
-			Input: `echo foo; echo bar`,
-			Want:  "foo\nbar",
+			Input:  `echo foo; echo bar`,
+			Want:   "foo\nbar",
+			Stream: &sout,
 		},
 		{
-			Input: `echo foo && echo bar `,
-			Want:  "foo\nbar",
+			Input:  `echo foo && echo bar `,
+			Want:   "foo\nbar",
+			Stream: &sout,
 		},
 		{
-			Input: `echo foo || echo bar`,
-			Want:  "foo",
+			Input:  `echo foo || echo bar`,
+			Want:   "foo",
+			Stream: &sout,
 		},
 		{
-			Input: `printf "%s-%s" foo bar`,
-			Want:  "foo-bar",
+			Input:  `printf "%s-%s" foo bar`,
+			Want:   "foo-bar",
+			Stream: &sout,
 		},
 		{
-			Input: `echo foo bar | echo -i`,
-			Want:  "foo bar",
+			Input:  `echo foo bar | echo -i`,
+			Want:   "foo bar",
+			Stream: &sout,
 		},
 		{
-			Input: `FOO=foobar; echo $FOO`,
-			Want:  "foobar",
+			Input:  `FOO=foobar; echo $FOO`,
+			Want:   "foobar",
+			Stream: &sout,
 		},
 		{
-			Input: `echo -i < testdata/foo.txt`,
-			Want:  "foo",
+			Input:  `echo -i < testdata/foo.txt`,
+			Want:   "foo",
+			Stream: &sout,
 		},
 		{
 			Input: `echo bar > testdata/bar.txt~`,
@@ -101,8 +116,9 @@ func TestExecuteWithEnv(t *testing.T) {
 			File:  "testdata/help.txt~",
 		},
 		{
-			Input: `help -h`,
-			Want:  "print help text for a builtin command\nusage: help builtin",
+			Input:  `help -h`,
+			Want:   "print help text for a builtin command\nusage: help builtin",
+			Stream: &serr,
 		},
 	}
 	for _, d := range data {
@@ -115,13 +131,9 @@ func TestExecuteWithEnv(t *testing.T) {
 			continue
 		}
 
-		if str := serr.String(); len(str) > 0 {
-			t.Errorf("%s: expected stderr empty, got %s (%d)", d.Input, str, len(str))
-			continue
-		}
 		var got string
 		if d.File == "" {
-			got = sout.String()
+			got = d.Stream.String()
 		} else {
 			str, err := ioutil.ReadFile(d.File)
 			if err != nil {
@@ -132,8 +144,6 @@ func TestExecuteWithEnv(t *testing.T) {
 		}
 		got = strings.TrimSpace(got)
 		if got != d.Want {
-			t.Logf("%x", got)
-			t.Logf("%x", d.Want)
 			t.Errorf("%s: values mismatched! want %s, got %s", d.Input, d.Want, got)
 		}
 	}
