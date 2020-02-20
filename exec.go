@@ -225,16 +225,25 @@ func executeSimple(ws []Word, e *Env) error {
 		if errf != nil {
 			return errf
 		}
-		defer f.Close()
+
+		if in, ok := in.(*os.File); ok && in.Name() == f.Name() {
+			f.Close()
+			return fmt.Errorf("%s: already open for reading", f.Name())
+		}
 
 		switch r.file {
 		case fdIn:
 			in = f
 		case fdOut:
+			closeWriter(out, stdout)
 			out = f
 		case fdErr:
+			closeWriter(err, stderr)
 			err = f
 		case fdBoth:
+			closeWriter(out, stdout)
+			closeWriter(err, stderr)
+
 			out = f
 			err = f
 		default:
@@ -242,6 +251,13 @@ func executeSimple(ws []Word, e *Env) error {
 		}
 	}
 	return prepare(args, in, out, err).Run()
+}
+
+func closeWriter(f, std io.Writer) {
+	c, ok := f.(*os.File)
+	if ok && f != std {
+		c.Close()
+	}
 }
 
 func executeLiteral(i Literal, e *Env) error {

@@ -81,9 +81,28 @@ func TestExecuteWithEnv(t *testing.T) {
 			Want:  "foo",
 		},
 		{
-			Input: `echo bar > testdata/bar.txt.out`,
+			Input: `echo bar > testdata/bar.txt~`,
 			Want:  "bar",
-			File:  "testdata/bar.txt.out",
+			File:  "testdata/bar.txt~",
+		},
+		{
+			Input: `echo bar >> testdata/bar.txt~`,
+			Want:  "bar\nbar",
+			File:  "testdata/bar.txt~",
+		},
+		{
+			Input: `echo foobar &> testdata/both.txt~`,
+			Want:  "foobar",
+			File:  "testdata/both.txt~",
+		},
+		{
+			Input: `help -h 2> testdata/help.txt~`,
+			Want:  "print help text for a builtin command\nusage: help builtin",
+			File:  "testdata/help.txt~",
+		},
+		{
+			Input: `help -h`,
+			Want:  "print help text for a builtin command\nusage: help builtin",
 		},
 	}
 	for _, d := range data {
@@ -113,6 +132,8 @@ func TestExecuteWithEnv(t *testing.T) {
 		}
 		got = strings.TrimSpace(got)
 		if got != d.Want {
+			t.Logf("%x", got)
+			t.Logf("%x", d.Want)
 			t.Errorf("%s: values mismatched! want %s, got %s", d.Input, d.Want, got)
 		}
 	}

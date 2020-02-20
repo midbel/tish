@@ -49,7 +49,7 @@ func (b *builtin) Help() string {
 		buf.WriteString(b.Desc)
 	}
 	buf.WriteRune(newline)
-	buf.WriteString(b.Usage)
+	buf.WriteString("usage: " + b.Usage)
 	return buf.String()
 }
 
@@ -79,7 +79,7 @@ func (b *builtin) Wait() error {
 		return fmt.Errorf("%s: not runnable", b.String())
 	}
 	if b.finished {
-		return fmt.Errorf("%s: already done", b.String())
+		return fmt.Errorf("%s: already executed", b.String())
 	}
 	b.finished = true
 
@@ -228,8 +228,9 @@ func Random(b builtin) error {
 
 func Echo(b builtin) error {
 	var (
-		set = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		in  = set.Bool("i", false, "read arguments from stdin")
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		in   = set.Bool("i", false, "read arguments from stdin")
+		nonl = set.Bool("n", false, "do not append newline at end of line")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
@@ -238,12 +239,18 @@ func Echo(b builtin) error {
 		return err
 	}
 	if !*in {
-		_, err := fmt.Fprintln(b.stdout, strings.Join(set.Args(), " "))
+		_, err := fmt.Fprint(b.stdout, strings.Join(set.Args(), " "))
+		if !*nonl {
+			_, err = fmt.Fprintln(b.stdout)
+		}
 		return err
 	}
 	s := bufio.NewScanner(b.stdin)
 	for s.Scan() {
-		_, err := fmt.Fprintln(b.stdout, s.Text())
+		_, err := fmt.Fprint(b.stdout, s.Text())
+		if !*nonl {
+			_, err = fmt.Fprintln(b.stdout)
+		}
 		if err != nil {
 			return err
 		}
@@ -288,12 +295,19 @@ func Builtins(b builtin) error {
 }
 
 func Help(b builtin) error {
-	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
 	if err := set.Parse(b.args); err != nil {
 		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
 	}
 	if set.NArg() == 0 {
 		return nil
