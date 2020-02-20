@@ -6,7 +6,13 @@ import (
 	"testing"
 )
 
-func TestTrue(t *testing.T) {
+func TestBuiltinFuncs(t *testing.T) {
+	t.Run("true", testTrue)
+	t.Run("false", testFalse)
+	t.Run("seq", testSeq)
+}
+
+func testTrue(t *testing.T) {
 	b, err := get("true")
 	if err != nil {
 		t.Fatal(err)
@@ -16,7 +22,7 @@ func TestTrue(t *testing.T) {
 	}
 }
 
-func TestFalse(t *testing.T) {
+func testFalse(t *testing.T) {
 	b, err := get("false")
 	if err != nil {
 		t.Fatal(err)
@@ -26,7 +32,7 @@ func TestFalse(t *testing.T) {
 	}
 }
 
-func TestSeq(t *testing.T) {
+func testSeq(t *testing.T) {
 	data := []struct {
 		Args []string
 		Want string
@@ -85,27 +91,27 @@ func TestSeq(t *testing.T) {
 	}
 }
 
-func TestPrintf(t *testing.T) {
+func testPrintf(t *testing.T) {
 	t.SkipNow()
 }
 
-func TestRandom(t *testing.T) {
+func testRandom(t *testing.T) {
 	t.SkipNow()
 }
 
-func TestHelp(t *testing.T) {
+func testHelp(t *testing.T) {
 	t.SkipNow()
 }
 
-func TestBuiltins(t *testing.T) {
+func testBuiltins(t *testing.T) {
 	t.SkipNow()
 }
 
-func TestDate(t *testing.T) {
+func testDate(t *testing.T) {
 	t.SkipNow()
 }
 
-func TestEcho(t *testing.T) {
+func testEcho(t *testing.T) {
 	t.SkipNow()
 }
 
