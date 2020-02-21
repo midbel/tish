@@ -404,3 +404,90 @@ func combineWords(ws, ps []string, prefix bool) []string {
 	}
 	return words
 }
+
+type If struct {
+	expr Expr
+	csq  Word
+	alt  Word
+}
+
+func (i If) Expand(e *Env) ([]string, error) {
+	return nil, nil
+}
+
+func (i If) Equal(w Word) bool {
+	other, ok := w.(If)
+	if !ok {
+		return ok
+	}
+	return i.expr.Equal(other.expr) && i.csq.Equal(other.csq) && i.alt.Equal(other.alt)
+}
+
+func (i If) String() string {
+	return "if"
+}
+
+func (i If) asWord() Word {
+	return i
+}
+
+type For struct {
+	expr Expr
+	word Word
+}
+
+func (f For) Expand(e *Env) ([]string, error) {
+	return nil, nil
+}
+
+func (f For) Equal(w Word) bool {
+	other, ok := w.(For)
+	if !ok {
+		return ok
+	}
+	return f.expr.Equal(other.expr) && f.word.Equal(other.expr)
+}
+
+func (f For) asWord() Word {
+	return f
+}
+
+func (f For) String() string {
+	return "for"
+}
+
+type Match struct {
+	expr  Expr
+	words []Word
+}
+
+func (m Match) Expand(e *Env) ([]string, error) {
+	return nil, nil
+}
+
+func (m Match) Equal(w Word) bool {
+	other, ok := w.(Match)
+	if !ok {
+		return ok
+	}
+	if !m.expr.Equal(other.expr) {
+		return false
+	}
+	if len(m.words) != len(other.words) {
+		return false
+	}
+	for i, w := range m.words {
+		if !w.Equal(other.words[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (m Match) String() string {
+	return "match"
+}
+
+func (m Match) asWord() Word {
+	return m
+}
