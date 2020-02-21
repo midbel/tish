@@ -18,6 +18,7 @@ func TestParse(t *testing.T) {
 	t.Run("assignments", testParseAssignments)
 	t.Run("redirections", testParseRedirections)
 	t.Run("parameters", testParseParameters)
+	t.Run("pipes", testParsePipes)
 }
 
 func testParseParameters(t *testing.T) {
@@ -500,6 +501,46 @@ func testParseSubstitution(t *testing.T) {
 	runParseCase(t, data)
 }
 
+func testParsePipes(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: "echo foo | echo",
+			Word: makeList(kindPipe,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "echo foo |& echo",
+			Word: makeList(kindPipe,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "echo foo |& echo | echo",
+			Word: makeList(kindPipe,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				Literal("echo"),
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "echo foo | echo |& echo",
+			Word: makeList(kindPipe,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				Literal("echo"),
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "find | cat | grep",
+			Word:  makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
+		},
+	}
+	runParseCase(t, data)
+}
+
 func testParseSimple(t *testing.T) {
 	data := []ParseCase{
 		{
@@ -547,44 +588,6 @@ func testParseSimple(t *testing.T) {
 				makeList(kindSimple, Literal("echo"), Literal("foo")),
 				makeList(kindSimple, Literal("echo"), Variable{ident: "FOO"}),
 			),
-		},
-		{
-			Input: "echo foo | echo",
-			Word: makeList(kindPipe,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				makeList(kindSimple, Literal("echo")),
-			),
-		},
-		{
-			Input: "echo foo |& echo",
-			Word: makeList(kindPipeBoth,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				makeList(kindSimple, Literal("echo")),
-			),
-		},
-		{
-			Input: "echo foo |& echo | echo",
-			Word: makeList(kindPipe,
-				makeList(kindPipeBoth,
-					makeList(kindSimple, Literal("echo"), Literal("foo")),
-					makeList(kindSimple, Literal("echo")),
-				),
-				makeList(kindSimple, Literal("echo")),
-			),
-		},
-		{
-			Input: "echo foo | echo |& echo",
-			Word: makeList(kindPipe,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				makeList(kindSimple, Literal("echo")),
-				makeList(kindPipeBoth,
-					makeList(kindSimple, Literal("echo")),
-				),
-			),
-		},
-		{
-			Input: "find | cat | grep",
-			Word:  makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
 		},
 		{
 			Input: "find | cat | grep; wc",
