@@ -3,10 +3,10 @@ package tish
 import (
 	"bytes"
 	"io/ioutil"
-	"strings"
-	"testing"
 	"os"
 	"path/filepath"
+	"strings"
+	"testing"
 )
 
 func TestExecuteWithEnv(t *testing.T) {
@@ -21,7 +21,7 @@ func TestExecuteWithEnv(t *testing.T) {
 			return nil
 		})
 	}()
-	
+
 	var (
 		env  = NewEnvironment()
 		sout bytes.Buffer
@@ -34,105 +34,114 @@ func TestExecuteWithEnv(t *testing.T) {
 	stderr = &serr
 
 	data := []struct {
-		Input  string
-		Want   string
-		File   string
-		Stream *bytes.Buffer
+		Input string
+		Out   string
+		Err   string
+		File  string
 	}{
 		{
-			Input:  `echo`,
-			Want:   "",
-			Stream: &sout,
+			Input: `echo`,
+			Out:   "",
+			Err:   "",
 		},
 		{
-			Input:  `echo foobar`,
-			Want:   "foobar",
-			Stream: &sout,
+			Input: `echo foobar`,
+			Out:   "foobar",
+			Err:   "",
 		},
 		{
-			Input:  `echo $HOME`,
-			Want:   "/home/midbel",
-			Stream: &sout,
+			Input: `echo $HOME`,
+			Out:   "/home/midbel",
+			Err:   "",
 		},
 		{
-			Input:  `echo '$HOME'`,
-			Want:   "$HOME",
-			Stream: &sout,
+			Input: `echo '$HOME'`,
+			Out:   "$HOME",
+			Err:   "",
 		},
 		{
-			Input:  `echo pre-" <$HOME> "-post`,
-			Want:   "pre- </home/midbel> -post",
-			Stream: &sout,
+			Input: `echo pre-" <$HOME> "-post`,
+			Out:   "pre- </home/midbel> -post",
+			Err:   "",
 		},
 		{
-			Input:  `echo pre-{foo,bar}-post`,
-			Want:   "pre-foo-post pre-bar-post",
-			Stream: &sout,
+			Input: `echo pre-{foo,bar}-post`,
+			Out:   "pre-foo-post pre-bar-post",
+			Err:   "",
 		},
 		{
-			Input:  `echo foobar $(( 1 + (2*3)))`,
-			Want:   "foobar 7",
-			Stream: &sout,
+			Input: `echo foobar $(( 1 + (2*3)))`,
+			Out:   "foobar 7",
+			Err:   "",
 		},
 		{
-			Input:  `echo foo; echo bar`,
-			Want:   "foo\nbar",
-			Stream: &sout,
+			Input: `echo foo; echo bar`,
+			Out:   "foo\nbar",
+			Err:   "",
 		},
 		{
-			Input:  `echo foo && echo bar `,
-			Want:   "foo\nbar",
-			Stream: &sout,
+			Input: `echo foo && echo bar `,
+			Out:   "foo\nbar",
+			Err:   "",
 		},
 		{
-			Input:  `echo foo || echo bar`,
-			Want:   "foo",
-			Stream: &sout,
+			Input: `echo foo || echo bar`,
+			Out:   "foo",
+			Err:   "",
 		},
 		{
-			Input:  `printf "%s-%s" foo bar`,
-			Want:   "foo-bar",
-			Stream: &sout,
+			Input: `printf "%s-%s" foo bar`,
+			Out:   "foo-bar",
+			Err:   "",
 		},
 		{
-			Input:  `echo foo bar | echo -i`,
-			Want:   "foo bar",
-			Stream: &sout,
+			Input: `echo foo bar | echo -i`,
+			Out:   "foo bar",
+			Err:   "",
 		},
 		{
-			Input:  `FOO=foobar; echo $FOO`,
-			Want:   "foobar",
-			Stream: &sout,
+			Input: `FOO=foobar; echo $FOO`,
+			Out:   "foobar",
+			Err:   "",
 		},
 		{
-			Input:  `echo -i < testdata/foo.txt`,
-			Want:   "foo",
-			Stream: &sout,
+			Input: `echo -i < testdata/foo.txt`,
+			Out:   "foo",
+			Err:   "",
 		},
 		{
 			Input: `echo bar > testdata/bar.txt~`,
-			Want:  "bar",
+			Out:   "bar",
+			Err:   "",
 			File:  "testdata/bar.txt~",
 		},
 		{
 			Input: `echo bar >> testdata/bar.txt~`,
-			Want:  "bar\nbar",
+			Out:   "bar\nbar",
+			Err:   "",
 			File:  "testdata/bar.txt~",
 		},
 		{
 			Input: `echo foobar &> testdata/both.txt~`,
-			Want:  "foobar",
+			Out:   "foobar",
+			Err:   "",
 			File:  "testdata/both.txt~",
 		},
 		{
 			Input: `help -h 2> testdata/help.txt~`,
-			Want:  "print help text for a builtin command\nusage: help builtin",
+			Out:   "print help text for a builtin command\nusage: help builtin",
+			Err:   "",
 			File:  "testdata/help.txt~",
 		},
 		{
-			Input:  `help -h`,
-			Want:   "print help text for a builtin command\nusage: help builtin",
-			Stream: &serr,
+			Input: `help -h`,
+			Out:   "",
+			Err:   "print help text for a builtin command\nusage: help builtin",
+		},
+		{
+			Input: `help -h |& echo -i`,
+			Out:   "",
+			Err:   "print help text for a builtin command\nusage: help builtin",
 		},
 	}
 	for _, d := range data {
@@ -147,18 +156,24 @@ func TestExecuteWithEnv(t *testing.T) {
 
 		var got string
 		if d.File == "" {
-			got = d.Stream.String()
+			err := strings.TrimSpace(serr.String())
+			if err != d.Err {
+				t.Errorf("%s: stderr mismatched! want %s, got %s", d.Input, d.Err, err)
+			}
+			out := strings.TrimSpace(sout.String())
+			if out != d.Out {
+				t.Errorf("%s: stdout mismatched! want %s, got %s", d.Input, d.Out, out)
+			}
 		} else {
 			str, err := ioutil.ReadFile(d.File)
 			if err != nil {
 				t.Errorf("%s: fail read %s: %s", d.Input, d.File, err)
 				continue
 			}
-			got = string(str)
-		}
-		got = strings.TrimSpace(got)
-		if got != d.Want {
-			t.Errorf("%s: values mismatched! want %s, got %s", d.Input, d.Want, got)
+			got = strings.TrimSpace(string(str))
+			if got != d.Out {
+				t.Errorf("%s: values mismatched! want %s, got %s", d.Input, d.Out, got)
+			}
 		}
 	}
 }
