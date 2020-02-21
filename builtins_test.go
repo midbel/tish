@@ -10,6 +10,48 @@ func TestBuiltinFuncs(t *testing.T) {
 	t.Run("true", testTrue)
 	t.Run("false", testFalse)
 	t.Run("seq", testSeq)
+	t.Run("type", testType)
+}
+
+func testType(t *testing.T) {
+	data := []struct {
+		Args string
+		Out  string
+		Err  string
+	}{
+		{Args: "echo", Out: "builtin"},
+		{Args: "type", Out: "builtin"},
+		{Args: "testdata", Out: "directory"},
+		{Args: "testdata/foo.txt", Out: "file"},
+		{Args: "fortune", Err: "no such file or directory"},
+	}
+	for _, d := range data {
+		b, err := get("type")
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.args = append(b.args, d.Args)
+		if err := b.Run(); err != nil {
+			t.Fatal("run seq:", err)
+		}
+
+		var (
+			want string
+			got  string
+		)
+		if d.Err != "" {
+			stderr := b.stderr.(*bytes.Buffer)
+			got = stderr.String()
+			want = fmt.Sprintf("%s: %s\n", d.Args, d.Err)
+		} else {
+			stdout := b.stdout.(*bytes.Buffer)
+			got = stdout.String()
+			want = fmt.Sprintf("%s: %s\n", d.Args, d.Out)
+		}
+		if got != want {
+			t.Errorf("%s: values mismatched! want %s, got %s", d.Args, want, got)
+		}
+	}
 }
 
 func testTrue(t *testing.T) {

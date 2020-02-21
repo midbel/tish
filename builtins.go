@@ -7,6 +7,8 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -158,6 +160,11 @@ func init() {
 			Usage: "seq [lower] [upper] [increment]",
 			Short: "print a sequence of numbers",
 			run:   Seq,
+		},
+		"type": {
+			Usage: "type [-n] name [name...]",
+			Short: "show information about command type",
+			run:   Type,
 		},
 		// "env":     {},
 		// "export":  {},
@@ -474,5 +481,56 @@ func Seq(b builtin) error {
 		lower += incr
 	}
 	fmt.Fprintln(b.stdout, strings.Join(str, *sep))
+	return nil
+}
+
+func Type(b builtin) error {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		nob  = set.Bool("n", false, "exclude builtin")
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+	for _, a := range set.Args() {
+		if _, ok := builtins[a]; ok && !*nob {
+			fmt.Fprintf(b.stdout, "%s: builtin\n", a)
+			continue
+		}
+		// will look later for alias and/or functions - when builtin will have access to it
+		if _, err := exec.LookPath(a); err == nil {
+			fmt.Fprintf(b.stdout, "%s: command\n", a)
+			continue
+		}
+		i, err := os.Stat(a)
+		if err != nil {
+			fmt.Fprintf(b.stderr, "%s: no such file or directory\n", a)
+			continue
+		}
+		if i.Mode().IsRegular() {
+			fmt.Fprintf(b.stdout, "%s: file\n", a)
+			continue
+		}
+		switch m := i.Mode(); {
+		case m&os.ModeDir == os.ModeDir:
+			fmt.Fprintf(b.stdout, "%s: directory\n", a)
+		case m&os.ModeSymlink == os.ModeSymlink:
+			fmt.Fprintf(b.stdout, "%s: symlink\n", a)
+		case m&os.ModeSocket == os.ModeSocket:
+			fmt.Fprintf(b.stdout, "%s: socket\n", a)
+		case m&os.ModeNamedPipe == os.ModeNamedPipe:
+			fmt.Fprintf(b.stdout, "%s: pipe\n", a)
+		default:
+			fmt.Fprintf(b.stderr, "%s: unknown\n", a)
+		}
+	}
 	return nil
 }
