@@ -22,17 +22,6 @@ func TestExecuteWithEnv(t *testing.T) {
 		})
 	}()
 
-	var (
-		env  = NewEnvironment()
-		sout bytes.Buffer
-		serr bytes.Buffer
-	)
-	env.Set("HOME", []string{"/home/midbel"})
-
-	stdin = bytes.NewReader(make([]byte, 64))
-	stdout = &sout
-	stderr = &serr
-
 	data := []struct {
 		Input string
 		Out   string
@@ -140,10 +129,22 @@ func TestExecuteWithEnv(t *testing.T) {
 		},
 		{
 			Input: `help -h |& echo -i`,
-			Out:   "",
-			Err:   "print help text for a builtin command\nusage: help builtin",
+			Out:   "print help text for a builtin command\nusage: help builtin",
+			Err:   "",
 		},
 	}
+
+	var (
+		env  = NewEnvironment()
+		sout bytes.Buffer
+		serr bytes.Buffer
+	)
+	env.Set("HOME", []string{"/home/midbel"})
+
+	stdin = bytes.NewReader(make([]byte, 64))
+	stdout = &sout
+	stderr = &serr
+
 	for _, d := range data {
 		sout.Reset()
 		serr.Reset()
