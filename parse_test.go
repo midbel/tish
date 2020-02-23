@@ -512,13 +512,13 @@ func testParsePipes(t *testing.T) {
 		},
 		{
 			Input: "echo foo |& echo",
-			Word: makeList(kindPipe,
+			Word: makeList(kindPipeBoth,
 				makeList(kindSimple, Literal("echo"), Literal("foo")),
 				Literal("echo"),
 			),
 		},
 		{
-			Input: "echo foo |& echo | echo",
+			Input: "echo foo |& echo | echo", // (echo foo |& echo) | echo
 			Word: makeList(kindPipe,
 				makeList(kindSimple, Literal("echo"), Literal("foo")),
 				Literal("echo"),
@@ -526,7 +526,7 @@ func testParsePipes(t *testing.T) {
 			),
 		},
 		{
-			Input: "echo foo | echo |& echo",
+			Input: "echo foo | echo |& echo", // (echo | foo) |& echo
 			Word: makeList(kindPipe,
 				makeList(kindSimple, Literal("echo"), Literal("foo")),
 				Literal("echo"),

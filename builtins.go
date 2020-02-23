@@ -166,6 +166,11 @@ func init() {
 			Short: "show information about command type",
 			run:   Type,
 		},
+		"exit": {
+			Usage: "exit [status]",
+			Short: "exit the shell with the given status",
+			run:   Exit,
+		},
 		// "env":     {},
 		// "export":  {},
 		// "alias":   {},
@@ -531,6 +536,31 @@ func Type(b builtin) error {
 		default:
 			fmt.Fprintf(b.stderr, "%s: unknown\n", a)
 		}
+	}
+	return nil
+}
+
+func Exit(b builtin) error {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+	if set.NArg() == 0 {
+		return nil
+	}
+	_, err := strconv.Atoi(set.Arg(0))
+	if err != nil {
+		return err
 	}
 	return nil
 }
