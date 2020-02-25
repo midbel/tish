@@ -118,23 +118,28 @@ func TestExecuteWithEnv(t *testing.T) {
 		},
 		{
 			Input: `help -h 2> testdata/help.txt~`,
-			Out:   "print help text for a builtin command\nusage: help builtin",
+			Out:   "print help text for a builtin command\nusage: help [-h] builtin",
 			Err:   "",
 			File:  "testdata/help.txt~",
 		},
 		{
 			Input: `help -h`,
 			Out:   "",
-			Err:   "print help text for a builtin command\nusage: help builtin",
+			Err:   "print help text for a builtin command\nusage: help [-h] builtin",
 		},
 		{
 			Input: `help -h |& echo -i`,
-			Out:   "print help text for a builtin command\nusage: help builtin",
+			Out:   "print help text for a builtin command\nusage: help [-h] builtin",
 			Err:   "",
 		},
 		{
 			Input: `FOO=FOO BAR=BAR env FOO BAR`,
 			Out:   "FOO=FOO\nBAR=BAR",
+			Err:   "",
+		},
+		{
+			Input: `local FOO=FOO BAR=BAR; echo $FOO $BAR`,
+			Out:   "FOO BAR",
 			Err:   "",
 		},
 	}

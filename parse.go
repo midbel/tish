@@ -454,6 +454,9 @@ func (p *parser) parseWord() (Word, error) {
 		case tokWord:
 			xs = append(xs, Literal(p.curr.Literal))
 			p.next()
+		case equal:
+			xs = append(xs, Literal("="))
+			p.next()
 		case tokVar:
 			v := Variable{
 				ident:  p.curr.Literal,

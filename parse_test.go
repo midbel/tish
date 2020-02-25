@@ -751,6 +751,21 @@ func testParseSimple(t *testing.T) {
 				makeList(kindSimple, Literal("sort")),
 			),
 		},
+		{
+			Input: `local FOO=FOO BAR=BAR; echo $FOO $BAR`,
+			Word: makeList(kindSeq,
+				makeList(kindSimple,
+					Literal("local"),
+					makeList(kindWord, Literal("FOO"), Literal("="), Literal("FOO")),
+					makeList(kindWord, Literal("BAR"), Literal("="), Literal("BAR")),
+				),
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "FOO", quoted: false, apply: Identity()},
+					Variable{ident: "BAR", quoted: false, apply: Identity()},
+				),
+			),
+		},
 	}
 	runParseCase(t, data)
 }
