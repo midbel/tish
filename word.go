@@ -136,7 +136,6 @@ func (i List) asWord() Word {
 		return i
 	}
 	return i.words[0].asWord()
-	// return i.words[0] //.asWord()
 }
 
 const (
@@ -388,7 +387,7 @@ func (a Assignment) String() string {
 	if a.word == nil {
 		return fmt.Sprintf("assignment(%s)", a.ident)
 	}
-	return fmt.Sprintf("assigment(%s=%s)", a.ident, a.word.String())
+	return fmt.Sprintf("assignment(%s=%s)", a.ident, a.word.String())
 }
 
 func (a Assignment) Equal(w Word) bool {
