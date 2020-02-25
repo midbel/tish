@@ -236,7 +236,7 @@ func executeSimple(ws []Word, e *Env) error {
 			}
 			continue
 		}
-		xs, err := w.Expand(e)
+		xs, err := w.Expand(env)
 		if err != nil {
 			return err
 		}

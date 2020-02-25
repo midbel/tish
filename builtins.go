@@ -113,67 +113,67 @@ var builtins map[string]builtin
 func init() {
 	builtins = map[string]builtin{
 		"echo": {
-			Usage: "echo [arg...]",
+			Usage: "echo [-i] [-h] [arg...]",
 			Short: "write arguments to standard output",
 			run:   Echo,
 		},
 		"date": {
-			Usage: "date [-u]",
+			Usage: "date [-u] [-h]",
 			Short: "write current date time to standart output",
 			run:   Date,
 		},
 		"help": {
-			Usage: "help builtin",
+			Usage: "help [-h] builtin",
 			Short: "print help text for a builtin command",
 			run:   Help,
 		},
 		"builtins": {
-			Usage: "builtins",
+			Usage: "builtins [-h]",
 			Short: "print list of builtins and a short description",
 			run:   Builtins,
 		},
 		"rand": {
-			Usage: "rand",
+			Usage: "rand [-h]",
 			Short: fmt.Sprintf("generate a random integer between 0 and %d", math.MaxUint32),
 			run:   Random,
 		},
 		"printf": {
-			Usage: "printf [-v var] format [arg...]",
+			Usage: "printf [-v] [-h] format [arg...]",
 			Short: "write the formatted arguments to standard output",
 			run:   Printf,
 		},
 		"local": {
-			Usage: "local name[=value]...",
+			Usage: "local [-h] name[=value]...",
 			Short: "create a variable with name and assign a optional value",
 			run:   Local,
 		},
 		"true": {
-			Usage: "true",
+			Usage: "true [-h]",
 			Short: "always returns a successfull result",
 			run:   True,
 		},
 		"false": {
-			Usage: "false",
+			Usage: "false [-h]",
 			Short: "always returns a unsuccessfull result",
 			run:   False,
 		},
 		"seq": {
-			Usage: "seq [lower] [upper] [increment]",
+			Usage: "seq [-h] [lower] [upper] [increment]",
 			Short: "print a sequence of numbers",
 			run:   Seq,
 		},
 		"type": {
-			Usage: "type [-n] name [name...]",
+			Usage: "type [-h] [-n] name [name...]",
 			Short: "show information about command type",
 			run:   Type,
 		},
 		"exit": {
-			Usage: "exit [status]",
+			Usage: "exit [-h] [status]",
 			Short: "exit the shell with the given status",
 			run:   Exit,
 		},
 		"env": {
-			Usage: "env [variable...]",
+			Usage: "env [-h] [variable...]",
 			Short: "print environment variables on stdout",
 			run:   Environ,
 		},
@@ -186,17 +186,6 @@ func init() {
 		// "time":    {},
 		// "type":    {},
 	}
-}
-
-func Local(b builtin) error {
-	set := flag.NewFlagSet(b.String(), flag.ContinueOnError)
-	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
-	}
-	if err := set.Parse(b.args); err != nil {
-		return err
-	}
-	return nil
 }
 
 func Printf(b builtin) error {
@@ -599,6 +588,27 @@ func Environ(b builtin) error {
 	}
 	for _, e := range es {
 		fmt.Fprintln(b.stdout, e)
+	}
+	return nil
+}
+
+func Local(b builtin) error {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+	for _, a := range set.Args() {
+		
 	}
 	return nil
 }
