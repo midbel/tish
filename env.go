@@ -61,3 +61,10 @@ func (e *Env) Values() []string {
 	}
 	return env
 }
+
+func (e *Env) Unwrap() (*Env, error) {
+	if e.parent == nil {
+		return nil, fmt.Errorf("env: can not unwrap globals")
+	}
+	return e.parent, nil
+}

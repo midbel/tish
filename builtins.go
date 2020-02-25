@@ -607,8 +607,24 @@ func Local(b builtin) error {
 		set.Usage()
 		return nil
 	}
+	env, err := b.env.Unwrap()
+	if err != nil {
+		return err
+	}
 	for _, a := range set.Args() {
-		
+		var (
+			opt string
+			val string
+			ix  = strings.IndexByte(a, '=')
+		)
+		if ix > 0 {
+			opt, val = a[:ix], a[ix+1:]
+		} else if ix < 0 {
+			opt = a
+		} else {
+			fmt.Fprintf(b.stderr, "%s: missing variable name\n", a)
+		}
+		env.Set(opt, []string{val})
 	}
 	return nil
 }
