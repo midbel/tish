@@ -1,8 +1,14 @@
 package tish
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+var (
+	ErrReadOnly   = errors.New("variable is read only")
+	ErrNotDefined = errors.New("variable not defined")
 )
 
 type envval struct {
@@ -36,13 +42,13 @@ func (e *Env) Get(n string) ([]string, error) {
 	if e.parent != nil {
 		return e.parent.Get(n)
 	}
-	return nil, fmt.Errorf("%s: not defined", n)
+	return nil, fmt.Errorf("%s: %w", n, ErrNotDefined)
 }
 
 func (e *Env) Set(n string, vs []string) error {
 	val, ok := e.locals[n]
 	if ok && val.ReadOnly {
-
+		return fmt.Errorf("%s: %w", n, ErrReadOnly)
 	}
 	e.locals[n] = envval{
 		Values:   vs,

@@ -10,11 +10,11 @@ import (
 
 const MaxHistSize = 100
 
-var (
-	stdout io.Writer = os.Stdout
-	stderr io.Writer = os.Stderr
-	stdin  io.Reader = os.Stdin
-)
+// var (
+// 	stdout io.Writer = os.NewFile(os.Stdout.Fd(), "in")
+// 	stderr io.Writer = os.NewFile(os.Stderr.Fd(), "out")
+// 	stdin  io.Reader = os.NewFile(os.Stdin.Fd(), "err")
+// )
 
 type Shell struct {
 	time.Time
@@ -43,14 +43,15 @@ type Shell struct {
 }
 
 func NewShell() *Shell {
+	defer os.Clearenv()
 	s := Shell{
 		uid:     os.Getuid(),
 		pid:     os.Getpid(),
 		Time:    time.Now(),
 		globals: NewEnvironment(),
-		stdin:   stdin,
-		stdout:  stdout,
-		stderr:  stderr,
+		stdin:   os.NewFile(os.Stdin.Fd(), "stdin"),
+		stdout:  os.NewFile(os.Stdout.Fd(), "stdout"),
+		stderr:  os.NewFile(os.Stderr.Fd(), "stderr"),
 		alias:   make(map[string]string),
 	}
 	s.locals = NewEnclosedEnvironment(s.globals)
@@ -169,14 +170,18 @@ func executeAnd(ws []Word, e *Env) error {
 }
 
 func executePipeline(ws []Word, e *Env) error {
-	in := stdin
+	in := os.NewFile(os.Stdin.Fd(), "stdin")
 	for i := 0; ; i++ {
 		args, err := ws[i].Expand(e)
 		if err != nil || len(args) == 0 {
 			return err
 		}
 		if i == len(ws)-1 {
-			return prepare(args, e, in, stdout, stderr).Run()
+			var (
+				out = os.NewFile(os.Stdout.Fd(), "stdout")
+				err = os.NewFile(os.Stderr.Fd(), "stderr")
+			)
+			return prepare(args, e, in, out, err).Run()
 		}
 		p, ok := ws[i].(Pipe)
 		if !ok {
@@ -189,7 +194,7 @@ func executePipeline(ws []Word, e *Env) error {
 		var serr io.Writer
 		switch p.kind {
 		case kindPipe:
-			serr = stderr
+			serr = os.NewFile(os.Stderr.Fd(), "stderr")
 		case kindPipeBoth:
 			serr = w
 		default:
@@ -243,9 +248,9 @@ func executeSimple(ws []Word, e *Env) error {
 		args = append(args, xs...)
 	}
 	var (
-		in  = stdin
-		out = stdout
-		err = stderr
+		in  = os.NewFile(os.Stdin.Fd(), "stdin")
+		out = os.NewFile(os.Stdout.Fd(), "stdout")
+		err = os.NewFile(os.Stderr.Fd(), "stderr")
 	)
 
 	for _, r := range rs {
@@ -254,24 +259,24 @@ func executeSimple(ws []Word, e *Env) error {
 			return errf
 		}
 
-		if in, ok := in.(*os.File); ok && in.Name() == f.Name() {
+		if in.Name() == f.Name() {
 			f.Close()
 			return fmt.Errorf("%s: already open for reading", f.Name())
 		}
 
 		switch r.file {
 		case fdIn:
-			closeFile(in, stdin)
+			in.Close()
 			in = f
 		case fdOut:
-			closeFile(out, stdout)
+			out.Close()
 			out = f
 		case fdErr:
-			closeFile(err, stderr)
+			err.Close()
 			err = f
 		case fdBoth:
-			closeFile(out, stdout)
-			closeFile(err, stderr)
+			out.Close()
+			err.Close()
 			out, err = f, f
 		default:
 			return fmt.Errorf("invalid file descriptor %d", r.file)
@@ -280,19 +285,17 @@ func executeSimple(ws []Word, e *Env) error {
 	return prepare(args, env, in, out, err).Run()
 }
 
-func closeFile(f, std interface{}) {
-	c, ok := f.(io.Closer)
-	if ok && f != std {
-		c.Close()
-	}
-}
-
 func executeLiteral(i Literal, e *Env) error {
-	vs, err := i.Expand(e)
-	if err != nil || len(vs) == 0 {
-		return err
+	vs, errf := i.Expand(e)
+	if errf != nil || len(vs) == 0 {
+		return errf
 	}
-	return prepare(vs, e, stdin, stdout, stderr).Run()
+	var (
+		in  = os.NewFile(os.Stdin.Fd(), "stdin")
+		out = os.NewFile(os.Stdout.Fd(), "stdout")
+		err = os.NewFile(os.Stderr.Fd(), "stderr")
+	)
+	return prepare(vs, e, in, out, err).Run()
 }
 
 func prepare(args []string, env *Env, in io.Reader, out, err io.Writer) Command {

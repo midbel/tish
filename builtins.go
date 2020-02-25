@@ -105,13 +105,13 @@ func (b *Builtin) enable(e bool) {
 }
 
 func (b *Builtin) closeStreams() {
-	if c, ok := b.stdin.(io.Closer); ok && b.stdin != stdin {
+	if c, ok := b.stdin.(io.Closer); ok {
 		c.Close()
 	}
-	if c, ok := b.stdout.(io.Closer); ok && b.stdout != stdout {
+	if c, ok := b.stdout.(io.Closer); ok {
 		c.Close()
 	}
-	if c, ok := b.stdout.(io.Closer); ok && b.stderr != stderr {
+	if c, ok := b.stdout.(io.Closer); ok {
 		c.Close()
 	}
 }
@@ -199,6 +199,16 @@ func init() {
 			Usage: "enable [-n] [-f] [-r] [-h] [builtin...]",
 			Short: "",
 			Exec:  Enable,
+		},
+		"command": {
+			Usage: "command name [option] arguments...",
+			Short: "",
+			Exec:  nil,
+		},
+		"builtin": {
+			Usage: "builtin name [option] arguments...",
+			Short: "",
+			Exec:  nil,
 		},
 		// "alias":   {},
 		// "unalias": {},

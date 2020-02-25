@@ -10,6 +10,7 @@ import (
 )
 
 func TestExecuteWithEnv(t *testing.T) {
+	t.SkipNow()
 	defer func() {
 		filepath.Walk("testdata", func(f string, i os.FileInfo, err error) error {
 			if err != nil {
@@ -151,9 +152,9 @@ func TestExecuteWithEnv(t *testing.T) {
 	)
 	env.Set("HOME", []string{"/home/midbel"})
 
-	stdin = bytes.NewReader(make([]byte, 64))
-	stdout = &sout
-	stderr = &serr
+	// stdin = bytes.NewReader(make([]byte, 64))
+	// stdout = &sout
+	// stderr = &serr
 
 	for _, d := range data {
 		sout.Reset()
