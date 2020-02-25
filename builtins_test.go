@@ -22,8 +22,8 @@ func testType(t *testing.T) {
 		{Args: "echo", Out: "builtin"},
 		{Args: "type", Out: "builtin"},
 		{Args: "testdata", Out: "directory"},
-		{Args: "testdata/foo.txt", Out: "file"},
-		{Args: "fortune", Err: "no such file or directory"},
+		{Args: "README.md", Out: "file"},
+		{Args: "foobar", Err: "no such file or directory"},
 	}
 	for _, d := range data {
 		b, err := get("type")
