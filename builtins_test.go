@@ -30,7 +30,7 @@ func testType(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b.args = append(b.args, d.Args)
+		b.Args = append(b.Args, d.Args)
 		if err := b.Run(); err != nil {
 			t.Fatal("run seq:", err)
 		}
@@ -117,7 +117,7 @@ func testSeq(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b.args = d.Args
+		b.Args = d.Args
 		if err := b.Run(); err != nil {
 			t.Fatal("run seq:", err)
 		}
@@ -157,10 +157,10 @@ func testEcho(t *testing.T) {
 	t.SkipNow()
 }
 
-func get(ident string) (builtin, error) {
+func get(ident string) (Builtin, error) {
 	b, ok := builtins[ident]
 	if !ok {
-		return builtin{}, fmt.Errorf("%s: builtin not found", ident)
+		return Builtin{}, fmt.Errorf("%s: builtin not found", ident)
 	}
 	b.stdin = bytes.NewReader(nil)
 

@@ -5,9 +5,14 @@ import (
 	"strings"
 )
 
+type envval struct {
+	Values   []string
+	ReadOnly bool
+}
+
 type Env struct {
 	parent *Env
-	locals map[string][]string
+	locals map[string]envval
 }
 
 func NewEnvironment() *Env {
@@ -16,14 +21,16 @@ func NewEnvironment() *Env {
 
 func NewEnclosedEnvironment(e *Env) *Env {
 	return &Env{
-		locals: make(map[string][]string),
+		locals: make(map[string]envval),
 		parent: e,
 	}
 }
 
 func (e *Env) Get(n string) ([]string, error) {
-	vs, ok := e.locals[n]
+	val, ok := e.locals[n]
 	if ok {
+		vs := make([]string, len(val.Values))
+		copy(vs, val.Values)
 		return vs, nil
 	}
 	if e.parent != nil {
@@ -32,8 +39,16 @@ func (e *Env) Get(n string) ([]string, error) {
 	return nil, fmt.Errorf("%s: not defined", n)
 }
 
-func (e *Env) Set(n string, vs []string) {
-	e.locals[n] = vs
+func (e *Env) Set(n string, vs []string) error {
+	val, ok := e.locals[n]
+	if ok && val.ReadOnly {
+
+	}
+	e.locals[n] = envval{
+		Values:   vs,
+		ReadOnly: false,
+	}
+	return nil
 }
 
 func (e *Env) Del(n string) {
@@ -50,13 +65,22 @@ func (e *Env) Clear() {
 	}
 }
 
+func (e *Env) SetReadOnly(ident string, ro bool) {
+	ev, ok := e.locals[ident]
+	if !ok && e.parent != nil {
+		e.parent.SetReadOnly(ident, ro)
+	}
+	ev.ReadOnly = ro
+	e.locals[ident] = ev
+}
+
 func (e *Env) Values() []string {
 	var env []string
 	if e.parent != nil {
 		env = e.parent.Values()
 	}
 	for k, vs := range e.locals {
-		str := fmt.Sprintf("%s=%s", k, strings.Join(vs, " "))
+		str := fmt.Sprintf("%s=%s", k, strings.Join(vs.Values, " "))
 		env = append(env, str)
 	}
 	return env

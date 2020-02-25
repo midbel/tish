@@ -297,12 +297,15 @@ func executeLiteral(i Literal, e *Env) error {
 
 func prepare(args []string, env *Env, in io.Reader, out, err io.Writer) Command {
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
-		c.args = args[1:]
 		c.stdin = in
 		c.stdout = out
 		c.stderr = err
 
-		c.env = env
+		c.Args = args[1:]
+		if env == nil {
+			env = NewEnvironment()
+		}
+		c.Env = env
 
 		return &c
 	}

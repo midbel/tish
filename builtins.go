@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"plugin"
 	"strconv"
 	"strings"
 	"time"
@@ -20,14 +21,17 @@ type Command interface {
 	Run() error
 }
 
-type builtin struct {
+type Builtin struct {
 	Usage string
 	Short string
 	Desc  string
 
-	args []string
-	env  *Env
-	run  func(builtin) error
+	disabled bool
+	external bool
+
+	Args []string
+	Env  *Env
+	Exec func(Builtin) error
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -37,14 +41,14 @@ type builtin struct {
 	done     chan error
 }
 
-func (b *builtin) String() string {
+func (b *Builtin) String() string {
 	if i := strings.Index(b.Usage, " "); i > 0 {
 		return b.Usage[:i]
 	}
 	return b.Usage
 }
 
-func (b *builtin) Help() string {
+func (b *Builtin) Help() string {
 	var buf strings.Builder
 	buf.WriteString(b.Short)
 	if b.Desc != "" {
@@ -56,11 +60,11 @@ func (b *builtin) Help() string {
 	return buf.String()
 }
 
-func (b *builtin) Runnable() bool {
-	return b.run != nil
+func (b *Builtin) Runnable() bool {
+	return !b.disabled && b.Exec != nil
 }
 
-func (b *builtin) Start() error {
+func (b *Builtin) Start() error {
 	if !b.Runnable() {
 		return fmt.Errorf("%s: not runnable", b.String())
 	}
@@ -70,14 +74,14 @@ func (b *builtin) Start() error {
 
 	b.done = make(chan error, 1)
 	go func() {
-		b.done <- b.run(*b)
+		b.done <- b.Exec(*b)
 		b.closeStreams()
 		close(b.done)
 	}()
 	return nil
 }
 
-func (b *builtin) Wait() error {
+func (b *Builtin) Wait() error {
 	if !b.Runnable() {
 		return fmt.Errorf("%s: not runnable", b.String())
 	}
@@ -89,14 +93,18 @@ func (b *builtin) Wait() error {
 	return <-b.done
 }
 
-func (b *builtin) Run() error {
+func (b *Builtin) Run() error {
 	if err := b.Start(); err != nil {
 		return err
 	}
 	return b.Wait()
 }
 
-func (b *builtin) closeStreams() {
+func (b *Builtin) enable(e bool) {
+	b.disabled = e
+}
+
+func (b *Builtin) closeStreams() {
 	if c, ok := b.stdin.(io.Closer); ok && b.stdin != stdin {
 		c.Close()
 	}
@@ -108,87 +116,100 @@ func (b *builtin) closeStreams() {
 	}
 }
 
-var builtins map[string]builtin
+var builtins map[string]Builtin
 
 func init() {
-	builtins = map[string]builtin{
+	builtins = map[string]Builtin{
 		"echo": {
 			Usage: "echo [-i] [-h] [arg...]",
 			Short: "write arguments to standard output",
-			run:   Echo,
+			Exec:  Echo,
 		},
 		"date": {
 			Usage: "date [-u] [-h]",
 			Short: "write current date time to standart output",
-			run:   Date,
+			Exec:  Date,
 		},
 		"help": {
 			Usage: "help [-h] builtin",
 			Short: "print help text for a builtin command",
-			run:   Help,
+			Exec:  Help,
 		},
 		"builtins": {
 			Usage: "builtins [-h]",
 			Short: "print list of builtins and a short description",
-			run:   Builtins,
+			Exec:  Builtins,
 		},
 		"rand": {
 			Usage: "rand [-h]",
 			Short: fmt.Sprintf("generate a random integer between 0 and %d", math.MaxUint32),
-			run:   Random,
+			Exec:  Random,
 		},
 		"printf": {
 			Usage: "printf [-v] [-h] format [arg...]",
 			Short: "write the formatted arguments to standard output",
-			run:   Printf,
+			Exec:  Printf,
 		},
 		"local": {
 			Usage: "local [-h] name[=value]...",
 			Short: "create a variable with name and assign a optional value",
-			run:   Local,
+			Exec:  Local,
 		},
 		"true": {
 			Usage: "true [-h]",
 			Short: "always returns a successfull result",
-			run:   True,
+			Exec:  True,
 		},
 		"false": {
 			Usage: "false [-h]",
 			Short: "always returns a unsuccessfull result",
-			run:   False,
+			Exec:  False,
 		},
 		"seq": {
 			Usage: "seq [-h] [lower] [upper] [increment]",
 			Short: "print a sequence of numbers",
-			run:   Seq,
+			Exec:  Seq,
 		},
 		"type": {
 			Usage: "type [-h] [-n] name [name...]",
 			Short: "show information about command type",
-			run:   Type,
+			Exec:  Type,
 		},
 		"exit": {
 			Usage: "exit [-h] [status]",
 			Short: "exit the shell with the given status",
-			run:   Exit,
+			Exec:  Exit,
 		},
 		"env": {
 			Usage: "env [-h] [variable...]",
 			Short: "print environment variables on stdout",
-			run:   Environ,
+			Exec:  Environ,
 		},
-		// "export":  {},
+		"readonly": {
+			Usage: "readonly [-h] ",
+			Short: "",
+			Exec:  Readonly,
+		},
+		"export": {
+			Usage: "export [-h] name[=value]...",
+			Short: "",
+			Exec:  Export,
+		},
+		"enable": {
+			Usage: "enable [-n] [-f] [-r] [-h] [builtin...]",
+			Short: "",
+			Exec:  Enable,
+		},
 		// "alias":   {},
 		// "unalias": {},
 		// "pwd":     {},
 		// "cd":      {},
-		// "pwd":     {},
 		// "time":    {},
-		// "type":    {},
+		// "source":  {},
 	}
 }
 
-func Printf(b builtin) error {
+func Printf(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		name = set.String("v", "", "variable")
@@ -197,7 +218,7 @@ func Printf(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -220,7 +241,7 @@ func Printf(b builtin) error {
 	return err
 }
 
-func Random(b builtin) error {
+func Random(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		seed = set.Int64("s", time.Now().Unix(), "use SEED to seed the generator")
@@ -229,7 +250,7 @@ func Random(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -242,7 +263,7 @@ func Random(b builtin) error {
 
 }
 
-func Echo(b builtin) error {
+func Echo(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		in   = set.Bool("i", false, "read arguments from stdin")
@@ -252,7 +273,7 @@ func Echo(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -280,7 +301,7 @@ func Echo(b builtin) error {
 	return s.Err()
 }
 
-func Date(b builtin) error {
+func Date(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		utc  = set.Bool("u", false, "utc time")
@@ -289,7 +310,7 @@ func Date(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -304,7 +325,7 @@ func Date(b builtin) error {
 	return err
 }
 
-func Builtins(b builtin) error {
+func Builtins(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -312,7 +333,7 @@ func Builtins(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -328,7 +349,7 @@ func Builtins(b builtin) error {
 	return nil
 }
 
-func Help(b builtin) error {
+func Help(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -336,7 +357,7 @@ func Help(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -361,7 +382,7 @@ func Help(b builtin) error {
 	return nil
 }
 
-func True(b builtin) error {
+func True(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -369,7 +390,7 @@ func True(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -379,7 +400,7 @@ func True(b builtin) error {
 	return nil
 }
 
-func False(b builtin) error {
+func False(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -387,7 +408,7 @@ func False(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -397,7 +418,7 @@ func False(b builtin) error {
 	return fmt.Errorf(b.String())
 }
 
-func Seq(b builtin) error {
+func Seq(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		pat  = set.String("f", "%d", "format output number")
@@ -407,7 +428,7 @@ func Seq(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -483,7 +504,7 @@ func Seq(b builtin) error {
 	return nil
 }
 
-func Type(b builtin) error {
+func Type(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		nob  = set.Bool("n", false, "exclude builtin")
@@ -492,7 +513,7 @@ func Type(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -534,7 +555,7 @@ func Type(b builtin) error {
 	return nil
 }
 
-func Exit(b builtin) error {
+func Exit(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -542,7 +563,7 @@ func Exit(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -559,7 +580,7 @@ func Exit(b builtin) error {
 	return nil
 }
 
-func Environ(b builtin) error {
+func Environ(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -567,7 +588,7 @@ func Environ(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
@@ -577,14 +598,14 @@ func Environ(b builtin) error {
 
 	es := make([]string, 0, set.NArg())
 	for _, e := range set.Args() {
-		vs, err := b.env.Get(e)
+		vs, err := b.Env.Get(e)
 		if err != nil {
 			continue
 		}
 		es = append(es, fmt.Sprintf("%s=%s", e, strings.Join(vs, " ")))
 	}
 	if len(es) == 0 {
-		es = b.env.Values()
+		es = b.Env.Values()
 	}
 	for _, e := range es {
 		fmt.Fprintln(b.stdout, e)
@@ -592,7 +613,7 @@ func Environ(b builtin) error {
 	return nil
 }
 
-func Local(b builtin) error {
+func Local(b Builtin) error {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -600,14 +621,14 @@ func Local(b builtin) error {
 	set.Usage = func() {
 		fmt.Fprintln(b.stderr, b.Help())
 	}
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *help {
 		set.Usage()
 		return nil
 	}
-	env, err := b.env.Unwrap()
+	env, err := b.Env.Unwrap()
 	if err != nil {
 		return err
 	}
@@ -625,6 +646,122 @@ func Local(b builtin) error {
 			fmt.Fprintf(b.stderr, "%s: missing variable name\n", a)
 		}
 		env.Set(opt, []string{val})
+	}
+	return nil
+}
+
+func Export(b Builtin) error {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+	env := b.Env
+	for {
+		e, err := env.Unwrap()
+		if err != nil {
+			env = e
+			break
+		}
+	}
+	for _, a := range set.Args() {
+		var (
+			opt string
+			val string
+			ix  = strings.IndexByte(a, '=')
+		)
+		if ix > 0 {
+			opt, val = a[:ix], a[ix+1:]
+		} else if ix < 0 {
+			opt = a
+		} else {
+			fmt.Fprintf(b.stderr, "%s: missing variable name\n", a)
+		}
+		env.Set(opt, []string{val})
+	}
+	return nil
+}
+
+func Readonly(b Builtin) error {
+	var (
+		set   = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		ronly = set.Bool("n", false, "")
+		help  = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+	for _, a := range set.Args() {
+		b.Env.SetReadOnly(a, *ronly)
+	}
+	return nil
+}
+
+func Enable(b Builtin) error {
+	var (
+		set       = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		file      = set.Bool("f", false, "register new builtins from external plugins")
+		disabled  = set.Bool("n", false, "disabled the builtins")
+		overwrite = set.Bool("r", false, "replace builtin")
+		help      = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	if *help || set.NArg() == 0 {
+		set.Usage()
+		return nil
+	}
+	if !*file {
+		for _, a := range set.Args() {
+			b, ok := builtins[a]
+			if !ok {
+				fmt.Fprintf(b.stderr, "%s: builtin not found", a)
+				continue
+			}
+			b.enable(*disabled)
+		}
+		return nil
+	}
+	for _, a := range set.Args() {
+		p, err := plugin.Open(a)
+		if err != nil {
+			return err
+		}
+		sym, err := p.Lookup("Builtins")
+		if err != nil {
+			return err
+		}
+		list, ok := sym.(func() []*Builtin)
+		if !ok {
+			return fmt.Errorf("invalid signature")
+		}
+		for _, b := range list() {
+			if _, ok := builtins[b.String()]; ok && !*overwrite {
+				continue
+			}
+			b.external = true
+			builtins[b.String()] = *b
+		}
 	}
 	return nil
 }
