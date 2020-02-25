@@ -2,6 +2,7 @@ package tish
 
 import (
 	"fmt"
+	"strings"
 )
 
 type Env struct {
@@ -41,4 +42,22 @@ func (e *Env) Del(n string) {
 		return
 	}
 	delete(e.locals, n)
+}
+
+func (e *Env) Clear() {
+	for k := range e.locals {
+		delete(e.locals, k)
+	}
+}
+
+func (e *Env) Values() []string {
+	var env []string
+	if e.parent != nil {
+		env = e.parent.Values()
+	}
+	for k, vs := range e.locals {
+		str := fmt.Sprintf("%s=%s", k, strings.Join(vs, " "))
+		env = append(env, str)
+	}
+	return env
 }

@@ -132,6 +132,11 @@ func TestExecuteWithEnv(t *testing.T) {
 			Out:   "print help text for a builtin command\nusage: help builtin",
 			Err:   "",
 		},
+		// {
+		// 	Input: `FOO=FOO BAR=BAR env FOO BAR`,
+		// 	Out:   "FOO=FOO\nBAR=BAR\n",
+		// 	Err:   "",
+		// },
 	}
 
 	var (

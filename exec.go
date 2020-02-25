@@ -176,7 +176,7 @@ func executePipeline(ws []Word, e *Env) error {
 			return err
 		}
 		if i == len(ws)-1 {
-			return prepare(args, in, stdout, stderr).Run()
+			return prepare(args, e.Values(), in, stdout, stderr).Run()
 		}
 		p, ok := ws[i].(Pipe)
 		if !ok {
@@ -195,7 +195,7 @@ func executePipeline(ws []Word, e *Env) error {
 		default:
 			return fmt.Errorf("%s: unexpected pipe type", p.kind)
 		}
-		if err := prepare(args, in, w, serr).Start(); err != nil {
+		if err := prepare(args, e.Values(), in, w, serr).Start(); err != nil {
 			return err
 		}
 		in = r
@@ -222,8 +222,8 @@ func executeSequence(ws []Word, e *Env) error {
 func executeSimple(ws []Word, e *Env) error {
 	var (
 		rs   []Redirect
-		as   []Assignment
 		args []string
+		env  = NewEnclosedEnvironment(e)
 	)
 	for _, w := range ws {
 		if r, ok := w.(Redirect); ok {
@@ -231,7 +231,9 @@ func executeSimple(ws []Word, e *Env) error {
 			continue
 		}
 		if a, ok := w.(Assignment); ok {
-			as = append(as, a)
+			if _, err := a.Expand(env); err != nil {
+				return err
+			}
 			continue
 		}
 		xs, err := w.Expand(e)
@@ -275,7 +277,7 @@ func executeSimple(ws []Word, e *Env) error {
 			return fmt.Errorf("invalid file descriptor %d", r.file)
 		}
 	}
-	return prepare(args, in, out, err).Run()
+	return prepare(args, env.Values(), in, out, err).Run()
 }
 
 func closeFile(f, std interface{}) {
@@ -290,10 +292,10 @@ func executeLiteral(i Literal, e *Env) error {
 	if err != nil || len(vs) == 0 {
 		return err
 	}
-	return prepare(vs, stdin, stdout, stderr).Run()
+	return prepare(vs, e.Values(), stdin, stdout, stderr).Run()
 }
 
-func prepare(args []string, in io.Reader, out, err io.Writer) Command {
+func prepare(args, envs []string, in io.Reader, out, err io.Writer) Command {
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
 		c.args = args[1:]
 		c.stdin = in
@@ -304,6 +306,9 @@ func prepare(args []string, in io.Reader, out, err io.Writer) Command {
 	}
 	cmd := exec.Command(args[0], args[1:]...)
 
+	if len(envs) > 0 {
+		cmd.Env = append(cmd.Env, envs...)
+	}
 	cmd.Stdin = in
 	cmd.Stdout = out
 	cmd.Stderr = err

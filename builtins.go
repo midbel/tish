@@ -171,7 +171,6 @@ func init() {
 			Short: "exit the shell with the given status",
 			run:   Exit,
 		},
-		// "env":     {},
 		// "export":  {},
 		// "alias":   {},
 		// "unalias": {},
