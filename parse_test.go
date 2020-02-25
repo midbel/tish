@@ -222,23 +222,16 @@ func testParseAssignments(t *testing.T) {
 			},
 		},
 		{
-			Input: `VAR=FOO BAR`,
+			Input: `VAR="FOO BAR"`,
 			Word: Assignment{
 				ident: "VAR",
-				word:  makeList(kindSimple, Literal("FOO"), Literal("BAR")),
+				word:  Literal("FOO BAR"),
 			},
 		},
 		{
 			Input: `VAR=`,
 			Word: Assignment{
 				ident: "VAR",
-			},
-		},
-		{
-			Input: `VAR="foo bar"`,
-			Word: Assignment{
-				ident: "VAR",
-				word:  makeList(kindSimple, Literal("foo bar")),
 			},
 		},
 		{
@@ -258,22 +251,24 @@ func testParseAssignments(t *testing.T) {
 			},
 		},
 		{
-			Input: `VAR=$((1+1)) {foo,bar}`,
+			Input: `VAR="$((1+1)) {foo,bar}"`,
 			Word: Assignment{
 				ident: "VAR",
-				word: makeList(kindSimple,
+				word: makeList(kindWord,
 					makeExpr(makeEval(plus, Number(1), Number(1))),
-					Brace{word: makeList(kindBraces, Literal("foo"), Literal("bar"))},
+					Literal(" {foo,bar}"),
 				),
 			},
 		},
 		{
-			Input: `VAR=$FOO $(echo foobar) $((1+1))`,
+			Input: `VAR="$FOO $(echo foobar) $((1+1))"`,
 			Word: Assignment{
 				ident: "VAR",
-				word: makeList(kindSimple,
-					Variable{ident: "FOO"},
+				word: makeList(kindWord,
+					Variable{ident: "FOO", quoted: true, apply: Identity()},
+					Literal(" "),
 					makeList(kindSub, makeList(kindSimple, Literal("echo"), Literal("foobar"))),
+					Literal(" "),
 					makeExpr(makeEval(plus, Number(1), Number(1))),
 				),
 			},
@@ -283,9 +278,21 @@ func testParseAssignments(t *testing.T) {
 			Word: makeList(kindSimple,
 				Assignment{ident: "FOO", word: Literal("FOO")},
 				Assignment{ident: "BAR", word: Literal("BAR")},
-				Literal("echo"),
-				Variable{ident: "FOO", quoted: false, apply: Identity()},
-				Variable{ident: "BAR", quoted: false, apply: Identity()},
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "FOO", quoted: false, apply: Identity()},
+					Variable{ident: "BAR", quoted: false, apply: Identity()},
+				),
+			),
+		},
+		{
+			Input: `FOO=foobar; echo $FOO`,
+			Word: makeList(kindSeq,
+				Assignment{ident: "FOO", word: Literal("foobar")},
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "FOO", quoted: false, apply: Identity()},
+				),
 			),
 		},
 	}
@@ -569,7 +576,7 @@ func testParseSimple(t *testing.T) {
 	data := []ParseCase{
 		{
 			Input: "echo",
-			Word:  makeList(kindSimple, Literal("echo")),
+			Word:  Literal("echo"),
 		},
 		{
 			Input: "echo foobar",

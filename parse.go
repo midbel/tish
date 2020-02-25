@@ -304,24 +304,14 @@ func (p *parser) parseAssignment() (Word, error) {
 	p.next()
 	p.next()
 
-	ws := List{kind: kindSimple}
-	for !p.isDone() {
-		if p.curr.Type == semicolon {
-			break
-		}
-		w, err := p.parseWord()
-		if err != nil {
-			return nil, err
-		}
-		ws.words = append(ws.words, w)
+	w, err := p.parseWord()
+	if err == nil {
+		a.word = w
 		if p.isBlank() {
 			p.next()
 		}
 	}
-	if len(ws.words) > 0 {
-		a.word = ws.asWord()
-	}
-	return a, nil
+	return a, err
 }
 
 func (p *parser) parseCommand() (Word, error) {
@@ -335,12 +325,20 @@ func (p *parser) parseCommand() (Word, error) {
 	case tokWord:
 	}
 
-	if p.peek.Type == equal {
-		return p.parseAssignment()
+	ws := List{kind: kindSimple}
+	for p.peek.Type == equal {
+		w, err := p.parseAssignment()
+		if err != nil {
+			return nil, err
+		}
+		ws.words = append(ws.words, w)
 	}
 
-	ws := List{kind: kindPipe}
-	for {
+	if p.isDone() || p.curr.Type == semicolon {
+		return ws.asWord(), nil
+	}
+
+	for !p.isDone() {
 		w, err := p.parseSimple()
 		if err != nil {
 			return nil, err
@@ -359,6 +357,7 @@ func (p *parser) parseCommand() (Word, error) {
 				Word: w,
 				kind: kind,
 			}
+			ws.kind = kindPipe
 		}
 		ws.words = append(ws.words, w)
 		if !p.isPipe() && p.isControl() {
