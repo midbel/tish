@@ -58,6 +58,14 @@ func NewShell() *Shell {
 	return &s
 }
 
+func (s *Shell) Exit() {
+	s.exit(0)
+}
+
+func (s *Shell) exit(n int) {
+	os.Exit(n)
+}
+
 func (s *Shell) workingDir() string {
 	return s.dirs.hist[s.dirs.ptr-1]
 }
@@ -170,11 +178,24 @@ func executePipeline(ws []Word, e *Env) error {
 		if i == len(ws)-1 {
 			return prepare(args, in, stdout, stderr).Run()
 		}
+		p, ok := ws[i].(Pipe)
+		if !ok {
+			return fmt.Errorf("%s: not a pipe", ws[i])
+		}
 		r, w, err := os.Pipe()
 		if err != nil {
 			return err
 		}
-		if err := prepare(args, in, w, stderr).Start(); err != nil {
+		var serr io.Writer
+		switch p.kind {
+		case kindPipe:
+			serr = stderr
+		case kindPipeBoth:
+			serr = w
+		default:
+			return fmt.Errorf("%s: unexpected pipe type", p.kind)
+		}
+		if err := prepare(args, in, w, serr).Start(); err != nil {
 			return err
 		}
 		in = r

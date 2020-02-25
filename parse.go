@@ -339,27 +339,32 @@ func (p *parser) parseCommand() (Word, error) {
 		return p.parseAssignment()
 	}
 
-	var (
-		ws   = List{kind: kindPipe}
-		kind = kindSimple
-	)
+	ws := List{kind: kindPipe}
 	for {
-		w, err := p.parseSimple(kind)
+		w, err := p.parseSimple()
 		if err != nil {
 			return nil, err
+		}
+		if p.isPipe() {
+			var kind Kind
+			switch p.curr.Type {
+			case tokPipe:
+				kind = kindPipe
+			case tokPipeBoth:
+				kind = kindPipeBoth
+			default:
+				return nil, fmt.Errorf("command: unexpected token %s", p.curr)
+			}
+			w = Pipe{
+				Word: w,
+				kind: kind,
+			}
 		}
 		ws.words = append(ws.words, w)
 		if !p.isPipe() && p.isControl() {
 			break
 		}
-		switch p.curr.Type {
-		case tokPipe:
-			kind = kindPipe
-		case tokPipeBoth:
-			kind = kindPipeBoth
-		default:
-			kind = kindSimple
-		}
+
 		p.next()
 		if p.isControl() {
 			return nil, fmt.Errorf("command: unexpected operator: %s", p.curr)
@@ -368,8 +373,8 @@ func (p *parser) parseCommand() (Word, error) {
 	return ws.asWord(), p.err
 }
 
-func (p *parser) parseSimple(kind Kind) (Word, error) {
-	xs := List{kind: kind}
+func (p *parser) parseSimple() (Word, error) {
+	xs := List{kind: kindSimple}
 	for !p.isControl() {
 		w, err := p.parseWord()
 		if err != nil {

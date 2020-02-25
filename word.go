@@ -60,6 +60,30 @@ type Word interface {
 	asWord() Word
 }
 
+type Pipe struct {
+	Word
+	kind Kind
+}
+
+func (p Pipe) Equal(w Word) bool {
+	other, ok := w.(Pipe)
+	if !ok {
+		return ok
+	}
+	return p.Word.Equal(other.Word)
+}
+
+func (p Pipe) String() string {
+	var pipe string
+	switch p.kind {
+	case kindPipe, kindPipeBoth:
+		pipe = p.kind.String()
+	default:
+		pipe = "pipeline"
+	}
+	return fmt.Sprintf("%s(%s)", pipe, p.Word)
+}
+
 type List struct {
 	words []Word
 	kind  Kind

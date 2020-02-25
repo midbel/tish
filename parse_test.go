@@ -446,7 +446,10 @@ func testParseSubstitution(t *testing.T) {
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				makeList(kindSub,
-					makeList(kindPipe, Literal("cat"), Literal("wc")),
+					makeList(kindPipe,
+						Pipe{Word: Literal("cat"), kind: kindPipe},
+						Literal("wc"),
+					),
 				),
 			),
 		},
@@ -506,36 +509,57 @@ func testParsePipes(t *testing.T) {
 		{
 			Input: "echo foo | echo",
 			Word: makeList(kindPipe,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipe,
+				},
 				Literal("echo"),
 			),
 		},
 		{
 			Input: "echo foo |& echo",
-			Word: makeList(kindPipeBoth,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
+			Word: makeList(kindPipe,
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipeBoth,
+				},
 				Literal("echo"),
 			),
 		},
 		{
 			Input: "echo foo |& echo | echo", // (echo foo |& echo) | echo
 			Word: makeList(kindPipe,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				Literal("echo"),
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipeBoth,
+				},
+				Pipe{
+					Word: Literal("echo"),
+					kind: kindPipe,
+				},
 				Literal("echo"),
 			),
 		},
 		{
 			Input: "echo foo | echo |& echo", // (echo | foo) |& echo
 			Word: makeList(kindPipe,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				Literal("echo"),
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipe,
+				},
+				Pipe{
+					Word: Literal("echo"),
+					kind: kindPipeBoth,
+				},
 				Literal("echo"),
 			),
 		},
 		{
 			Input: "find | cat | grep",
-			Word:  makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
+			Word: makeList(kindPipe,
+				Pipe{Word: Literal("find"), kind: kindPipe},
+				Pipe{Word: Literal("cat"), kind: kindPipe},
+				Literal("grep")),
 		},
 	}
 	runParseCase(t, data)
@@ -592,7 +616,10 @@ func testParseSimple(t *testing.T) {
 		{
 			Input: "find | cat | grep; wc",
 			Word: makeList(kindSeq,
-				makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
+				makeList(kindPipe,
+					Pipe{Word: Literal("find"), kind: kindPipe},
+					Pipe{Word: Literal("cat"), kind: kindPipe},
+					Literal("grep")),
 				makeList(kindSimple, Literal("wc")),
 			),
 		},
@@ -615,8 +642,8 @@ func testParseSimple(t *testing.T) {
 			Word: makeList(kindSeq,
 				makeList(kindSimple, Literal("echo")),
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 			),
 		},
@@ -634,8 +661,8 @@ func testParseSimple(t *testing.T) {
 			Input: "echo | cat; echo",
 			Word: makeList(kindSeq,
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 				makeList(kindSimple, Literal("echo")),
 			),
@@ -644,8 +671,8 @@ func testParseSimple(t *testing.T) {
 			Input: "echo | cat && echo", // as (echo foo | echo) && echo bar
 			Word: makeList(kindAnd,
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 				makeList(kindSimple, Literal("echo")),
 			),
@@ -653,10 +680,10 @@ func testParseSimple(t *testing.T) {
 		{
 			Input: "echo || echo | cat", // as echo foo || (echo bar | cat)
 			Word: makeList(kindOr,
-				makeList(kindSimple, Literal("echo")),
+				Literal("echo"),
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 			),
 		},
@@ -752,6 +779,13 @@ func makeExpr(e Evaluator) Word {
 }
 
 func makeList(kind Kind, ws ...Word) Word {
+	// if kind == kindPipe || kind == kindPipeBoth {
+	// 	i := List{kind: kind, words: ws}
+	// 	return Pipe{
+	// 		kind: kind,
+	// 		Word: i.asWord(),
+	// 	}
+	// }
 	if len(ws) == 1 && !(kind == kindSub || kind == kindExpr) {
 		return ws[0]
 	}
