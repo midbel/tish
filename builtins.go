@@ -26,6 +26,7 @@ type builtin struct {
 	Desc  string
 
 	args []string
+	env  *Env
 	run  func(builtin) error
 
 	stdin  io.Reader
@@ -170,6 +171,11 @@ func init() {
 			Usage: "exit [status]",
 			Short: "exit the shell with the given status",
 			run:   Exit,
+		},
+		"env": {
+			Usage: "env [variable...]",
+			Short: "print environment variables on stdout",
+			run:   Environ,
 		},
 		// "export":  {},
 		// "alias":   {},
@@ -560,6 +566,39 @@ func Exit(b builtin) error {
 	_, err := strconv.Atoi(set.Arg(0))
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func Environ(b builtin) error {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.stderr, b.Help())
+	}
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	if *help {
+		set.Usage()
+		return nil
+	}
+
+	es := make([]string, 0, set.NArg())
+	for _, e := range set.Args() {
+		vs, err := b.env.Get(e)
+		if err != nil {
+			continue
+		}
+		es = append(es, fmt.Sprintf("%s=%s", e, strings.Join(vs, " ")))
+	}
+	if len(es) == 0 {
+		es = b.env.Values()
+	}
+	for _, e := range es {
+		fmt.Fprintln(b.stdout, e)
 	}
 	return nil
 }

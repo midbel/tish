@@ -176,7 +176,7 @@ func executePipeline(ws []Word, e *Env) error {
 			return err
 		}
 		if i == len(ws)-1 {
-			return prepare(args, e.Values(), in, stdout, stderr).Run()
+			return prepare(args, e, in, stdout, stderr).Run()
 		}
 		p, ok := ws[i].(Pipe)
 		if !ok {
@@ -195,7 +195,7 @@ func executePipeline(ws []Word, e *Env) error {
 		default:
 			return fmt.Errorf("%s: unexpected pipe type", p.kind)
 		}
-		if err := prepare(args, e.Values(), in, w, serr).Start(); err != nil {
+		if err := prepare(args, e, in, w, serr).Start(); err != nil {
 			return err
 		}
 		in = r
@@ -277,7 +277,7 @@ func executeSimple(ws []Word, e *Env) error {
 			return fmt.Errorf("invalid file descriptor %d", r.file)
 		}
 	}
-	return prepare(args, env.Values(), in, out, err).Run()
+	return prepare(args, env, in, out, err).Run()
 }
 
 func closeFile(f, std interface{}) {
@@ -292,22 +292,24 @@ func executeLiteral(i Literal, e *Env) error {
 	if err != nil || len(vs) == 0 {
 		return err
 	}
-	return prepare(vs, e.Values(), stdin, stdout, stderr).Run()
+	return prepare(vs, e, stdin, stdout, stderr).Run()
 }
 
-func prepare(args, envs []string, in io.Reader, out, err io.Writer) Command {
+func prepare(args []string, env *Env, in io.Reader, out, err io.Writer) Command {
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
 		c.args = args[1:]
 		c.stdin = in
 		c.stdout = out
 		c.stderr = err
 
+		c.env = env
+
 		return &c
 	}
 	cmd := exec.Command(args[0], args[1:]...)
 
-	if len(envs) > 0 {
-		cmd.Env = append(cmd.Env, envs...)
+	if es := env.Values(); len(es) > 0 {
+		cmd.Env = append(cmd.Env, es...)
 	}
 	cmd.Stdin = in
 	cmd.Stdout = out
