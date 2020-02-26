@@ -158,6 +158,9 @@ func (s *Shell) executeAssignment(a Assignment) error {
 }
 
 func (s *Shell) executeSequence(ws []Word) error {
+  s.proc.pid = 0
+  s.proc.exit = ExitOk
+
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
@@ -225,7 +228,7 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 		return nil, fmt.Errorf("no command given")
 	}
 	s.proc.pid = 0
-	s.proc.exit = 0
+	s.proc.exit = ExitCode
 
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
 		c.stdin = c.stdin
