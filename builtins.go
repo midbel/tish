@@ -220,32 +220,32 @@ func init() {
 		},
 		"export": {
 			Usage: "export [-h] name[=value]...",
-			Short: "",
+			Short: "export variable to the shell environment",
 			Exec:  Export,
 		},
 		"enable": {
 			Usage: "enable [-n] [-f] [-r] [-h] [builtin...]",
-			Short: "",
+			Short: "enable and/or disable shell builtins",
 			Exec:  Enable,
 		},
 		"command": {
-			Usage: "command name [option] arguments...",
-			Short: "",
+			Usage: "command name [option] [arg...]",
+			Short: "execute command without performing builtin lookup",
 			Exec:  nil,
 		},
 		"builtin": {
-			Usage: "builtin name [option] arguments...",
-			Short: "",
+			Usage: "builtin name [option] [arg...]",
+			Short: "execute builtin without performing command lookup",
 			Exec:  nil,
 		},
 		"alias": {
 			Usage: "alias name=value",
-			Short: "register an alias with name",
+			Short: "register an alias with given name",
 			Exec:  Alias,
 		},
 		"unalias": {
 			Usage: "unalias [-a] [name...]",
-			Short: "unregister the alias with name or all",
+			Short: "unregister an alias with given name or all",
 			Exec:  Unalias,
 		},
 		"pwd": {
