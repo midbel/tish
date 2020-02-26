@@ -207,13 +207,76 @@ func init() {
 			Short: "",
 			Exec:  nil,
 		},
-		// "alias":   {},
-		// "unalias": {},
+		"alias": {
+			Usage: "alias name=value...",
+			Short: "register an alias with name",
+			Exec:  Alias,
+		},
+		"unalias": {
+			Usage: "unalias [-a] [name...]",
+			Short: "unregister the alias with name or all",
+			Exec:  Unalias,
+		},
 		// "pwd":     {},
 		// "cd":      {},
 		// "time":    {},
 		// "source":  {},
 	}
+}
+
+func Alias(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	for _, a := range set.Args() {
+		ix := strings.Index(a, "=")
+		if ix <= 0 {
+			fmt.Fprintf(b.Stderr, "%s: missing equal or alias name\n", a)
+			continue
+		}
+		if err := b.RegisterAlias(a[:ix], a[ix+1:]); err != nil {
+			fmt.Fprintln(b.Stderr, err)
+		}
+	}
+	return ExitOk
+}
+
+func Unalias(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		all  = set.Bool("a", false, "remove all registered aliases")
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	if *all {
+		b.UnregisterAlias("")
+	}
+	for _, a := range set.Args() {
+		b.UnregisterAlias(a)
+	}
+	return ExitOk
 }
 
 func Printf(b Builtin) ErrCode {

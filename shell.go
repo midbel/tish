@@ -92,7 +92,7 @@ func NewShell(in io.Reader, out, err io.Writer) *Shell {
 		stdin:  in,
 		stdout: out,
 		stderr: err,
-		alias:  make(map[string]string),
+		alias:  make(map[string]Word),
 	}
 	s.globals = NewEnvironment()
 	s.locals = NewEnclosedEnvironment(s.globals)
@@ -212,13 +212,13 @@ func (s *Shell) executeLiteral(i Literal) error {
 	if s.Dry {
 		return nil
 	}
-  if w, ok := s.alias[args[0]]; ok {
-    vs, err := w.Expand(s.locals)
-    if err != nil {
-      return err
-    }
-    vs = append(vs, args[1:]...)
-  }
+	if w, ok := s.alias[args[0]]; ok {
+		vs, err := w.Expand(s.locals)
+		if err != nil {
+			return err
+		}
+		vs = append(vs, args[1:]...)
+	}
 	cmd, err := s.prepare(args, nil)
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 		return nil, fmt.Errorf("no command given")
 	}
 	s.proc.pid = 0
-	s.proc.exit = ExitCode
+	s.proc.exit = ExitOk
 
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
 		c.stdin = c.stdin
@@ -264,7 +264,7 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 }
 
 func (s *Shell) RegisterAlias(ident, alias string) error {
-	w, err := Parse(alias)
+	w, err := Parse(strings.NewReader(alias))
 	if err != nil {
 		return err
 	}
@@ -274,9 +274,9 @@ func (s *Shell) RegisterAlias(ident, alias string) error {
 
 func (s *Shell) UnregisterAlias(alias string) {
 	if alias == "" {
-    s.alias = make(map[string]Word)
+		s.alias = make(map[string]Word)
 	} else {
-    delete(s.alias, alias)
+		delete(s.alias, alias)
 	}
 }
 
