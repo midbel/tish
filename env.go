@@ -91,3 +91,10 @@ func (e *Env) Environ() []string {
 	}
 	return env
 }
+
+func (e *Env) Unwrap() *Env {
+	if e.parent == nil {
+		return e
+	}
+	return e.parent
+}

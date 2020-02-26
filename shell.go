@@ -12,7 +12,10 @@ import (
 	"time"
 )
 
-var ErrFailed = errors.New("process terminated with failure")
+var (
+	ErrFailed = errors.New("process terminated with failure")
+	ErrDry = errors.New("dry run")
+)
 
 const MaxHistSize = 100
 
@@ -77,6 +80,33 @@ type Shell struct {
 	}
 }
 
+func Run() error {
+	sh := DefaultShell()
+
+	flag.BoolVar(&sh.Verbose, "v", false, "print commands that will be executed on stderr")
+	flag.BoolVar(&sh.Dry, "n", false, "dry run")
+	cmd := flag.Bool("c", false, "read command from the command string")
+	flag.Parse()
+
+	var r io.Reader
+	if *cmd {
+		r = strings.NewReader(flag.Arg(0))
+	} else {
+		f, err := os.Open(flag.Arg(0))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		r = f
+	}
+
+	for i := 1; i < flag.NArg(); i++ {
+		sh.Args = append(sh.Args, flag.Arg(i))
+	}
+
+	return sh.Execute(r)
+}
+
 func DefaultShell() *Shell {
 	var (
 		in  = os.NewFile(os.Stdin.Fd(), "stdin")
@@ -107,6 +137,14 @@ func NewShell(in io.Reader, out, err io.Writer) *Shell {
 	}
 
 	return &s
+}
+
+func (s *Shell) Enter() {
+	s.locals = NewEnclosedEnvironment(s.locals)
+}
+
+func (s *Shell) Leave() {
+	s.locals.Unwrap()
 }
 
 func (s *Shell) Subshell() *Shell {
@@ -141,17 +179,16 @@ func (s *Shell) PopDir() {
 	}
 }
 
-func (s *Shell) Execute() {
-	w, err := s.parseArgs()
+func (s *Shell) Execute(r io.Reader) error {
+	w, err := Parse(r)
 	if err != nil {
-		fmt.Fprintln(s.stderr, err)
-		s.Exit(1)
+		return err
 	}
-	if err := s.execute(w); err != nil {
-		fmt.Fprintln(s.stderr, err)
-		s.Exit(2)
-	}
-	s.Exit(s.proc.exit)
+	return s.execute(w)
+}
+
+func (s *Shell) ExecuteString(str string) error {
+	return s.Execute(strings.NewReader(str))
 }
 
 func (s *Shell) execute(w Word) error {
@@ -165,6 +202,9 @@ func (s *Shell) execute(w Word) error {
 		err = s.executeAssignment(w)
 	default:
 		err = fmt.Errorf("tish: %T can not be executed", w)
+	}
+	if errors.Is(err, ErrDry) {
+		err = nil
 	}
 	return err
 }
@@ -237,22 +277,26 @@ func (s *Shell) executePipeline(ws []Word) error {
 }
 
 func (s *Shell) executeSimple(ws []Word) error {
+	s.Enter()
+	defer s.Leave()
+
 	var (
 		args = make([]string, 0, len(ws)*4)
-		env  = NewEnvironment()
 		rs   []Redirect
 	)
+
 	for _, w := range ws {
 		if a, ok := w.(Assignment); ok {
 			xs, err := a.Expand(s.locals)
 			if err != nil {
 				return err
 			}
-			env.Set(a.ident, xs)
+			s.Define(a.ident, xs)
 			continue
 		}
 		if r, ok := w.(Redirect); ok {
 			rs = append(rs, r)
+			continue
 		}
 		xs, err := w.Expand(s.locals)
 		if err != nil {
@@ -261,14 +305,7 @@ func (s *Shell) executeSimple(ws []Word) error {
 		args = append(args, xs...)
 	}
 
-	if s.Verbose {
-		fmt.Fprintln(s.stdout, strings.Join(args, " "))
-	}
-	if s.Dry {
-		return nil
-	}
-
-	cmd, err := s.prepare(args, env.Environ())
+	cmd, err := s.prepare(args)
 	if err != nil {
 		return err
 	}
@@ -289,17 +326,14 @@ func (s *Shell) executeSimple(ws []Word) error {
 }
 
 func (s *Shell) executeLiteral(i Literal) error {
+	s.Enter()
+	defer s.Leave()
+
 	args, err := i.Expand(s.locals)
 	if err != nil {
 		return err
 	}
-	if s.Verbose {
-		fmt.Fprintln(s.stdout, strings.Join(args, " "))
-	}
-	if s.Dry {
-		return nil
-	}
-	cmd, err := s.prepare(args, nil)
+	cmd, err := s.prepare(args)
 	if err != nil {
 		return err
 	}
@@ -310,7 +344,7 @@ func (s *Shell) executeLiteral(i Literal) error {
 	return nil
 }
 
-func (s *Shell) prepare(args []string, env []string) (Command, error) {
+func (s *Shell) prepare(args []string) (Command, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("no command given")
 	}
@@ -321,6 +355,13 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 	out := s.duplicateWriter(s.stdout)
 	err := s.duplicateWriter(s.stderr)
 
+	if s.Verbose {
+		fmt.Fprintln(s.stderr, strings.Join(args, " "))
+	}
+	if s.Dry {
+		return nil, ErrDry
+	}
+
 	if w, ok := s.alias[args[0]]; ok {
 		vs, err := w.Expand(s.locals)
 		if err != nil {
@@ -330,9 +371,9 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 	}
 
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
-		c.stdin = in
-		c.stdout = out
-		c.stderr = err
+		c.Stdin = in
+		c.Stdout = out
+		c.Stderr = err
 
 		c.Shell = s
 		c.Args = args[1:]
@@ -341,11 +382,8 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 	}
 	c := exec.Command(args[0], args[1:]...)
 
-	if es := s.globals.Environ(); len(es) > 0 {
+	if es := s.locals.Environ(); len(es) > 0 {
 		c.Env = append(c.Env, es...)
-	}
-	if len(env) > 0 {
-		c.Env = append(c.Env, env...)
 	}
 	c.Dir = s.Cwd()
 	c.Stdin = in
@@ -433,29 +471,6 @@ func (s *Shell) SetReadOnly(ident string, ro bool) {
 
 func (s *Shell) Environ() []string {
 	return s.locals.Environ()
-}
-
-func (s *Shell) parseArgs() (Word, error) {
-	flag.BoolVar(&s.Verbose, "v", false, "print commands that will be executed on stderr")
-	flag.BoolVar(&s.Dry, "n", false, "dry run")
-	cmd := flag.Bool("c", false, "read command from the command string")
-	flag.Parse()
-
-	var r io.Reader
-	if *cmd {
-		r = strings.NewReader(flag.Arg(0))
-	} else {
-		f, err := os.Open(flag.Arg(0))
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-		r = f
-	}
-	for i := 1; i < flag.NArg(); i++ {
-		s.Args = append(s.Args, flag.Arg(i))
-	}
-	return Parse(r)
 }
 
 type Cmd struct {

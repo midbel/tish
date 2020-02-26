@@ -113,8 +113,8 @@ func (b *Builtin) Replace(fd int, f *os.File) error {
 		if in, ok := b.Stdin.(*os.File); ok && in.Name() == f.Name() {
 			return fmt.Errorf("%s already open for reading", f.Name())
 		}
-		b.Stderr = f
 		closeFile(b.Stderr)
+		b.Stderr = f
 	case fdBoth:
 		if in, ok := b.Stdin.(*os.File); ok && in.Name() == f.Name() {
 			return fmt.Errorf("%s already open for reading", f.Name())
@@ -239,7 +239,7 @@ func init() {
 			Exec:  nil,
 		},
 		"alias": {
-			Usage: "alias name=value...",
+			Usage: "alias name=value",
 			Short: "register an alias with name",
 			Exec:  Alias,
 		},
@@ -335,20 +335,23 @@ func Alias(b Builtin) ErrCode {
 		fmt.Fprintln(b.Stderr, err)
 		return ExitBadUsage
 	}
-	if *help {
+	if *help || set.NArg() == 0 {
 		set.Usage()
 		return ExitHelp
 	}
+	args := set.Args()
 	for _, a := range set.Args() {
-		ix := strings.Index(a, "=")
+		ix := strings.Index(args[0], "=")
 		if ix <= 0 {
-			fmt.Fprintf(b.Stderr, "%s: missing equal or alias name\n", a)
+			fmt.Fprintf(b.Stderr, "%s: missing equal or alias name\n", args[0])
 			continue
 		}
 		if err := b.RegisterAlias(a[:ix], a[ix+1:]); err != nil {
 			fmt.Fprintln(b.Stderr, err)
+			return ExitUnknown
 		}
 	}
+
 	return ExitOk
 }
 
@@ -467,7 +470,7 @@ func Echo(b Builtin) ErrCode {
 		}
 		return ExitOk
 	}
-	s := bufio.NewScanner(b.stdin)
+	s := bufio.NewScanner(b.Stdin)
 	for s.Scan() {
 		fmt.Fprint(b.Stdout, s.Text())
 		if !*nonl {
