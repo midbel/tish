@@ -62,7 +62,7 @@ type Shell struct {
 	stdout io.Writer
 	stderr io.Writer
 
-	alias map[string]string
+	alias map[string]Word
 
 	dirs struct {
 		ptr  int
@@ -158,8 +158,8 @@ func (s *Shell) executeAssignment(a Assignment) error {
 }
 
 func (s *Shell) executeSequence(ws []Word) error {
-  s.proc.pid = 0
-  s.proc.exit = ExitOk
+	s.proc.pid = 0
+	s.proc.exit = ExitOk
 
 	var err error
 	for _, w := range ws {
@@ -212,6 +212,13 @@ func (s *Shell) executeLiteral(i Literal) error {
 	if s.Dry {
 		return nil
 	}
+  if w, ok := s.alias[args[0]]; ok {
+    vs, err := w.Expand(s.locals)
+    if err != nil {
+      return err
+    }
+    vs = append(vs, args[1:]...)
+  }
 	cmd, err := s.prepare(args, nil)
 	if err != nil {
 		return err
@@ -254,6 +261,23 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 	cmd.Stderr = s.stderr
 
 	return &Cmd{cmd}, nil
+}
+
+func (s *Shell) RegisterAlias(ident, alias string) error {
+	w, err := Parse(alias)
+	if err != nil {
+		return err
+	}
+	s.alias[ident] = w
+	return nil
+}
+
+func (s *Shell) UnregisterAlias(alias string) {
+	if alias == "" {
+    s.alias = make(map[string]Word)
+	} else {
+    delete(s.alias, alias)
+	}
 }
 
 func (s *Shell) Exit(n ErrCode) {
