@@ -54,20 +54,28 @@ func TestShellExecute(t *testing.T) {
 			Input: `FOO=FOO BAR=BAR env FOO BAR`,
 			Out:   "FOO=FOO\nBAR=BAR",
 		},
-    {
-      Input: `echo bar > testdata/bar.txt~`,
-      Out:   "bar",
-      File:  "testdata/bar.txt~",
-    },
-    {
-      Input: `echo bar >> testdata/bar.txt~`,
-      Out:   "bar\nbar",
-      File:  "testdata/bar.txt~",
-    },
+		{
+			Input: `echo bar > testdata/bar.txt~`,
+			Out:   "bar",
+			File:  "testdata/bar.txt~",
+		},
+		{
+			Input: `echo bar >> testdata/bar.txt~`,
+			Out:   "bar\nbar",
+			File:  "testdata/bar.txt~",
+		},
 		{
 			Input: `echo -h 2> testdata/help.txt~`,
 			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
 			File:  "testdata/help.txt~",
+		},
+		{
+			Input: `echo foo bar | echo -i`,
+			Out:   "foo bar",
+		},
+		{
+			Input: `echo -h |& echo -i`,
+			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
 		},
 	}
 	testShellCase(t, data)

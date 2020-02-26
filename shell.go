@@ -14,7 +14,7 @@ import (
 
 var (
 	ErrFailed = errors.New("process terminated with failure")
-	ErrDry = errors.New("dry run")
+	ErrDry    = errors.New("dry run")
 )
 
 const MaxHistSize = 100
@@ -273,6 +273,51 @@ func (s *Shell) executeAnd(ws []Word) error {
 }
 
 func (s *Shell) executePipeline(ws []Word) error {
+	var in *os.File
+	for i := 0; ; i++ {
+		args, err := ws[i].Expand(s.locals)
+		if err != nil || len(args) == 0 {
+			return err
+		}
+		cmd, err := s.prepare(args)
+		if err != nil {
+			return err
+		}
+		if i == len(ws)-1 {
+			cmd.Replace(fdIn, in)
+			s.proc.exit = cmd.Run()
+			if p, ok := cmd.(interface{ Pid() int }); ok {
+				s.proc.pid = p.Pid()
+			}
+			if s.proc.exit.Failure() {
+				return ErrFailed
+			}
+			break
+		}
+		p, ok := ws[i].(Pipe)
+		if !ok {
+			return fmt.Errorf("%s: not a pipe", ws[i])
+		}
+		r, w, err := os.Pipe()
+		if err != nil {
+			return err
+		}
+		if i > 0 {
+			cmd.Replace(fdIn, in)
+		}
+		cmd.Replace(fdOut, w)
+		switch p.kind {
+		case kindPipe:
+		case kindPipeBoth:
+			cmd.Replace(fdErr, w)
+		default:
+			return fmt.Errorf("%s: unexpected pipe type", p.kind)
+		}
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		in = r
+	}
 	return nil
 }
 
@@ -483,20 +528,20 @@ func (c *Cmd) Replace(fd int, f *os.File) error {
 		closeFile(c.Stdin)
 		c.Stdin = f
 	case fdOut:
-		if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
-			return fmt.Errorf("%s already open for reading", f.Name())
+		if err := sameFile(c.Stdin, f); err != nil {
+			return err
 		}
 		closeFile(c.Stdout)
 		c.Stdout = f
 	case fdErr:
-		if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
-			return fmt.Errorf("%s already open for reading", f.Name())
+		if err := sameFile(c.Stdin, f); err != nil {
+			return err
 		}
 		c.Stderr = f
 		closeFile(c.Stderr)
 	case fdBoth:
-		if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
-			return fmt.Errorf("%s already open for reading", f.Name())
+		if err := sameFile(c.Stdin, f); err != nil {
+			return err
 		}
 		closeFile(c.Stdout)
 		closeFile(c.Stderr)
@@ -533,6 +578,22 @@ func (c *Cmd) Run() ErrCode {
 		code = ErrCode(exit.ExitCode())
 	}
 	return code
+}
+
+func sameFile(in, out interface{}) error {
+	fin, ok := in.(*os.File)
+	if !ok {
+		return nil
+	}
+	fout, ok := out.(*os.File)
+	if !ok {
+		return nil
+	}
+	var err error
+	if fin.Name() == fout.Name() {
+		err = fmt.Errorf("%s: already open for reading", fin.Name())
+	}
+	return err
 }
 
 func closeFile(c interface{}) {
