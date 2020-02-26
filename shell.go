@@ -460,12 +460,21 @@ func (c *Cmd) Replace(fd int, f *os.File) error {
 		closeFile(c.Stdin)
 		c.Stdin = f
 	case fdOut:
+    if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
+      return fmt.Errorf("%s already open for reading", f.Name())
+    }
 		closeFile(c.Stdout)
 		c.Stdout = f
 	case fdErr:
+    if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
+      return fmt.Errorf("%s already open for reading", f.Name())
+    }
 		c.Stderr = f
 		closeFile(c.Stderr)
 	case fdBoth:
+    if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
+      return fmt.Errorf("%s already open for reading", f.Name())
+    }
 		closeFile(c.Stdout)
 		closeFile(c.Stderr)
 		c.Stdout, c.Stderr = f, f

@@ -104,12 +104,21 @@ func (b *Builtin) Replace(fd int, f *os.File) error {
 		closeFile(b.Stdin)
 		b.Stdin = f
 	case fdOut:
+		if in, ok := b.Stdin.(*os.File); ok && in.Name() == f.Name() {
+			return fmt.Errorf("%s already open for reading", f.Name())
+		}
 		closeFile(b.Stdout)
 		b.Stdout = f
 	case fdErr:
+		if in, ok := b.Stdin.(*os.File); ok && in.Name() == f.Name() {
+			return fmt.Errorf("%s already open for reading", f.Name())
+		}
 		b.Stderr = f
 		closeFile(b.Stderr)
 	case fdBoth:
+		if in, ok := b.Stdin.(*os.File); ok && in.Name() == f.Name() {
+			return fmt.Errorf("%s already open for reading", f.Name())
+		}
 		closeFile(b.Stdout)
 		closeFile(b.Stderr)
 		b.Stdout, b.Stderr = f, f
