@@ -35,6 +35,9 @@ const (
 	langle     = '<'
 	rangle     = '>'
 	caret      = '^'
+	question   = '?'
+	bang       = '!'
+	arobase    = '@'
 )
 
 const (

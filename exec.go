@@ -1,3 +1,5 @@
+// +build ignore
+
 package tish
 
 import (
@@ -5,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"time"
 )
 
 const MaxHistSize = 100
@@ -15,76 +16,6 @@ const MaxHistSize = 100
 // 	stderr io.Writer = os.NewFile(os.Stderr.Fd(), "out")
 // 	stdin  io.Reader = os.NewFile(os.Stdin.Fd(), "err")
 // )
-
-type Shell struct {
-	time.Time
-	uid int // user id
-	pid int // pid of current shell
-
-	level int // nesting of shell
-
-	globals *Env
-	locals  *Env
-
-	stdin  io.Reader
-	stdout io.Writer
-	stderr io.Writer
-
-	alias map[string]string
-
-	dirs struct {
-		ptr  int
-		hist []string
-	}
-	proc struct {
-		exit int // exit code of the last executed process
-		pid  int // pid of the last executed process
-	}
-}
-
-func NewShell() *Shell {
-	defer os.Clearenv()
-	s := Shell{
-		uid:     os.Getuid(),
-		pid:     os.Getpid(),
-		Time:    time.Now(),
-		globals: NewEnvironment(),
-		stdin:   os.NewFile(os.Stdin.Fd(), "stdin"),
-		stdout:  os.NewFile(os.Stdout.Fd(), "stdout"),
-		stderr:  os.NewFile(os.Stderr.Fd(), "stderr"),
-		alias:   make(map[string]string),
-	}
-	s.locals = NewEnclosedEnvironment(s.globals)
-	s.dirs.hist = make([]string, MaxHistSize)
-	return &s
-}
-
-func (s *Shell) Exit() {
-	s.exit(0)
-}
-
-func (s *Shell) exit(n int) {
-	os.Exit(n)
-}
-
-func (s *Shell) workingDir() string {
-	return s.dirs.hist[s.dirs.ptr-1]
-}
-
-func (s *Shell) popDir() {
-	s.dirs.ptr--
-}
-
-func (s *Shell) pushDir(dir string) {
-	s.dirs.hist[s.dirs.ptr] = dir
-	s.dirs.ptr++
-}
-
-func (s *Shell) subshell() *Shell {
-	sh := NewShell()
-	sh.level = s.level + 1
-	return sh
-}
 
 func Execute(r io.Reader) error {
 	return ExecuteWithEnv(r, NewEnvironment())
@@ -181,7 +112,10 @@ func executePipeline(ws []Word, e *Env) error {
 				out = os.NewFile(os.Stdout.Fd(), "stdout")
 				err = os.NewFile(os.Stderr.Fd(), "stderr")
 			)
-			return prepare(args, e, in, out, err).Run()
+			exit := prepare(args, e, in, out, err).Run()
+			if exit != ExitOk {
+				return fmt.Errorf("command terminated with error")
+			}
 		}
 		p, ok := ws[i].(Pipe)
 		if !ok {
@@ -282,7 +216,11 @@ func executeSimple(ws []Word, e *Env) error {
 			return fmt.Errorf("invalid file descriptor %d", r.file)
 		}
 	}
-	return prepare(args, env, in, out, err).Run()
+	exit := prepare(args, env, in, out, err).Run()
+	if exit != ExitOk {
+		return fmt.Errorf("command terminated with error")
+	}
+	return nil
 }
 
 func executeLiteral(i Literal, e *Env) error {
@@ -295,7 +233,11 @@ func executeLiteral(i Literal, e *Env) error {
 		out = os.NewFile(os.Stdout.Fd(), "stdout")
 		err = os.NewFile(os.Stderr.Fd(), "stderr")
 	)
-	return prepare(vs, e, in, out, err).Run()
+	exit := prepare(vs, e, in, out, err).Run()
+	if exit != ExitOk {
+		return fmt.Errorf("command terminated with error")
+	}
+	return nil
 }
 
 func prepare(args []string, env *Env, in io.Reader, out, err io.Writer) Command {
@@ -305,21 +247,17 @@ func prepare(args []string, env *Env, in io.Reader, out, err io.Writer) Command 
 		c.stderr = err
 
 		c.Args = args[1:]
-		if env == nil {
-			env = NewEnvironment()
-		}
-		c.Env = env
 
 		return &c
 	}
 	cmd := exec.Command(args[0], args[1:]...)
 
-	if es := env.Values(); len(es) > 0 {
+	if es := env.Environ(); len(es) > 0 {
 		cmd.Env = append(cmd.Env, es...)
 	}
 	cmd.Stdin = in
 	cmd.Stdout = out
 	cmd.Stderr = err
 
-	return cmd
+	return &Cmd{cmd}
 }

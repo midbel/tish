@@ -15,30 +15,25 @@ import (
 	"time"
 )
 
-type Command interface {
-	Start() error
-	Wait() error
-	Run() error
-}
-
 type Builtin struct {
 	Usage string
 	Short string
 	Desc  string
 
+	*Shell
+
 	disabled bool
 	external bool
 
 	Args []string
-	Env  *Env
-	Exec func(Builtin) error
+	Exec func(Builtin) ErrCode
 
-	stdin  io.Reader
-	stdout io.Writer
-	stderr io.Writer
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
 
 	finished bool
-	done     chan error
+	done     chan ErrCode
 }
 
 func (b *Builtin) String() string {
@@ -72,7 +67,7 @@ func (b *Builtin) Start() error {
 		return fmt.Errorf("%s: already executed", b.String())
 	}
 
-	b.done = make(chan error, 1)
+	b.done = make(chan ErrCode, 1)
 	go func() {
 		b.done <- b.Exec(*b)
 		b.closeStreams()
@@ -81,21 +76,23 @@ func (b *Builtin) Start() error {
 	return nil
 }
 
-func (b *Builtin) Wait() error {
+func (b *Builtin) Wait() ErrCode {
 	if !b.Runnable() {
-		return fmt.Errorf("%s: not runnable", b.String())
+		fmt.Fprintf(b.Stderr, "%s: not runnable\n", b.String())
+		return ExitNotExec
 	}
 	if b.finished {
-		return fmt.Errorf("%s: already executed", b.String())
+		fmt.Fprintf(b.Stderr, "%s: already executed\n", b.String())
 	}
 	b.finished = true
 
 	return <-b.done
 }
 
-func (b *Builtin) Run() error {
+func (b *Builtin) Run() ErrCode {
 	if err := b.Start(); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitExec
 	}
 	return b.Wait()
 }
@@ -105,13 +102,13 @@ func (b *Builtin) enable(e bool) {
 }
 
 func (b *Builtin) closeStreams() {
-	if c, ok := b.stdin.(io.Closer); ok {
+	if c, ok := b.Stdin.(io.Closer); ok {
 		c.Close()
 	}
-	if c, ok := b.stdout.(io.Closer); ok {
+	if c, ok := b.Stdout.(io.Closer); ok {
 		c.Close()
 	}
-	if c, ok := b.stdout.(io.Closer); ok {
+	if c, ok := b.Stdout.(io.Closer); ok {
 		c.Close()
 	}
 }
@@ -219,61 +216,70 @@ func init() {
 	}
 }
 
-func Printf(b Builtin) error {
+func Printf(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		name = set.String("v", "", "variable")
+		name = set.String("v", "", "assign output to variable")
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	args := set.Args()
 	if len(args) < 2 {
-		return nil
+		return ExitBadUsage
 	}
+
 	vs := make([]interface{}, len(args)-1)
 	for i := 0; i < len(vs); i++ {
 		vs[i] = args[i+1]
 	}
+
 	str := fmt.Sprintf(args[0], vs...)
 	if *name != "" {
-		return nil
+		err := b.Define(*name, []string{str})
+		if err != nil {
+			fmt.Fprintln(b.Stderr, err)
+			return ExitVariable
+		}
+		return ExitOk
 	}
-	_, err := fmt.Fprintln(b.stdout, str)
-	return err
+	fmt.Fprintln(b.Stdout, str)
+	return ExitOk
 }
 
-func Random(b Builtin) error {
+func Random(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		seed = set.Int64("s", time.Now().Unix(), "use SEED to seed the generator")
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	rand.Seed(*seed)
-	_, err := fmt.Fprintf(b.stdout, "%d\n", rand.Uint32())
-	return err
+	fmt.Fprintf(b.Stdout, "%d\n", rand.Uint32())
+	return ExitOk
 
 }
 
-func Echo(b Builtin) error {
+func Echo(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		in   = set.Bool("i", false, "read arguments from stdin")
@@ -281,74 +287,74 @@ func Echo(b Builtin) error {
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 
 	if !*in {
-		_, err := fmt.Fprint(b.stdout, strings.Join(set.Args(), " "))
+		fmt.Fprint(b.Stdout, strings.Join(set.Args(), " "))
 		if !*nonl {
-			_, err = fmt.Fprintln(b.stdout)
+			fmt.Fprintln(b.Stdout)
 		}
-		return err
+		return ExitOk
 	}
 	s := bufio.NewScanner(b.stdin)
 	for s.Scan() {
-		_, err := fmt.Fprint(b.stdout, s.Text())
+		fmt.Fprint(b.Stdout, s.Text())
 		if !*nonl {
-			_, err = fmt.Fprintln(b.stdout)
-		}
-		if err != nil {
-			return err
+			fmt.Fprintln(b.Stdout)
 		}
 	}
-	return s.Err()
+	return ExitOk
 }
 
-func Date(b Builtin) error {
+func Date(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		utc  = set.Bool("u", false, "utc time")
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	now := time.Now()
 	if *utc {
 		now = now.UTC()
 	}
-	_, err := fmt.Fprintln(b.stdout, now.Format("2006-01-02 15:04:05"))
-	return err
+	fmt.Fprintln(b.Stdout, now.Format("2006-01-02 15:04:05"))
+	return ExitOk
 }
 
-func Builtins(b Builtin) error {
+func Builtins(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	for k, c := range builtins {
 		if !c.Runnable() {
@@ -356,79 +362,84 @@ func Builtins(b Builtin) error {
 		}
 		fmt.Printf("%s: %s\n", k, c.Short)
 	}
-	return nil
+	return ExitOk
 }
 
-func Help(b Builtin) error {
+func Help(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		all  = set.Bool("a", false, "include external builtins")
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	if set.NArg() == 0 {
-		return nil
+		fmt.Fprintln(b.Stderr, b.Short)
+		return ExitBadUsage
 	}
 	x, ok := builtins[set.Arg(0)]
-	if !ok {
-		return fmt.Errorf("unknown builtin: %s", set.Arg(0))
+	if !ok || (!*all && x.external) {
+		fmt.Fprintf(b.Stderr, "%s: unknown builtin\n", set.Arg(0))
 	}
-	fmt.Fprintln(b.stdout, x.String())
-	fmt.Fprintln(b.stdout, x.Short)
+	fmt.Fprintln(b.Stdout, x.String())
+	fmt.Fprintln(b.Stdout, x.Short)
 	if x.Desc != "" {
-		fmt.Fprintln(b.stdout)
-		fmt.Fprintln(b.stdout, x.Desc)
+		fmt.Fprintln(b.Stdout)
+		fmt.Fprintln(b.Stdout, x.Desc)
 	}
-	fmt.Fprintln(b.stdout)
-	fmt.Fprintln(b.stdout, "usage:", x.Usage)
-	return nil
+	fmt.Fprintln(b.Stdout)
+	fmt.Fprintln(b.Stdout, "usage:", x.Usage)
+	return ExitOk
 }
 
-func True(b Builtin) error {
+func True(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
-	return nil
+	return ExitOk
 }
 
-func False(b Builtin) error {
+func False(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
-	return fmt.Errorf(b.String())
+	return ExitVariable
 }
 
-func Seq(b Builtin) error {
+func Seq(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		pat  = set.String("f", "%d", "format output number")
@@ -436,14 +447,15 @@ func Seq(b Builtin) error {
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	var (
 		lower int64
@@ -454,18 +466,20 @@ func Seq(b Builtin) error {
 	)
 	switch set.NArg() {
 	case 0:
-		err = fmt.Errorf("not enough arguments given")
+		fmt.Fprintln(b.Stderr, "not enough arguments given")
+		return ExitBadUsage
 	case 1:
 		x, err := strconv.ParseInt(set.Arg(0), 10, 64)
 		if err != nil {
-			return err
+			fmt.Fprintln(b.Stderr, err)
+			return ExitBadUsage
 		}
 		if x > 0 {
 			upper = x
 		} else if x < 0 {
 			lower = x
 		} else {
-			return nil
+			return ExitOk
 		}
 		incr++
 	case 2:
@@ -497,151 +511,194 @@ func Seq(b Builtin) error {
 			break
 		}
 		if x := lower + incr; x < lower {
-			return nil
+			return ExitOk
 		}
 	default:
-		err = fmt.Errorf("too many arguments given")
+		fmt.Fprintln(b.Stderr, "too many arguments given")
+		return ExitBadUsage
 	}
 	if err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	var str []string
 	for cmp(lower, upper) {
 		str = append(str, fmt.Sprintf(*pat, lower))
 		lower += incr
 	}
-	fmt.Fprintln(b.stdout, strings.Join(str, *sep))
-	return nil
+	fmt.Fprintln(b.Stdout, strings.Join(str, *sep))
+	return ExitOk
 }
 
-func Type(b Builtin) error {
+func Type(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		nob  = set.Bool("n", false, "exclude builtin")
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	for _, a := range set.Args() {
 		if _, ok := builtins[a]; ok && !*nob {
-			fmt.Fprintf(b.stdout, "%s: builtin\n", a)
+			fmt.Fprintf(b.Stdout, "%s: builtin\n", a)
 			continue
 		}
 		// will look later for alias and/or functions - when builtin will have access to it
 		if _, err := exec.LookPath(a); err == nil {
-			fmt.Fprintf(b.stdout, "%s: command\n", a)
+			fmt.Fprintf(b.Stdout, "%s: command\n", a)
 			continue
 		}
 		i, err := os.Stat(a)
 		if err != nil {
-			fmt.Fprintf(b.stderr, "%s: no such file or directory\n", a)
+			fmt.Fprintf(b.Stderr, "%s: no such file or directory\n", a)
 			continue
 		}
 		if i.Mode().IsRegular() {
-			fmt.Fprintf(b.stdout, "%s: file\n", a)
+			fmt.Fprintf(b.Stdout, "%s: file\n", a)
 			continue
 		}
 		switch m := i.Mode(); {
 		case m&os.ModeDir == os.ModeDir:
-			fmt.Fprintf(b.stdout, "%s: directory\n", a)
+			fmt.Fprintf(b.Stdout, "%s: directory\n", a)
 		case m&os.ModeSymlink == os.ModeSymlink:
-			fmt.Fprintf(b.stdout, "%s: symlink\n", a)
+			fmt.Fprintf(b.Stdout, "%s: symlink\n", a)
 		case m&os.ModeSocket == os.ModeSocket:
-			fmt.Fprintf(b.stdout, "%s: socket\n", a)
+			fmt.Fprintf(b.Stdout, "%s: socket\n", a)
 		case m&os.ModeNamedPipe == os.ModeNamedPipe:
-			fmt.Fprintf(b.stdout, "%s: pipe\n", a)
+			fmt.Fprintf(b.Stdout, "%s: pipe\n", a)
 		default:
-			fmt.Fprintf(b.stderr, "%s: unknown\n", a)
+			fmt.Fprintf(b.Stderr, "%s: unknown\n", a)
 		}
 	}
-	return nil
+	return ExitOk
 }
 
-func Exit(b Builtin) error {
+func Exit(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	if set.NArg() == 0 {
-		return nil
+		return ExitOk
 	}
-	_, err := strconv.Atoi(set.Arg(0))
+	exit, err := strconv.Atoi(set.Arg(0))
 	if err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
-	return nil
+	b.Exit(ErrCode(exit))
+	return ExitOk
 }
 
-func Environ(b Builtin) error {
+func Environ(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 
 	es := make([]string, 0, set.NArg())
 	for _, e := range set.Args() {
-		vs, err := b.Env.Get(e)
-		if err != nil {
+		vs := b.Resolve(e)
+		if len(vs) == 0 {
 			continue
 		}
 		es = append(es, fmt.Sprintf("%s=%s", e, strings.Join(vs, " ")))
 	}
 	if len(es) == 0 {
-		es = b.Env.Values()
+		es = b.Environ()
 	}
 	for _, e := range es {
-		fmt.Fprintln(b.stdout, e)
+		fmt.Fprintln(b.Stdout, e)
 	}
-	return nil
+	return ExitOk
 }
 
-func Local(b Builtin) error {
+func Local(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
-	env, err := b.Env.Unwrap()
-	if err != nil {
-		return err
+	// env, err := b.Env.Unwrap()
+	// if err != nil {
+	// 	return err
+	// }
+	// for _, a := range set.Args() {
+	// 	var (
+	// 		opt string
+	// 		val string
+	// 		ix  = strings.IndexByte(a, '=')
+	// 	)
+	// 	if ix > 0 {
+	// 		opt, val = a[:ix], a[ix+1:]
+	// 	} else if ix < 0 {
+	// 		opt = a
+	// 	} else {
+	// 		fmt.Fprintf(b.Stderr, "%s: missing variable name\n", a)
+	// 	}
+	// 	env.Set(opt, []string{val})
+	// }
+	return ExitOk
+}
+
+func Export(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+
 	for _, a := range set.Args() {
 		var (
 			opt string
@@ -653,77 +710,37 @@ func Local(b Builtin) error {
 		} else if ix < 0 {
 			opt = a
 		} else {
-			fmt.Fprintf(b.stderr, "%s: missing variable name\n", a)
+			fmt.Fprintf(b.Stderr, "%s: missing variable name\n", a)
 		}
-		env.Set(opt, []string{val})
+		b.Export(opt, []string{val})
 	}
-	return nil
+	return ExitOk
 }
 
-func Export(b Builtin) error {
-	var (
-		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		help = set.Bool("h", false, "show help message and exit")
-	)
-	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
-	}
-	if err := set.Parse(b.Args); err != nil {
-		return err
-	}
-	if *help {
-		set.Usage()
-		return nil
-	}
-	env := b.Env
-	for {
-		e, err := env.Unwrap()
-		if err != nil {
-			env = e
-			break
-		}
-	}
-	for _, a := range set.Args() {
-		var (
-			opt string
-			val string
-			ix  = strings.IndexByte(a, '=')
-		)
-		if ix > 0 {
-			opt, val = a[:ix], a[ix+1:]
-		} else if ix < 0 {
-			opt = a
-		} else {
-			fmt.Fprintf(b.stderr, "%s: missing variable name\n", a)
-		}
-		env.Set(opt, []string{val})
-	}
-	return nil
-}
-
-func Readonly(b Builtin) error {
+func Readonly(b Builtin) ErrCode {
 	var (
 		set   = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		ronly = set.Bool("n", false, "")
 		help  = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	for _, a := range set.Args() {
-		b.Env.SetReadOnly(a, *ronly)
+		b.SetReadOnly(a, *ronly)
 	}
-	return nil
+	return ExitOk
 }
 
-func Enable(b Builtin) error {
+func Enable(b Builtin) ErrCode {
 	var (
 		set       = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		file      = set.Bool("f", false, "register new builtins from external plugins")
@@ -732,38 +749,41 @@ func Enable(b Builtin) error {
 		help      = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
-		fmt.Fprintln(b.stderr, b.Help())
+		fmt.Fprintln(b.Stderr, b.Help())
 	}
 	if err := set.Parse(b.Args); err != nil {
-		return err
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
 	}
 	if *help || set.NArg() == 0 {
 		set.Usage()
-		return nil
+		return ExitHelp
 	}
 	if !*file {
 		for _, a := range set.Args() {
 			b, ok := builtins[a]
 			if !ok {
-				fmt.Fprintf(b.stderr, "%s: builtin not found", a)
+				fmt.Fprintf(b.Stderr, "%s: builtin not found", a)
 				continue
 			}
 			b.enable(*disabled)
 		}
-		return nil
+		return ExitOk
 	}
 	for _, a := range set.Args() {
 		p, err := plugin.Open(a)
 		if err != nil {
-			return err
+			fmt.Fprintln(b.Stderr, err)
+			return ExitIO
 		}
 		sym, err := p.Lookup("Builtins")
 		if err != nil {
-			return err
+			fmt.Fprintln(b.Stderr, err)
+			return ExitUnknown
 		}
 		list, ok := sym.(func() []*Builtin)
 		if !ok {
-			return fmt.Errorf("invalid signature")
+			fmt.Fprintln(b.Stderr, "invalid signature")
 		}
 		for _, b := range list() {
 			if _, ok := builtins[b.String()]; ok && !*overwrite {
@@ -773,5 +793,5 @@ func Enable(b Builtin) error {
 			builtins[b.String()] = *b
 		}
 	}
-	return nil
+	return ExitOk
 }

@@ -31,8 +31,8 @@ func testType(t *testing.T) {
 			t.Fatal(err)
 		}
 		b.Args = append(b.Args, d.Args)
-		if err := b.Run(); err != nil {
-			t.Fatal("run seq:", err)
+		if exit := b.Run(); exit != ExitOk {
+			t.Fatalf("run seq: exit code %d", exit)
 		}
 
 		var (
@@ -40,11 +40,11 @@ func testType(t *testing.T) {
 			got  string
 		)
 		if d.Err != "" {
-			stderr := b.stderr.(*bytes.Buffer)
+			stderr := b.Stderr.(*bytes.Buffer)
 			got = stderr.String()
 			want = fmt.Sprintf("%s: %s\n", d.Args, d.Err)
 		} else {
-			stdout := b.stdout.(*bytes.Buffer)
+			stdout := b.Stdout.(*bytes.Buffer)
 			got = stdout.String()
 			want = fmt.Sprintf("%s: %s\n", d.Args, d.Out)
 		}
@@ -59,8 +59,8 @@ func testTrue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := b.Run(); err != nil {
-		t.Fatalf("run true: should return a nil error: %s", err)
+	if exit := b.Run(); exit != ExitOk {
+		t.Fatalf("run true: exit code %d", exit)
 	}
 }
 
@@ -69,8 +69,8 @@ func testFalse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := b.Run(); err == nil {
-		t.Fatal("run false: should return a non-nil error")
+	if exit := b.Run(); exit != ExitVariable {
+		t.Fatalf("run false: exit code %d", exit)
 	}
 }
 
@@ -118,15 +118,15 @@ func testSeq(t *testing.T) {
 			t.Fatal(err)
 		}
 		b.Args = d.Args
-		if err := b.Run(); err != nil {
-			t.Fatal("run seq:", err)
+		if exit := b.Run(); exit != ExitOk {
+			t.Fatalf("run seq: exit code %d", exit)
 		}
-		stderr := b.stderr.(*bytes.Buffer)
+		stderr := b.Stderr.(*bytes.Buffer)
 		if err := stderr.String(); err != "" {
 			t.Errorf("expected stderr empty! got %s", err)
 			continue
 		}
-		stdout := b.stdout.(*bytes.Buffer)
+		stdout := b.Stdout.(*bytes.Buffer)
 		if got := stdout.String(); got != d.Want {
 			t.Errorf("values mismatched! want %s; got %s", d.Want, got)
 		}
@@ -162,14 +162,14 @@ func get(ident string) (Builtin, error) {
 	if !ok {
 		return Builtin{}, fmt.Errorf("%s: builtin not found", ident)
 	}
-	b.stdin = bytes.NewReader(nil)
+	b.Stdin = bytes.NewReader(nil)
 
 	var (
 		out bytes.Buffer
 		err bytes.Buffer
 	)
-	b.stdout = &out
-	b.stderr = &err
+	b.Stdout = &out
+	b.Stderr = &err
 
 	return b, nil
 }

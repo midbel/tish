@@ -375,12 +375,7 @@ type Assignment struct {
 }
 
 func (a Assignment) Expand(e *Env) ([]string, error) {
-	vs, err := a.word.Expand(e)
-	if err != nil {
-		return nil, err
-	}
-	e.Set(a.ident, vs)
-	return nil, nil
+	return a.word.Expand(e)
 }
 
 func (a Assignment) String() string {

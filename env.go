@@ -80,21 +80,14 @@ func (e *Env) SetReadOnly(ident string, ro bool) {
 	e.locals[ident] = ev
 }
 
-func (e *Env) Values() []string {
+func (e *Env) Environ() []string {
 	var env []string
 	if e.parent != nil {
-		env = e.parent.Values()
+		env = e.parent.Environ()
 	}
 	for k, vs := range e.locals {
 		str := fmt.Sprintf("%s=%s", k, strings.Join(vs.Values, " "))
 		env = append(env, str)
 	}
 	return env
-}
-
-func (e *Env) Unwrap() (*Env, error) {
-	if e.parent == nil {
-		return nil, fmt.Errorf("env: can not unwrap globals")
-	}
-	return e.parent, nil
 }
