@@ -878,6 +878,12 @@ func scanVariable(s *Scanner) ScanFunc {
 		s.emit(fmt.Sprintf("invalid char in variable name: %c", s.char), tokError)
 	}
 
+	if isInternal(s.char) {
+		s.emit(string(s.char), tokVar)
+		s.readRune()
+		return scanDefault
+	}
+
 	var buf bytes.Buffer
 	for isAlpha(s.char) {
 		buf.WriteRune(s.char)
@@ -946,4 +952,8 @@ func isAlpha(r rune) bool {
 
 func isOperator(r rune) bool {
 	return r == plus || r == div || r == minus || r == mul || r == modulo || r == pipe || r == ampersand
+}
+
+func isInternal(r rune) bool {
+	return r == question || r == dollar || r == bang || r == pound || r == arobase
 }

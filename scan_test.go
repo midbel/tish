@@ -1059,6 +1059,22 @@ func testScanSimple(t *testing.T) {
 				{Literal: "comment", Type: tokComment},
 			},
 		},
+		{
+			Input: `echo $? $# $! $@ $$`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "?", Type: tokVar},
+				blank,
+				{Literal: "#", Type: tokVar},
+				blank,
+				{Literal: "!", Type: tokVar},
+				blank,
+				{Literal: "@", Type: tokVar},
+				blank,
+				{Literal: "$", Type: tokVar},
+			},
+		},
 	}
 	testValidTokens(t, data)
 }
