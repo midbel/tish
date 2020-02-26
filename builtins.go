@@ -217,11 +217,79 @@ func init() {
 			Short: "unregister the alias with name or all",
 			Exec:  Unalias,
 		},
-		// "pwd":     {},
-		// "cd":      {},
+		"pwd": {
+			Usage: "pwd",
+			Short: "print the name of the current working directory",
+			Exec:  Cwd,
+		},
+		"cd": {
+			Usage: "cd [dir]",
+			Short: "change the shell current working directory",
+			Exec:  Chdir,
+		},
 		// "time":    {},
 		// "source":  {},
 	}
+}
+
+func Chdir(b Builtin) ErrCode {
+	var (
+		set    = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		follow = set.Bool("f", false, "follow symlinks")
+		help   = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	dir := flag.Arg(0)
+	if dir == "-" {
+		s.PopDir()
+		return ExitOk
+	}
+	if dir == "" {
+		dir, _ = os.Getwd()
+	}
+	if *follow {
+		d, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			fmt.Fprintln(b.Stderr, err)
+			return ExitNoFile
+		}
+		dir = d
+	}
+	if err := b.PushDir(dir); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitNoFile
+	}
+	return ExitOk
+}
+
+func Cwd(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	fmt.Fprintln(b.Stdout, b.Cwd())
+	return ExitOk
 }
 
 func Alias(b Builtin) ErrCode {
