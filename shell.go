@@ -261,6 +261,13 @@ func (s *Shell) executeSimple(ws []Word) error {
 		args = append(args, xs...)
 	}
 
+	if s.Verbose {
+		fmt.Fprintln(s.stdout, strings.Join(args, " "))
+	}
+	if s.Dry {
+		return nil
+	}
+
 	cmd, err := s.prepare(args, env.Environ())
 	if err != nil {
 		return err
@@ -292,13 +299,6 @@ func (s *Shell) executeLiteral(i Literal) error {
 	if s.Dry {
 		return nil
 	}
-	if w, ok := s.alias[args[0]]; ok {
-		vs, err := w.Expand(s.locals)
-		if err != nil {
-			return err
-		}
-		vs = append(vs, args[1:]...)
-	}
 	cmd, err := s.prepare(args, nil)
 	if err != nil {
 		return err
@@ -320,6 +320,14 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 	in := s.duplicateReader(s.stdin)
 	out := s.duplicateWriter(s.stdout)
 	err := s.duplicateWriter(s.stderr)
+
+	if w, ok := s.alias[args[0]]; ok {
+		vs, err := w.Expand(s.locals)
+		if err != nil {
+			return nil, err
+		}
+		args = append(vs, args[1:]...)
+	}
 
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
 		c.stdin = in
@@ -460,21 +468,21 @@ func (c *Cmd) Replace(fd int, f *os.File) error {
 		closeFile(c.Stdin)
 		c.Stdin = f
 	case fdOut:
-    if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
-      return fmt.Errorf("%s already open for reading", f.Name())
-    }
+		if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
+			return fmt.Errorf("%s already open for reading", f.Name())
+		}
 		closeFile(c.Stdout)
 		c.Stdout = f
 	case fdErr:
-    if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
-      return fmt.Errorf("%s already open for reading", f.Name())
-    }
+		if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
+			return fmt.Errorf("%s already open for reading", f.Name())
+		}
 		c.Stderr = f
 		closeFile(c.Stderr)
 	case fdBoth:
-    if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
-      return fmt.Errorf("%s already open for reading", f.Name())
-    }
+		if in, ok := c.Stdin.(*os.File); ok && in.Name() == f.Name() {
+			return fmt.Errorf("%s already open for reading", f.Name())
+		}
 		closeFile(c.Stdout)
 		closeFile(c.Stderr)
 		c.Stdout, c.Stderr = f, f
