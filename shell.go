@@ -36,12 +36,15 @@ const (
 	ExitNotExec
 	ExitDoneExec
 	ExitUnknown
+	ExitNoFile
 )
 
 type Command interface {
 	Start() error
 	Wait() ErrCode
 	Run() ErrCode
+
+	Replace(int, *os.File) error
 }
 
 type Shell struct {
@@ -99,7 +102,43 @@ func NewShell(in io.Reader, out, err io.Writer) *Shell {
 
 	s.dirs.hist = make([]string, MaxHistSize)
 
+	if cwd, err := os.Getwd(); err == nil {
+		s.PushDir(cwd)
+	}
+
 	return &s
+}
+
+func (s *Shell) Subshell() *Shell {
+	sh := DefaultShell()
+	sh.level = s.level + 1
+	return sh
+}
+
+func (s *Shell) Cwd() string {
+	return s.dirs.hist[s.dirs.ptr-1]
+}
+
+func (s *Shell) PushDir(dir string) error {
+	i, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !i.IsDir() {
+		return fmt.Errorf("%s: not a directory", dir)
+	}
+	ix := s.dirs.ptr % MaxHistSize
+	s.dirs.hist[ix] = dir
+	s.dirs.ptr++
+
+	return nil
+}
+
+func (s *Shell) PopDir() {
+	s.dirs.ptr--
+	if s.dirs.ptr < 0 {
+		s.dirs.ptr = MaxHistSize - 1
+	}
 }
 
 func (s *Shell) Execute() {
@@ -198,6 +237,47 @@ func (s *Shell) executePipeline(ws []Word) error {
 }
 
 func (s *Shell) executeSimple(ws []Word) error {
+	var (
+		args = make([]string, 0, len(ws)*4)
+		env  = NewEnvironment()
+		rs   []Redirect
+	)
+	for _, w := range ws {
+		if a, ok := w.(Assignment); ok {
+			xs, err := a.Expand(s.locals)
+			if err != nil {
+				return err
+			}
+			env.Set(a.ident, xs)
+			continue
+		}
+		if r, ok := w.(Redirect); ok {
+			rs = append(rs, r)
+		}
+		xs, err := w.Expand(s.locals)
+		if err != nil {
+			return err
+		}
+		args = append(args, xs...)
+	}
+
+	cmd, err := s.prepare(args, env.Environ())
+	if err != nil {
+		return err
+	}
+	for _, r := range rs {
+		f, err := r.Open(s.locals)
+		if err != nil {
+			return err
+		}
+		if err := cmd.Replace(r.file, f); err != nil {
+			return err
+		}
+	}
+	s.proc.exit = cmd.Run()
+	if p, ok := cmd.(interface{ Pid() int }); ok {
+		s.proc.pid = p.Pid()
+	}
 	return nil
 }
 
@@ -237,30 +317,48 @@ func (s *Shell) prepare(args []string, env []string) (Command, error) {
 	s.proc.pid = 0
 	s.proc.exit = ExitOk
 
+	in := s.duplicateReader(s.stdin)
+	out := s.duplicateWriter(s.stdout)
+	err := s.duplicateWriter(s.stderr)
+
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
-		c.stdin = c.stdin
-		c.stdout = c.stdout
-		c.stderr = c.stderr
+		c.stdin = in
+		c.stdout = out
+		c.stderr = err
 
 		c.Shell = s
 		c.Args = args[1:]
 
 		return &c, nil
 	}
-	cmd := exec.Command(args[0], args[1:]...)
+	c := exec.Command(args[0], args[1:]...)
 
-	if es := s.Environ(); len(es) > 0 {
-		cmd.Env = append(cmd.Env, es...)
+	if es := s.globals.Environ(); len(es) > 0 {
+		c.Env = append(c.Env, es...)
 	}
 	if len(env) > 0 {
-		cmd.Env = append(cmd.Env, env...)
+		c.Env = append(c.Env, env...)
 	}
+	c.Dir = s.Cwd()
+	c.Stdin = in
+	c.Stdout = out
+	c.Stderr = err
 
-	cmd.Stdin = s.stdin
-	cmd.Stdout = s.stdout
-	cmd.Stderr = s.stderr
+	return &Cmd{Cmd: c}, nil
+}
 
-	return &Cmd{cmd}, nil
+func (s *Shell) duplicateReader(fd io.Reader) io.Reader {
+	if f, ok := fd.(*os.File); ok {
+		return os.NewFile(f.Fd(), f.Name())
+	}
+	return fd
+}
+
+func (s *Shell) duplicateWriter(fd io.Writer) io.Writer {
+	if f, ok := fd.(*os.File); ok {
+		return os.NewFile(f.Fd(), f.Name())
+	}
+	return fd
 }
 
 func (s *Shell) RegisterAlias(ident, alias string) error {
@@ -301,6 +399,8 @@ func (s *Shell) Resolve(ident string) []string {
 		vs = append(vs, strconv.Itoa(len(s.Args)))
 	case "@":
 		vs = append(vs, s.Args...)
+	case "PWD":
+		vs = append(vs, s.Cwd())
 	default:
 		vs, _ = s.locals.Get(ident)
 	}
@@ -354,6 +454,27 @@ type Cmd struct {
 	*exec.Cmd
 }
 
+func (c *Cmd) Replace(fd int, f *os.File) error {
+	switch fd {
+	case fdIn:
+		closeFile(c.Stdin)
+		c.Stdin = f
+	case fdOut:
+		closeFile(c.Stdout)
+		c.Stdout = f
+	case fdErr:
+		c.Stderr = f
+		closeFile(c.Stderr)
+	case fdBoth:
+		closeFile(c.Stdout)
+		closeFile(c.Stderr)
+		c.Stdout, c.Stderr = f, f
+	default:
+		return fmt.Errorf("invalid file description %d", fd)
+	}
+	return nil
+}
+
 func (c *Cmd) Pid() int {
 	return c.ProcessState.Pid()
 }
@@ -380,4 +501,10 @@ func (c *Cmd) Run() ErrCode {
 		code = ErrCode(exit.ExitCode())
 	}
 	return code
+}
+
+func closeFile(c interface{}) {
+	if c, ok := c.(io.Closer); ok {
+		c.Close()
+	}
 }

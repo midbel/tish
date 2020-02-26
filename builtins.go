@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"plugin"
 	"strconv"
 	"strings"
@@ -95,6 +96,27 @@ func (b *Builtin) Run() ErrCode {
 		return ExitExec
 	}
 	return b.Wait()
+}
+
+func (b *Builtin) Replace(fd int, f *os.File) error {
+	switch fd {
+	case fdIn:
+		closeFile(b.Stdin)
+		b.Stdin = f
+	case fdOut:
+		closeFile(b.Stdout)
+		b.Stdout = f
+	case fdErr:
+		b.Stderr = f
+		closeFile(b.Stderr)
+	case fdBoth:
+		closeFile(b.Stdout)
+		closeFile(b.Stderr)
+		b.Stdout, b.Stderr = f, f
+	default:
+		return fmt.Errorf("invalid file description %d", fd)
+	}
+	return nil
 }
 
 func (b *Builtin) enable(e bool) {
@@ -251,7 +273,7 @@ func Chdir(b Builtin) ErrCode {
 	}
 	dir := flag.Arg(0)
 	if dir == "-" {
-		s.PopDir()
+		b.PopDir()
 		return ExitOk
 	}
 	if dir == "" {
