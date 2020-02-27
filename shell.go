@@ -61,6 +61,7 @@ type Command interface {
 	Run() ErrCode
 
 	Replace(int, *os.File) error
+	Copy(int, int)
 }
 
 type Shell struct {
@@ -94,12 +95,12 @@ type Shell struct {
 }
 
 func DefaultShell() *Shell {
-	var (
-		in  = os.NewFile(os.Stdin.Fd(), "stdin")
-		out = os.NewFile(os.Stdout.Fd(), "stdout")
-		err = os.NewFile(os.Stderr.Fd(), "stderr")
-	)
-	return NewShell(in, out, err)
+	// var (
+	// 	in  = os.NewFile(os.Stdin.Fd(), "stdin")
+	// 	out = os.NewFile(os.Stdout.Fd(), "stdout")
+	// 	err = os.NewFile(os.Stderr.Fd(), "stderr")
+	// )
+	return NewShell(os.Stdin, os.Stdout, os.Stderr)
 }
 
 func NewShell(in io.Reader, out, err io.Writer) *Shell {
@@ -357,9 +358,9 @@ func (s *Shell) executeSimple(ws []Word) error {
 		if r.mode == modRelink {
 			switch r.file {
 			case fdOut:
-				// stderr to stdout
+				cmd.Copy(fdErr, fdOut) // copy stderr to stdout
 			case fdErr:
-				// stdout to stderr
+				cmd.Copy(fdOut, fdErr) // copy stdout to stderr
 			default:
 				return fmt.Errorf("invalid file descriptor given %d", r.file)
 			}
@@ -427,9 +428,9 @@ func (s *Shell) prepare(args []string) (Command, error) {
 	s.proc.pid = 0
 	s.proc.exit = ExitOk
 
-	in := s.duplicateReader(s.stdin)
-	out := s.duplicateWriter(s.stdout)
-	err := s.duplicateWriter(s.stderr)
+	in := s.stdin // s.duplicateReader(s.stdin)
+	out := s.stdout // s.duplicateWriter(s.stdout)
+	err := s.stderr // s.duplicateWriter(s.stderr)
 
 	if s.Verbose {
 		fmt.Fprintln(s.stderr, strings.Join(args, " "))
@@ -569,29 +570,42 @@ type Cmd struct {
 	*exec.Cmd
 }
 
+func (c *Cmd) Copy(src, dst int) {
+	if src == dst {
+		return
+	}
+	switch src {
+	case fdOut:
+		c.Stderr = c.Stdout
+	case fdErr:
+		c.Stdout = c.Stderr
+	default:
+	}
+}
+
 func (c *Cmd) Replace(fd int, f *os.File) error {
 	switch fd {
 	case fdIn:
-		closeFile(c.Stdin)
+		// closeFile(c.Stdin)
 		c.Stdin = f
 	case fdOut:
 		if err := sameFile(c.Stdin, f); err != nil {
 			return err
 		}
-		closeFile(c.Stdout)
+		// closeFile(c.Stdout)
 		c.Stdout = f
 	case fdErr:
 		if err := sameFile(c.Stdin, f); err != nil {
 			return err
 		}
+		// closeFile(c.Stderr)
 		c.Stderr = f
-		closeFile(c.Stderr)
 	case fdBoth:
 		if err := sameFile(c.Stdin, f); err != nil {
 			return err
 		}
-		closeFile(c.Stdout)
-		closeFile(c.Stderr)
+		// closeFile(c.Stdout)
+		// closeFile(c.Stderr)
 		c.Stdout, c.Stderr = f, f
 	default:
 		return fmt.Errorf("invalid file description %d", fd)
@@ -643,8 +657,8 @@ func sameFile(in, out interface{}) error {
 	return err
 }
 
-func closeFile(c interface{}) {
-	if c, ok := c.(io.Closer); ok {
-		c.Close()
-	}
-}
+// func closeFile(c interface{}) {
+// 	if c, ok := c.(io.Closer); ok {
+// 		c.Close()
+// 	}
+// }

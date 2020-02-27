@@ -71,7 +71,7 @@ func (b *Builtin) Start() error {
 	b.done = make(chan ErrCode, 1)
 	go func() {
 		b.done <- b.Exec(*b)
-		b.closeStreams()
+		// b.closeStreams()
 		close(b.done)
 	}()
 	return nil
@@ -98,29 +98,42 @@ func (b *Builtin) Run() ErrCode {
 	return b.Wait()
 }
 
+func (b *Builtin) Copy(src, dst int) {
+	if src == dst {
+		return
+	}
+	switch src {
+	case fdOut:
+		b.Stderr = b.Stdout
+	case fdErr:
+		b.Stdout = b.Stderr
+	default:
+	}
+}
+
 func (b *Builtin) Replace(fd int, f *os.File) error {
 	switch fd {
 	case fdIn:
-		closeFile(b.Stdin)
+		// closeFile(b.Stdin)
 		b.Stdin = f
 	case fdOut:
 		if err := sameFile(b.Stdin, f); err != nil {
 			return err
 		}
-		closeFile(b.Stdout)
+		// closeFile(b.Stdout)
 		b.Stdout = f
 	case fdErr:
 		if err := sameFile(b.Stdin, f); err != nil {
 			return err
 		}
-		closeFile(b.Stderr)
+		// closeFile(b.Stderr)
 		b.Stderr = f
 	case fdBoth:
 		if err := sameFile(b.Stdin, f); err != nil {
 			return err
 		}
-		closeFile(b.Stdout)
-		closeFile(b.Stderr)
+		// closeFile(b.Stdout)
+		// closeFile(b.Stderr)
 		b.Stdout, b.Stderr = f, f
 	default:
 		return fmt.Errorf("invalid file description %d", fd)
