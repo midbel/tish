@@ -77,6 +77,14 @@ func TestShellExecute(t *testing.T) {
 			Input: `echo -h |& echo -i`,
 			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
 		},
+		{
+			Input: `echo foobar >&2`,
+			Err:   "foobar",
+		},
+		{
+			Input: `echo -h 2>&1`,
+			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+		},
 	}
 	testShellCase(t, data)
 }

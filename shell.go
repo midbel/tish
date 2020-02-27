@@ -1,12 +1,14 @@
 package tish
 
 import (
+	"bytes"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +19,18 @@ var (
 	ErrDry    = errors.New("dry run")
 )
 
-const MaxHistSize = 100
+var DefaultProfile string
+
+const (
+	MaxHistSize = 100
+	Version     = "0.0.1"
+	Tish        = "tish"
+)
+
+func init() {
+	home, _ := os.UserHomeDir()
+	DefaultProfile = filepath.Join(home, ".tishrc")
+}
 
 type ErrCode int
 
@@ -78,33 +91,6 @@ type Shell struct {
 		exit ErrCode // exit code of the last executed process
 		pid  int     // pid of the last executed process
 	}
-}
-
-func Run() error {
-	sh := DefaultShell()
-
-	flag.BoolVar(&sh.Verbose, "v", false, "print commands that will be executed on stderr")
-	flag.BoolVar(&sh.Dry, "n", false, "dry run")
-	cmd := flag.Bool("c", false, "read command from the command string")
-	flag.Parse()
-
-	var r io.Reader
-	if *cmd {
-		r = strings.NewReader(flag.Arg(0))
-	} else {
-		f, err := os.Open(flag.Arg(0))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		r = f
-	}
-
-	for i := 1; i < flag.NArg(); i++ {
-		sh.Args = append(sh.Args, flag.Arg(i))
-	}
-
-	return sh.Execute(r)
 }
 
 func DefaultShell() *Shell {
@@ -209,6 +195,25 @@ func (s *Shell) execute(w Word) error {
 	return err
 }
 
+func (s *Shell) executeLiteral(i Literal) error {
+	s.Enter()
+	defer s.Leave()
+
+	args, err := i.Expand(s.locals)
+	if err != nil {
+		return err
+	}
+	cmd, err := s.prepare(args)
+	if err != nil {
+		return err
+	}
+	s.proc.exit = cmd.Run()
+	if p, ok := cmd.(interface{ Pid() int }); ok {
+		s.proc.pid = p.Pid()
+	}
+	return nil
+}
+
 func (s *Shell) executeList(i List) error {
 	var execute func([]Word) error
 	switch i.kind {
@@ -237,9 +242,6 @@ func (s *Shell) executeAssignment(a Assignment) error {
 }
 
 func (s *Shell) executeSequence(ws []Word) error {
-	s.proc.pid = 0
-	s.proc.exit = ExitOk
-
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
@@ -288,9 +290,6 @@ func (s *Shell) executePipeline(ws []Word) error {
 			s.proc.exit = cmd.Run()
 			if p, ok := cmd.(interface{ Pid() int }); ok {
 				s.proc.pid = p.Pid()
-			}
-			if s.proc.exit.Failure() {
-				return ErrFailed
 			}
 			break
 		}
@@ -355,12 +354,23 @@ func (s *Shell) executeSimple(ws []Word) error {
 		return err
 	}
 	for _, r := range rs {
-		f, err := r.Open(s.locals)
-		if err != nil {
-			return err
-		}
-		if err := cmd.Replace(r.file, f); err != nil {
-			return err
+		if r.mode == modRelink {
+			switch r.file {
+			case fdOut:
+				// stderr to stdout
+			case fdErr:
+				// stdout to stderr
+			default:
+				return fmt.Errorf("invalid file descriptor given %d", r.file)
+			}
+		} else {
+			f, err := r.Open(s.locals)
+			if err != nil {
+				return err
+			}
+			if err := cmd.Replace(r.file, f); err != nil {
+				return err
+			}
 		}
 	}
 	s.proc.exit = cmd.Run()
@@ -370,23 +380,44 @@ func (s *Shell) executeSimple(ws []Word) error {
 	return nil
 }
 
-func (s *Shell) executeLiteral(i Literal) error {
-	s.Enter()
-	defer s.Leave()
+func (s *Shell) executeSubstitution(w Word) (Word, error) {
+	var (
+		sin  = bytes.NewReader(nil)
+		sout bytes.Buffer
+		serr bytes.Buffer
+		sh   = NewShell(sin, &sout, &serr)
+	)
+	if err := sh.execute(w); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
 
-	args, err := i.Expand(s.locals)
-	if err != nil {
-		return err
+func (s *Shell) expandWord(ws []Word) ([]string, error) {
+	var (
+		args []string
+		err  error
+	)
+	for _, w := range ws {
+		var xs []string
+		switch x := w.(type) {
+		case List:
+			if x.kind == kindSub {
+				w, err = s.executeSubstitution(w)
+				if err != nil {
+					return nil, err
+				}
+			}
+			xs, err = w.Expand(s.locals)
+		default:
+			xs, err = w.Expand(s.locals)
+		}
+		if err != nil {
+			break
+		}
+		args = append(args, xs...)
 	}
-	cmd, err := s.prepare(args)
-	if err != nil {
-		return err
-	}
-	s.proc.exit = cmd.Run()
-	if p, ok := cmd.(interface{ Pid() int }); ok {
-		s.proc.pid = p.Pid()
-	}
-	return nil
+	return args, err
 }
 
 func (s *Shell) prepare(args []string) (Command, error) {
@@ -490,8 +521,24 @@ func (s *Shell) Resolve(ident string) []string {
 		vs = append(vs, strconv.Itoa(len(s.Args)))
 	case "@":
 		vs = append(vs, s.Args...)
+	case "UID":
+		vs = append(vs, strconv.Itoa(int(s.uid)))
 	case "PWD":
 		vs = append(vs, s.Cwd())
+	case "VERSION":
+		vs = append(vs, Version)
+	case "HOSTNAME":
+		if h, err := os.Hostname(); err == nil {
+			vs = append(vs, h)
+		}
+	case "OS":
+		vs = append(vs, runtime.GOOS)
+	case "HOME":
+	case "SHELL":
+		vs = append(vs, Tish)
+	case "SECONDS":
+		elapsed := time.Now().UTC().Sub(s.Time)
+		vs = append(vs, strconv.Itoa(int(elapsed.Seconds())))
 	default:
 		vs, _ = s.locals.Get(ident)
 	}
