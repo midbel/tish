@@ -21,10 +21,13 @@ const (
 	kindExpr
 	kindBraces
 	kindWord
+	kindShell
 )
 
 func (k Kind) String() string {
 	switch k {
+	case kindShell:
+		return "subshell"
 	case kindWord:
 		return "word"
 	case kindSimple:

@@ -250,11 +250,18 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 }
 
 func (p *parser) parsePreBraces(prolog Word) (Word, error) {
+	// fmt.Println(">> entering braces", p.curr, p.peek)
+	// defer func() {
+	// 	fmt.Println("<< leaving braces", p.curr, p.peek)
+	// }()
 	p.next()
 
 	ws := List{kind: kindBraces}
-	for !p.isDone() && p.curr.Type != tokEndBrace {
-		if p.curr.Type != tokWord {
+	for !p.isDone() {
+		if p.curr.Type == tokEndBrace {
+			break
+		}
+		if !p.isWord() {
 			return nil, fmt.Errorf("braces: %s is not a word", p.curr)
 		}
 		ws.words = append(ws.words, Literal(p.curr.Literal))
@@ -298,7 +305,7 @@ func (p *parser) parsePreBraces(prolog Word) (Word, error) {
 }
 
 func (p *parser) parsePostBraces(w Word) (Word, error) {
-	if b, ok := w.(Brace); ok && !p.isBlank() {
+	if b, ok := w.(Brace); ok && !(p.isBlank() || p.isEOL()) {
 		epilog, err := p.parseWord()
 		if err != nil {
 			return nil, err
@@ -720,6 +727,18 @@ func (p *parser) isControl() bool {
 	return true
 }
 
+func (p *parser) isEOL() bool {
+	return p.curr.Type == semicolon
+}
+
+func (p *parser) isDone() bool {
+	return p.err != nil || p.curr.Equal(eof)
+}
+
+func (p *parser) isWord() bool {
+	return p.curr.Type == tokWord || p.curr.Type == tokInt || p.curr.Type == tokFloat
+}
+
 func (p *parser) next() {
 	p.curr = p.peek
 	peek, err := p.scan.Scan()
@@ -727,8 +746,4 @@ func (p *parser) next() {
 		p.err = err
 	}
 	p.peek = peek
-}
-
-func (p *parser) isDone() bool {
-	return p.err != nil || p.curr.Equal(eof)
 }

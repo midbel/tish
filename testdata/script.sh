@@ -53,8 +53,8 @@ echo foo || echo bar
 false || echo bar
 
 # braces expansion
-echo {foo,bar}
-# echo {foo-{1,2,3}, bar-{4,5,6}
+#echo {foo,bar}
+echo {foo-{1,2,3}, bar-{4,5,6}}
 
 # parameter expansion (part 1)
 FOOBAR=FOOBAR

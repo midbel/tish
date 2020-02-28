@@ -117,12 +117,12 @@ func (t Token) Equal(other Token) bool {
 func (t Token) String() string {
 	var str string
 	switch t.Type {
-	case tokError:
-		return "<error>"
 	case tokBlank:
 		return "<blank>"
 	case tokEOF:
 		return "eof"
+	case tokError:
+		str = "error"
 	case tokWord:
 		str = "word"
 	case tokVar:
