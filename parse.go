@@ -55,6 +55,7 @@ func (p *parser) parseSequence() (Word, error) {
 	for !p.isDone() {
 		if p.isComment() {
 			p.next()
+			p.next()
 			continue
 		}
 		w, err := p.parseCommand()
@@ -76,6 +77,142 @@ func (p *parser) parseSequence() (Word, error) {
 		p.next()
 	}
 	return ws.asWord(), nil
+}
+
+func (p *parser) parseCommand() (Word, error) {
+	switch p.curr.Type {
+	default:
+		return nil, fmt.Errorf("command: unexpected operator %s", p.curr)
+	case tokBeginSub:
+		return p.parseSubstitution()
+	case tokBeginBrace:
+		return p.parseWord()
+	case tokWord:
+	}
+
+	ws := List{kind: kindSimple}
+	for p.peek.Type == equal {
+		w, err := p.parseAssignment()
+		if err != nil {
+			return nil, err
+		}
+		ws.words = append(ws.words, w)
+	}
+
+	if p.isDone() || p.curr.Type == semicolon {
+		return ws.asWord(), nil
+	}
+
+	for !p.isDone() {
+		w, err := p.parseSimple()
+		if err != nil {
+			return nil, err
+		}
+		if p.isPipe() {
+			var kind Kind
+			switch p.curr.Type {
+			case tokPipe:
+				kind = kindPipe
+			case tokPipeBoth:
+				kind = kindPipeBoth
+			default:
+				return nil, fmt.Errorf("command: unexpected token %s", p.curr)
+			}
+			w = Pipe{
+				Word: w,
+				kind: kind,
+			}
+			ws.kind = kindPipe
+		}
+		ws.words = append(ws.words, w)
+		if !p.isPipe() && p.isControl() {
+			break
+		}
+
+		p.next()
+		if p.isControl() {
+			return nil, fmt.Errorf("command: unexpected operator: %s", p.curr)
+		}
+	}
+	return ws.asWord(), p.err
+}
+
+func (p *parser) parseSimple() (Word, error) {
+	xs := List{kind: kindSimple}
+	for !p.isControl() {
+		w, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
+		xs.words = append(xs.words, w)
+		if p.isBlank() {
+			p.next()
+		}
+		if p.isComment() {
+			p.next()
+		}
+	}
+	return xs.asWord(), nil
+}
+
+func (p *parser) parseWord() (Word, error) {
+	xs := make([]Word, 0, 10)
+	for !p.isDone() {
+		if p.isRedirection() {
+			return p.parseRedirection()
+		}
+		switch p.curr.Type {
+		case tokWord:
+			xs = append(xs, Literal(p.curr.Literal))
+			p.next()
+		case equal:
+			xs = append(xs, Literal("="))
+			p.next()
+		case tokVar:
+			v := Variable{
+				ident:  p.curr.Literal,
+				quoted: p.curr.Quoted,
+				apply:  Identity(),
+			}
+			xs = append(xs, v)
+			p.next()
+		case tokBeginSub:
+			w, err := p.parseSubstitution()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
+		case tokBeginArith:
+			w, err := p.parseArithmetic()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
+		case tokBeginBrace:
+			w, err := p.parsePreBraces(asWord(xs))
+			if err != nil {
+				return nil, err
+			}
+			w, err = p.parsePostBraces(w)
+			if err != nil {
+				return nil, err
+			}
+			xs = []Word{w}
+		case tokBeginParam:
+			w, err := p.parseParameter()
+			if err != nil {
+				return nil, err
+			}
+			xs = append(xs, w)
+		case tokComment:
+		default:
+			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
+		}
+		if p.isBlank() || p.isControl() || p.isRedirection() || p.isComment() {
+			break
+		}
+	}
+	return asWord(xs), nil
 }
 
 func (p *parser) parseConditional(left Word) (Word, error) {
@@ -318,79 +455,6 @@ func (p *parser) parseAssignment() (Word, error) {
 	return a, err
 }
 
-func (p *parser) parseCommand() (Word, error) {
-	switch p.curr.Type {
-	default:
-		return nil, fmt.Errorf("command: unexpected operator %s", p.curr)
-	case tokBeginSub:
-		return p.parseSubstitution()
-	case tokBeginBrace:
-		return p.parseWord()
-	case tokWord:
-	}
-
-	ws := List{kind: kindSimple}
-	for p.peek.Type == equal {
-		w, err := p.parseAssignment()
-		if err != nil {
-			return nil, err
-		}
-		ws.words = append(ws.words, w)
-	}
-
-	if p.isDone() || p.curr.Type == semicolon {
-		return ws.asWord(), nil
-	}
-
-	for !p.isDone() {
-		w, err := p.parseSimple()
-		if err != nil {
-			return nil, err
-		}
-		if p.isPipe() {
-			var kind Kind
-			switch p.curr.Type {
-			case tokPipe:
-				kind = kindPipe
-			case tokPipeBoth:
-				kind = kindPipeBoth
-			default:
-				return nil, fmt.Errorf("command: unexpected token %s", p.curr)
-			}
-			w = Pipe{
-				Word: w,
-				kind: kind,
-			}
-			ws.kind = kindPipe
-		}
-		ws.words = append(ws.words, w)
-		if !p.isPipe() && (p.isControl() || p.isComment()) {
-			break
-		}
-
-		p.next()
-		if p.isControl() {
-			return nil, fmt.Errorf("command: unexpected operator: %s", p.curr)
-		}
-	}
-	return ws.asWord(), p.err
-}
-
-func (p *parser) parseSimple() (Word, error) {
-	xs := List{kind: kindSimple}
-	for !p.isControl() {
-		w, err := p.parseWord()
-		if err != nil {
-			return nil, err
-		}
-		xs.words = append(xs.words, w)
-		if p.isBlank() {
-			p.next()
-		}
-	}
-	return xs.asWord(), nil
-}
-
 func (p *parser) parseRedirection() (Word, error) {
 	var file, mode int
 	switch p.curr.Type {
@@ -443,67 +507,6 @@ func (p *parser) parseRedirection() (Word, error) {
 		p.next()
 	}
 	return r, nil
-}
-
-func (p *parser) parseWord() (Word, error) {
-	xs := make([]Word, 0, 10)
-	for !p.isDone() {
-		if p.isRedirection() {
-			return p.parseRedirection()
-		}
-		switch p.curr.Type {
-		case tokWord:
-			xs = append(xs, Literal(p.curr.Literal))
-			p.next()
-		case equal:
-			xs = append(xs, Literal("="))
-			p.next()
-		case tokVar:
-			v := Variable{
-				ident:  p.curr.Literal,
-				quoted: p.curr.Quoted,
-				apply:  Identity(),
-			}
-			xs = append(xs, v)
-			p.next()
-		case tokBeginSub:
-			w, err := p.parseSubstitution()
-			if err != nil {
-				return nil, err
-			}
-			xs = append(xs, w)
-		case tokBeginArith:
-			w, err := p.parseArithmetic()
-			if err != nil {
-				return nil, err
-			}
-			xs = append(xs, w)
-		case tokBeginBrace:
-			w, err := p.parsePreBraces(asWord(xs))
-			if err != nil {
-				return nil, err
-			}
-			w, err = p.parsePostBraces(w)
-			if err != nil {
-				return nil, err
-			}
-			xs = []Word{w}
-		case tokBeginParam:
-			w, err := p.parseParameter()
-			if err != nil {
-				return nil, err
-			}
-			xs = append(xs, w)
-		case tokComment:
-			p.next()
-		default:
-			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
-		}
-		if p.isBlank() || p.isControl() || p.isRedirection() {
-			break
-		}
-	}
-	return asWord(xs), nil
 }
 
 func (p *parser) parseParameter() (Word, error) {

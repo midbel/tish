@@ -19,6 +19,24 @@ func TestParse(t *testing.T) {
 	t.Run("redirections", testParseRedirections)
 	t.Run("parameters", testParseParameters)
 	t.Run("pipes", testParsePipes)
+	t.Run("comments", testParseComments)
+}
+
+func testParseComments(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `#comment`,
+			Word:  makeList(kindSeq),
+		},
+		{
+			Input: "#comment\necho foobar #comment",
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Literal("foobar"),
+			),
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseParameters(t *testing.T) {
