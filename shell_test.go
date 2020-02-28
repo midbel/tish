@@ -35,12 +35,12 @@ func TestShellScript(t *testing.T) {
 	sh.pid = 12345
 
 	if err := sh.Execute(r); err != nil {
-		t.Fatalf("error when executing script: %s", err)
+		t.Fatalf("error executing script: %s", err)
 	}
-	if errc := compareFile(t, "testdata/script.out.golden", out.Bytes()); errc != nil {
+	if errc := compareFile(t, "testdata/script.out.sh", out.Bytes()); errc != nil {
 		t.Errorf("stdout: %s", errc)
 	}
-	if errc := compareFile(t, "testdata/script.err.golden", err.Bytes()); errc != nil {
+	if errc := compareFile(t, "testdata/script.err.sh", err.Bytes()); errc != nil {
 		t.Errorf("stderr: %s", errc)
 	}
 }

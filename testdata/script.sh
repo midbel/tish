@@ -25,6 +25,6 @@ seq -s ', ' 1 5
 
 echo foobar >&2 # redirect foobar to stderr
 
-export PATH="/bin"
-export PATH="$PATH:/sbin"
-echo $PATH
+# export PATH="/bin"
+# export PATH="$PATH:/sbin"
+# echo $PATH

@@ -21,4 +21,4 @@ bar
 1, 2, 3, 4, 5
 
 # export PATH
-/bin:/sbin
+# /bin:/sbin
