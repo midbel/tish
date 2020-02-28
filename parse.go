@@ -494,10 +494,12 @@ func (p *parser) parseWord() (Word, error) {
 				return nil, err
 			}
 			xs = append(xs, w)
+		case tokComment:
+			p.next()
 		default:
 			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}
-		if p.isBlank() || p.isControl() || p.isRedirection() || p.isComment() {
+		if p.isBlank() || p.isControl() || p.isRedirection() {
 			break
 		}
 	}
