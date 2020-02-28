@@ -203,6 +203,10 @@ func scanDefault(s *Scanner) ScanFunc {
 			s.emitTypeOf(equal)
 		case semicolon:
 			s.readRune()
+			s.skip(func(r rune) bool { return s.char == semicolon })
+			if s.char == newline {
+				s.skip(func(r rune) bool { return s.char == newline })
+			}
 			s.skip(isBlank)
 			s.emitTypeOf(semicolon)
 		case pipe:

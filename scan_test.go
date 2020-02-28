@@ -1067,6 +1067,15 @@ func testScanSimple(t *testing.T) {
 				{Literal: "$", Type: tokVar},
 			},
 		},
+		{
+			Input: "cat;\ngrep;",
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "grep", Type: tokWord},
+				{Type: semicolon},
+			},
+		},
 	}
 	testValidTokens(t, data)
 }
