@@ -398,11 +398,13 @@ func scanComment(s *Scanner) ScanFunc {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-
+	if s.char == squote || s.char == newline {
+		s.readRune()
+	}
 	s.skip(func(r rune) bool { return isBlank(s.char) || s.char == newline })
-
 	s.emit(buf.String(), tokComment)
-	return nil
+	// return nil
+	return scanDefault
 }
 
 func scanDollar(s *Scanner) ScanFunc {
@@ -860,8 +862,8 @@ func scanBlanks(s *Scanner) ScanFunc {
 	case pipe:
 	case langle:
 	case rangle:
+	case pound:
 	default:
-		// fmt.Printf("scanBlanks: default: %c - %c\n", s.char, s.peekRune())
 		if k := s.peekRune(); s.char == '2' && k == rangle {
 			break
 		}

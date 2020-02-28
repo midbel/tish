@@ -11,24 +11,6 @@ type ScanCase struct {
 	Words []Token
 }
 
-func TestSplit(t *testing.T) {
-	str := `echo foo bar`
-	words := []string{"echo", "foo", "bar"}
-
-	vs, err := Split(str)
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if len(vs) != len(words) {
-		t.Fatalf("mismatched values! want %q, got %q", words, vs)
-	}
-	for i := 0; i < len(words); i++ {
-		if vs[i] != words[i] {
-			t.Errorf("word mismatch! want %q, got %q", words[i], vs[i])
-		}
-	}
-}
-
 func TestScannerQuoted(t *testing.T) {
 	str := `echo $VAR "$VAR"`
 	words := []Token{
@@ -723,6 +705,7 @@ echo bar # comment
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "bar", Type: tokWord},
+				{Literal: "comment", Type: tokComment},
 				{Literal: "epilog", Type: tokComment},
 				{Literal: "comment", Type: tokComment},
 			},
@@ -745,6 +728,7 @@ echo bar
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "bar", Type: tokWord},
+				{Type: semicolon},
 			},
 		},
 	}
@@ -799,7 +783,6 @@ func testScanSimple(t *testing.T) {
 			Input: `echo #comment`,
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
-				blank,
 				{Literal: "comment", Type: tokComment},
 			},
 		},
@@ -1055,7 +1038,6 @@ func testScanSimple(t *testing.T) {
 				{Literal: "VAR", Type: tokWord},
 				{Type: equal},
 				{Literal: "FOO", Type: tokVar},
-				blank,
 				{Literal: "comment", Type: tokComment},
 			},
 		},
@@ -1107,7 +1089,6 @@ func testScanSubstitution(t *testing.T) {
 				blank,
 				{Literal: "VAR", Type: tokVar},
 				{Type: tokEndSub},
-				blank,
 				{Literal: "comment", Type: tokComment},
 			},
 		},
