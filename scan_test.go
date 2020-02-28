@@ -697,17 +697,23 @@ echo bar # comment
 			`,
 			Words: []Token{
 				{Literal: "prolog", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "foo", Type: tokWord},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "bar", Type: tokWord},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "epilog", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
@@ -725,6 +731,7 @@ echo bar
 				{Literal: "foo", Type: tokWord},
 				{Type: semicolon},
 				{Literal: "comment 1\ncomment 2\ncomment 3\n", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "bar", Type: tokWord},
@@ -784,12 +791,14 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
 			Input: `#comment`,
 			Words: []Token{
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
@@ -1039,6 +1048,7 @@ func testScanSimple(t *testing.T) {
 				{Type: equal},
 				{Literal: "FOO", Type: tokVar},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
@@ -1090,6 +1100,7 @@ func testScanSubstitution(t *testing.T) {
 				{Literal: "VAR", Type: tokVar},
 				{Type: tokEndSub},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{

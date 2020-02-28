@@ -21,11 +21,10 @@ type Scanner struct {
 	quoted int
 }
 
-// func NewScanner(r io.Reader) *Scanner
 func NewScanner(r io.Reader) *Scanner {
 	str, _ := ioutil.ReadAll(r)
 	s := &Scanner{
-		buffer: str,
+		buffer: bytes.ReplaceAll(str, []byte("\r\n"), []byte("\n")),
 		queue:  make(chan Token),
 	}
 	go s.run()
@@ -403,6 +402,7 @@ func scanComment(s *Scanner) ScanFunc {
 	}
 	s.skip(func(r rune) bool { return isBlank(s.char) || s.char == newline })
 	s.emit(buf.String(), tokComment)
+	s.emitTypeOf(semicolon)
 	// return nil
 	return scanDefault
 }
