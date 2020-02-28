@@ -5,8 +5,8 @@ echo -h
 NAME=midbel
 echo $NAME
 
-echo $$
-echo $UID
+# echo $$
+# echo $UID
 
 # define a builtin
 alias readfile="echo -i"

@@ -53,6 +53,10 @@ func (p *parser) parseSequence() (Word, error) {
 	ws := List{kind: kindSeq}
 
 	for !p.isDone() {
+		if p.isComment() {
+			p.next()
+			continue
+		}
 		w, err := p.parseCommand()
 		if err != nil {
 			return nil, err
@@ -360,7 +364,7 @@ func (p *parser) parseCommand() (Word, error) {
 			ws.kind = kindPipe
 		}
 		ws.words = append(ws.words, w)
-		if !p.isPipe() && p.isControl() {
+		if !p.isPipe() && (p.isControl() || p.isComment()) {
 			break
 		}
 
@@ -444,9 +448,6 @@ func (p *parser) parseRedirection() (Word, error) {
 func (p *parser) parseWord() (Word, error) {
 	xs := make([]Word, 0, 10)
 	for !p.isDone() {
-		if p.curr.Type == tokEOF {
-			break
-		}
 		if p.isRedirection() {
 			return p.parseRedirection()
 		}
@@ -496,7 +497,7 @@ func (p *parser) parseWord() (Word, error) {
 		default:
 			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}
-		if p.isBlank() || p.isControl() || p.isRedirection() {
+		if p.isBlank() || p.isControl() || p.isRedirection() || p.isComment() {
 			break
 		}
 	}
@@ -693,6 +694,10 @@ func (p *parser) isRedirection() bool {
 
 func (p *parser) isPipe() bool {
 	return p.curr.Type == tokPipe || p.curr.Type == tokPipeBoth
+}
+
+func (p *parser) isComment() bool {
+	return p.curr.Type == tokComment
 }
 
 func (p *parser) isControl() bool {
