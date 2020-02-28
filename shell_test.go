@@ -37,19 +37,17 @@ func TestShellScript(t *testing.T) {
 	if err := sh.Execute(r); err != nil {
 		t.Fatalf("error when executing script: %s", err)
 	}
-	if errc := compareFile("testdata/script.out.golden", out.Bytes()); errc != nil {
+	if errc := compareFile(t, "testdata/script.out.golden", out.Bytes()); errc != nil {
 		t.Errorf("stdout: %s", errc)
-		t.Errorf("got\n")
-		t.Error(out.String())
 	}
-	if errc := compareFile("testdata/script.err.golden", err.Bytes()); errc != nil {
+	if errc := compareFile(t, "testdata/script.err.golden", err.Bytes()); errc != nil {
 		t.Errorf("stderr: %s", errc)
-		t.Errorf("got\n")
-		t.Error(err.String())
 	}
 }
 
-func compareFile(file string, got []byte) error {
+func compareFile(t *testing.T, file string, got []byte) error {
+	t.Helper()
+
 	r, err := os.Open(file)
 	if err != nil {
 		return err
@@ -65,13 +63,16 @@ func compareFile(file string, got []byte) error {
 		}
 		if ix := strings.Index(line, "#"); ix > 0 {
 			line = strings.TrimSpace(line[:ix])
+			// line = line[:ix]
 		}
-		want.WriteString(line)
+		want.WriteString(line + "\n")
 	}
 	if err := scan.Err(); err != nil {
 		return err
 	}
 	if !bytes.Equal(want.Bytes(), got) {
+		t.Logf("want:\n%s", want.String())
+		t.Logf("got:\n%s", string(got))
 		err = fmt.Errorf("%s: output mismatched!", file)
 	}
 	return err
