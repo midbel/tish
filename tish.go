@@ -21,16 +21,13 @@ func init() {
 }
 
 func Run() error {
-	sh := DefaultShell()
-
-	flag.BoolVar(&sh.Verbose, "v", false, "print commands that will be executed on stderr")
-	flag.BoolVar(&sh.Dry, "n", false, "dry run")
 	var (
 		profile = flag.String("r", DefaultProfile, "initialize shell from given scripts")
 		cmdline = flag.Bool("c", false, "read command from the command string")
 	)
 	flag.Parse()
 
+	sh := DefaultShell()
 	if r, err := os.Open(*profile); err == nil {
 		err := sh.Execute(r)
 		r.Close()

@@ -156,6 +156,13 @@ type Redirect struct {
 	Word
 }
 
+func (r Redirect) Expand(e *Env) ([]string, error) {
+	if r.Word == nil {
+		return nil, nil
+	}
+	return r.Word.Expand(e)
+}
+
 func (r Redirect) Open(e *Env) (*os.File, error) {
 	args, err := r.Expand(e)
 	if err != nil {

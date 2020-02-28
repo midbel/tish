@@ -98,3 +98,16 @@ func (e *Env) Unwrap() *Env {
 	}
 	return e.parent
 }
+
+func (e *Env) Copy() *Env {
+	vs := make(map[string]envval)
+	for k, ev := range e.locals {
+		e := envval{
+			ReadOnly: ev.ReadOnly,
+			Values:   make([]string, len(ev.Values)),
+		}
+		copy(e.Values, ev.Values)
+		vs[k] = e
+	}
+	return &Env{locals: vs}
+}

@@ -11,12 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
-var (
-	ErrFailed = errors.New("process terminated with failure")
-	ErrDry    = errors.New("dry run")
-)
+var ErrFailed = errors.New("process terminated with failure")
 
 const MaxHistSize = 100
 
@@ -53,9 +52,7 @@ type Command interface {
 }
 
 type Shell struct {
-	Dry     bool
-	Verbose bool
-	Args    []string
+	Args []string
 
 	time.Time
 	uid int // user id
@@ -83,7 +80,12 @@ type Shell struct {
 }
 
 func DefaultShell() *Shell {
-	return NewShell(os.Stdin, os.Stdout, os.Stderr)
+	var (
+		in  = Reader(os.Stdin)
+		out = Writer(os.Stdout)
+		err = Writer(os.Stderr)
+	)
+	return NewShell(in, out, err)
 }
 
 func NewShell(in io.Reader, out, err io.Writer) *Shell {
@@ -92,9 +94,9 @@ func NewShell(in io.Reader, out, err io.Writer) *Shell {
 		uid:    os.Getuid(),
 		pid:    os.Getpid(),
 		Time:   time.Now(),
-		stdin:  Reader(in),
-		stdout: Writer(fdOut, out),
-		stderr: Writer(fdErr, err),
+		stdin:  in,
+		stdout: out,
+		stderr: err,
 		alias:  make(map[string]Word),
 	}
 	s.globals = NewEnvironment()
@@ -115,12 +117,6 @@ func (s *Shell) Enter() {
 
 func (s *Shell) Leave() {
 	s.locals.Unwrap()
-}
-
-func (s *Shell) Subshell() *Shell {
-	sh := DefaultShell()
-	sh.level = s.level + 1
-	return sh
 }
 
 func (s *Shell) Cwd() string {
@@ -173,29 +169,11 @@ func (s *Shell) execute(w Word) error {
 	default:
 		err = fmt.Errorf("tish: %T can not be executed", w)
 	}
-	if errors.Is(err, ErrDry) {
-		err = nil
-	}
 	return err
 }
 
 func (s *Shell) executeLiteral(i Literal) error {
-	s.Enter()
-	defer s.Leave()
-
-	args, err := i.Expand(s.locals)
-	if err != nil {
-		return err
-	}
-	cmd, err := s.prepare(args)
-	if err != nil {
-		return err
-	}
-	s.proc.exit = cmd.Run()
-	if p, ok := cmd.(interface{ Pid() int }); ok {
-		s.proc.pid = p.Pid()
-	}
-	return nil
+	return s.executeSimple([]Word{i})
 }
 
 func (s *Shell) executeList(i List) error {
@@ -258,56 +236,84 @@ func (s *Shell) executeAnd(ws []Word) error {
 	return err
 }
 
+func (s *Shell) executeSubstitution(ws []Word) error {
+	var (
+		in   bytes.Reader
+		out  bytes.Buffer
+		err  bytes.Buffer
+		word = List{
+			kind:  kindSeq,
+			words: ws,
+		}
+	)
+	if _, err := s.executeShell(word, &in, &out, &err); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode, error) {
+	sh := NewShell(in, out, err)
+	sh.locals = s.locals.Copy()
+	sh.globals = sh.locals.Unwrap()
+	sh.level = s.level + 1
+
+	errx := sh.execute(w)
+	return sh.proc.exit, errx
+}
+
 func (s *Shell) executePipeline(ws []Word) error {
-	var in *os.File
-	for i := 0; ; i++ {
-		args, err := ws[i].Expand(s.locals)
-		if err != nil || len(args) == 0 {
-			return err
-		}
-		cmd, err := s.prepare(args)
-		if err != nil {
-			return err
-		}
-		if i == len(ws)-1 {
-			cmd.Replace(fdIn, in)
-			s.proc.exit = cmd.Run()
-			if p, ok := cmd.(interface{ Pid() int }); ok {
-				s.proc.pid = p.Pid()
-			}
-			break
-		}
+	var (
+		in  = s.stdin
+		err = s.stderr
+		grp errgroup.Group
+	)
+	for i := 0; i < len(ws)-1; i++ {
 		p, ok := ws[i].(Pipe)
 		if !ok {
 			return fmt.Errorf("%s: not a pipe", ws[i])
 		}
-		r, w, err := os.Pipe()
-		if err != nil {
-			return err
-		}
-		if i > 0 {
-			cmd.Replace(fdIn, in)
-		}
-		cmd.Replace(fdOut, w)
+		r, w := io.Pipe()
+
 		switch p.kind {
 		case kindPipe:
+			err = s.stderr
 		case kindPipeBoth:
-			cmd.Replace(fdErr, w)
+			err = w
 		default:
 			return fmt.Errorf("%s: unexpected pipe type", p.kind)
 		}
-		if err := cmd.Start(); err != nil {
-			return err
-		}
+
+		grp.Go(func() (errx error) {
+			_, errx = s.executeShell(p.Word, in, w, err)
+			return
+		})
+
 		in = r
 	}
-	return nil
+	grp.Go(func() (errx error) {
+		s.proc.exit, errx = s.executeShell(ws[len(ws)-1], in, s.stdout, s.stderr)
+		return
+	})
+	return grp.Wait()
 }
 
 func (s *Shell) executeSimple(ws []Word) error {
 	s.Enter()
 	defer s.Leave()
 
+	cmd, err := s.buildCommand(ws)
+	if err != nil {
+		return err
+	}
+	s.proc.exit = cmd.Run()
+	if p, ok := cmd.(interface{ Pid() int }); ok {
+		s.proc.pid = p.Pid()
+	}
+	return nil
+}
+
+func (s *Shell) buildCommand(ws []Word) (Command, error) {
 	var (
 		args = make([]string, 0, len(ws)*4)
 		rs   []Redirect
@@ -317,7 +323,7 @@ func (s *Shell) executeSimple(ws []Word) error {
 		if a, ok := w.(Assignment); ok {
 			xs, err := a.Expand(s.locals)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			s.Define(a.ident, xs)
 			continue
@@ -328,14 +334,14 @@ func (s *Shell) executeSimple(ws []Word) error {
 		}
 		xs, err := w.Expand(s.locals)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		args = append(args, xs...)
 	}
 
 	cmd, err := s.prepare(args)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, r := range rs {
 		if r.mode == modRelink {
@@ -345,63 +351,19 @@ func (s *Shell) executeSimple(ws []Word) error {
 			case fdErr:
 				cmd.Copy(fdOut, fdErr) // copy stdout to stderr
 			default:
-				return fmt.Errorf("invalid file descriptor given %d", r.file)
+				return nil, fmt.Errorf("invalid file descriptor given %d", r.file)
 			}
 		} else {
 			f, err := r.Open(s.locals)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if err := cmd.Replace(r.file, f); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
-	s.proc.exit = cmd.Run()
-	if p, ok := cmd.(interface{ Pid() int }); ok {
-		s.proc.pid = p.Pid()
-	}
-	return nil
-}
-
-func (s *Shell) executeSubstitution(w Word) (Word, error) {
-	var (
-		sin  = bytes.NewReader(nil)
-		sout bytes.Buffer
-		serr bytes.Buffer
-		sh   = NewShell(sin, &sout, &serr)
-	)
-	if err := sh.execute(w); err != nil {
-		return nil, err
-	}
-	return nil, nil
-}
-
-func (s *Shell) expandWord(ws []Word) ([]string, error) {
-	var (
-		args []string
-		err  error
-	)
-	for _, w := range ws {
-		var xs []string
-		switch x := w.(type) {
-		case List:
-			if x.kind == kindSub {
-				w, err = s.executeSubstitution(w)
-				if err != nil {
-					return nil, err
-				}
-			}
-			xs, err = w.Expand(s.locals)
-		default:
-			xs, err = w.Expand(s.locals)
-		}
-		if err != nil {
-			break
-		}
-		args = append(args, xs...)
-	}
-	return args, err
+	return cmd, nil
 }
 
 func (s *Shell) prepare(args []string) (Command, error) {
@@ -410,13 +372,6 @@ func (s *Shell) prepare(args []string) (Command, error) {
 	}
 	s.proc.pid = 0
 	s.proc.exit = ExitOk
-
-	if s.Verbose {
-		fmt.Fprintln(s.stderr, strings.Join(args, " "))
-	}
-	if s.Dry {
-		return nil, ErrDry
-	}
 
 	if w, ok := s.alias[args[0]]; ok {
 		vs, err := w.Expand(s.locals)
@@ -630,18 +585,17 @@ func closeFile(c interface{}) {
 }
 
 type shellWriter struct {
-	file  int
 	inner io.Writer
 }
 
-func Writer(fd int, w io.Writer) io.Writer {
+func Writer(w io.Writer) io.Writer {
 	if _, ok := w.(io.Closer); !ok {
 		return w
 	}
 	if _, ok := w.(*shellWriter); ok {
 		return w
 	}
-	return &shellWriter{file: fd, inner: w}
+	return &shellWriter{inner: w}
 }
 
 func (w *shellWriter) Write(bs []byte) (int, error) {
@@ -659,7 +613,7 @@ func Reader(r io.Reader) io.Reader {
 	if _, ok := r.(*shellReader); ok {
 		return r
 	}
-	return &shellReader{r}
+	return &shellReader{inner: r}
 }
 
 func (r *shellReader) Read(bs []byte) (int, error) {

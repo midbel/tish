@@ -163,7 +163,7 @@ func (b *Builtin) closeDescriptors() {
 	if c, ok := b.Stdout.(io.Closer); ok {
 		c.Close()
 	}
-	if c, ok := b.Stdout.(io.Closer); ok {
+	if c, ok := b.Stderr.(io.Closer); ok {
 		c.Close()
 	}
 }
