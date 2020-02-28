@@ -72,6 +72,15 @@ func (b *Builtin) Start() error {
 
 	b.done = make(chan ErrCode, 1)
 	go func() {
+		if b.Stdin == nil {
+			b.Stdin = b.Shell.stdin
+		}
+		if b.Stdout == nil {
+			b.Stdout = b.Shell.stdout
+		}
+		if b.Stderr == nil {
+			b.Stderr = b.Shell.stderr
+		}
 		b.done <- b.Exec(*b)
 		close(b.done)
 		b.closeDescriptors()
@@ -511,7 +520,15 @@ func Date(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
-	now := time.Now()
+	var delta time.Duration
+	switch strings.ToLower(flag.Arg(0)) {
+	case "yesterday":
+		delta = -24 * time.Hour
+	case "tomorrow":
+		delta = 24 * time.Hour
+	default:
+	}
+	now := time.Now().Add(delta)
 	if *utc {
 		now = now.UTC()
 	}
@@ -521,8 +538,9 @@ func Date(b Builtin) ErrCode {
 
 func Builtins(b Builtin) ErrCode {
 	var (
-		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		help = set.Bool("h", false, "show help message and exit")
+		set    = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		intern = set.Bool("i", false, "only show default builtins")
+		help   = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.Stderr, b.Help())
@@ -539,6 +557,9 @@ func Builtins(b Builtin) ErrCode {
 		if !c.Runnable() {
 			continue
 		}
+		if c.external && *intern {
+			continue
+		}
 		fmt.Printf("%s: %s\n", k, c.Short)
 	}
 	return ExitOk
@@ -546,9 +567,10 @@ func Builtins(b Builtin) ErrCode {
 
 func Help(b Builtin) ErrCode {
 	var (
-		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		all  = set.Bool("a", false, "include external builtins")
-		help = set.Bool("h", false, "show help message and exit")
+		set    = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		intern = set.Bool("i", false, "only show default builtins")
+		short  = set.Bool("s", false, "only show short help message")
+		help   = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.Stderr, b.Help())
@@ -566,17 +588,20 @@ func Help(b Builtin) ErrCode {
 		return ExitBadUsage
 	}
 	x, ok := builtins[set.Arg(0)]
-	if !ok || (!*all && x.external) {
+	if !ok || (x.external && *intern) {
 		fmt.Fprintf(b.Stderr, "%s: unknown builtin\n", set.Arg(0))
+		return ExitUnknown
 	}
 	fmt.Fprintln(b.Stdout, x.String())
 	fmt.Fprintln(b.Stdout, x.Short)
-	if x.Desc != "" {
+	if !*short {
+		if x.Desc != "" {
+			fmt.Fprintln(b.Stdout)
+			fmt.Fprintln(b.Stdout, x.Desc)
+		}
 		fmt.Fprintln(b.Stdout)
-		fmt.Fprintln(b.Stdout, x.Desc)
+		fmt.Fprintln(b.Stdout, "usage:", x.Usage)
 	}
-	fmt.Fprintln(b.Stdout)
-	fmt.Fprintln(b.Stdout, "usage:", x.Usage)
 	return ExitOk
 }
 
@@ -731,7 +756,11 @@ func Type(b Builtin) ErrCode {
 			fmt.Fprintf(b.Stdout, "%s: builtin\n", a)
 			continue
 		}
-		// will look later for alias and/or functions - when builtin will have access to it
+		if _, ok := b.alias[a]; ok {
+			fmt.Fprintf(b.Stdout, "%s: alias\n", a)
+			continue
+		}
+		// will look later for functions - when builtin will have access to it
 		if _, err := exec.LookPath(a); err == nil {
 			fmt.Fprintf(b.Stdout, "%s: command\n", a)
 			continue

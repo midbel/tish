@@ -162,14 +162,12 @@ func get(ident string) (Builtin, error) {
 	if !ok {
 		return Builtin{}, fmt.Errorf("%s: builtin not found", ident)
 	}
-	b.Stdin = bytes.NewReader(nil)
 
 	var (
+		in  = bytes.NewReader(nil)
 		out bytes.Buffer
 		err bytes.Buffer
 	)
-	b.Stdout = &out
-	b.Stderr = &err
-
+	b.Shell = NewShell(in, &out, &err)
 	return b, nil
 }
