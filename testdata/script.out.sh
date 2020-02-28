@@ -21,4 +21,25 @@ bar
 1, 2, 3, 4, 5
 
 # export PATH
-# /bin:/sbin
+/bin
+# export PATH
+/bin:/sbin
+
+# echo variable declared with local
+FOO BAR
+
+# arithmetic
+4
+4
+1
+0
+# 0
+4 # $((1<<2))
+2 # $((8<<2))
+
+# logical and
+foo
+bar
+# logical or
+foo
+bar
