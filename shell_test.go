@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -25,11 +26,14 @@ func TestShellScript(t *testing.T) {
 	defer r.Close()
 
 	var (
-		in bytes.Reader
+		in  bytes.Reader
 		out bytes.Buffer
 		err bytes.Buffer
 	)
 	sh := NewShell(&in, &out, &err)
+	sh.uid = 1000
+	sh.pid = 12345
+
 	if err := sh.Execute(r); err != nil {
 		t.Fatalf("error when executing script: %s", err)
 	}
@@ -46,11 +50,28 @@ func TestShellScript(t *testing.T) {
 }
 
 func compareFile(file string, got []byte) error {
-	want, err := ioutil.ReadFile(file)
+	r, err := os.Open(file)
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(want, got) {
+	var (
+		want bytes.Buffer
+		scan = bufio.NewScanner(r)
+	)
+	for scan.Scan() {
+		line := scan.Text()
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if ix := strings.Index(line, "#"); ix > 0 {
+			line = strings.TrimSpace(line[:ix])
+		}
+		want.WriteString(line)
+	}
+	if err := scan.Err(); err != nil {
+		return err
+	}
+	if !bytes.Equal(want.Bytes(), got) {
 		err = fmt.Errorf("%s: output mismatched!", file)
 	}
 	return err
