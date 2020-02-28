@@ -356,7 +356,7 @@ func scanBraces(s *Scanner) ScanFunc {
 	s.emitTypeOf(tokBeginBrace)
 	for s.char != rcurly {
 		switch {
-		case s.char == tokEOF:
+		case s.char == tokEOF || s.char == semicolon || s.char == newline:
 			s.emit("unterminated braces expression", tokError)
 			return nil
 		case s.char == space || s.char == tab:
@@ -373,9 +373,13 @@ func scanBraces(s *Scanner) ScanFunc {
 		}
 		s.readRune()
 	}
+	if s.char != rcurly {
+		s.emit("unterminated braces expansion", tokError)
+		return nil
+	}
 	s.readRune()
-
 	s.emitTypeOf(tokEndBrace)
+
 	if s.char == tokEOF {
 		s.emitTypeOf(s.char)
 		return nil
