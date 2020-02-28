@@ -29,11 +29,11 @@ bar
 FOO BAR
 
 # arithmetic
-4
-4
-1
-0
-# 0
+4 # $((2*2))
+4 # $((2+2))
+1 # $((2/2))
+0 # $((2%2))
+0 # $((-2+2))
 4 # $((1<<2))
 2 # $((8<<2))
 
@@ -43,3 +43,21 @@ bar
 # logical or
 foo
 bar
+
+# braces expansion
+foo bar
+# foo-1 foo-2 foo-3 bar-4 bar-5 bar-6
+
+# parameter expansion (part 1)
+standard: FOOBAR
+length  : 6
+suffix  : FOO
+prefix  : BAR
+replace : F00BAR
+substr1 : FOO
+substr2 : BAR
+
+# parameter expansion (part 2)
+FOOBAR
+DEFAULT
+DEFAULT
