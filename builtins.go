@@ -62,17 +62,19 @@ func (b *Builtin) Runnable() bool {
 
 func (b *Builtin) Start() error {
 	if !b.Runnable() {
+		b.closeDescriptors()
 		return fmt.Errorf("%s: not runnable", b.String())
 	}
 	if b.finished {
+		b.closeDescriptors()
 		return fmt.Errorf("%s: already executed", b.String())
 	}
 
 	b.done = make(chan ErrCode, 1)
 	go func() {
 		b.done <- b.Exec(*b)
-		// b.closeStreams()
 		close(b.done)
+		b.closeDescriptors()
 	}()
 	return nil
 }
@@ -104,9 +106,9 @@ func (b *Builtin) Copy(src, dst int) {
 	}
 	switch src {
 	case fdOut:
-		b.Stderr = b.Stdout
-	case fdErr:
 		b.Stdout = b.Stderr
+	case fdErr:
+		b.Stderr = b.Stdout
 	default:
 	}
 }
@@ -114,26 +116,26 @@ func (b *Builtin) Copy(src, dst int) {
 func (b *Builtin) Replace(fd int, f *os.File) error {
 	switch fd {
 	case fdIn:
-		// closeFile(b.Stdin)
+		closeFile(b.Stdin)
 		b.Stdin = f
 	case fdOut:
 		if err := sameFile(b.Stdin, f); err != nil {
 			return err
 		}
-		// closeFile(b.Stdout)
+		closeFile(b.Stdout)
 		b.Stdout = f
 	case fdErr:
 		if err := sameFile(b.Stdin, f); err != nil {
 			return err
 		}
-		// closeFile(b.Stderr)
+		closeFile(b.Stderr)
 		b.Stderr = f
 	case fdBoth:
 		if err := sameFile(b.Stdin, f); err != nil {
 			return err
 		}
-		// closeFile(b.Stdout)
-		// closeFile(b.Stderr)
+		closeFile(b.Stdout)
+		closeFile(b.Stderr)
 		b.Stdout, b.Stderr = f, f
 	default:
 		return fmt.Errorf("invalid file description %d", fd)
@@ -145,7 +147,7 @@ func (b *Builtin) enable(e bool) {
 	b.disabled = e
 }
 
-func (b *Builtin) closeStreams() {
+func (b *Builtin) closeDescriptors() {
 	if c, ok := b.Stdin.(io.Closer); ok {
 		c.Close()
 	}
@@ -454,7 +456,6 @@ func Random(b Builtin) ErrCode {
 	rand.Seed(*seed)
 	fmt.Fprintf(b.Stdout, "%d\n", rand.Uint32())
 	return ExitOk
-
 }
 
 func Echo(b Builtin) ErrCode {

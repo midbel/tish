@@ -4,8 +4,21 @@ import (
 	"flag"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
+
+var DefaultProfile string
+
+const (
+	Version = "0.0.1"
+	Tish    = "tish"
+)
+
+func init() {
+	home, _ := os.UserHomeDir()
+	DefaultProfile = filepath.Join(home, ".tishrc")
+}
 
 func Run() error {
 	sh := DefaultShell()

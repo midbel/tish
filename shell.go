@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,28 +18,9 @@ var (
 	ErrDry    = errors.New("dry run")
 )
 
-var DefaultProfile string
-
-const (
-	MaxHistSize = 100
-	Version     = "0.0.1"
-	Tish        = "tish"
-)
-
-func init() {
-	home, _ := os.UserHomeDir()
-	DefaultProfile = filepath.Join(home, ".tishrc")
-}
+const MaxHistSize = 100
 
 type ErrCode int
-
-func (e ErrCode) Success() bool {
-	return e == ExitOk
-}
-
-func (e ErrCode) Failure() bool {
-	return e != ExitOk
-}
 
 const (
 	ExitOk ErrCode = iota
@@ -54,6 +34,14 @@ const (
 	ExitUnknown
 	ExitNoFile
 )
+
+func (e ErrCode) Success() bool {
+	return e == ExitOk
+}
+
+func (e ErrCode) Failure() bool {
+	return !e.Success()
+}
 
 type Command interface {
 	Start() error
@@ -95,11 +83,6 @@ type Shell struct {
 }
 
 func DefaultShell() *Shell {
-	// var (
-	// 	in  = os.NewFile(os.Stdin.Fd(), "stdin")
-	// 	out = os.NewFile(os.Stdout.Fd(), "stdout")
-	// 	err = os.NewFile(os.Stderr.Fd(), "stderr")
-	// )
 	return NewShell(os.Stdin, os.Stdout, os.Stderr)
 }
 
@@ -109,9 +92,9 @@ func NewShell(in io.Reader, out, err io.Writer) *Shell {
 		uid:    os.Getuid(),
 		pid:    os.Getpid(),
 		Time:   time.Now(),
-		stdin:  in,
-		stdout: out,
-		stderr: err,
+		stdin:  Reader(in),
+		stdout: Writer(fdOut, out),
+		stderr: Writer(fdErr, err),
 		alias:  make(map[string]Word),
 	}
 	s.globals = NewEnvironment()
@@ -428,10 +411,6 @@ func (s *Shell) prepare(args []string) (Command, error) {
 	s.proc.pid = 0
 	s.proc.exit = ExitOk
 
-	in := s.stdin // s.duplicateReader(s.stdin)
-	out := s.stdout // s.duplicateWriter(s.stdout)
-	err := s.stderr // s.duplicateWriter(s.stderr)
-
 	if s.Verbose {
 		fmt.Fprintln(s.stderr, strings.Join(args, " "))
 	}
@@ -448,9 +427,9 @@ func (s *Shell) prepare(args []string) (Command, error) {
 	}
 
 	if c, ok := builtins[args[0]]; ok && c.Runnable() {
-		c.Stdin = in
-		c.Stdout = out
-		c.Stderr = err
+		c.Stdin = s.stdin
+		c.Stdout = s.stdout
+		c.Stderr = s.stderr
 
 		c.Shell = s
 		c.Args = args[1:]
@@ -463,25 +442,12 @@ func (s *Shell) prepare(args []string) (Command, error) {
 		c.Env = append(c.Env, es...)
 	}
 	c.Dir = s.Cwd()
-	c.Stdin = in
-	c.Stdout = out
-	c.Stderr = err
+
+	c.Stdin = s.stdin
+	c.Stdout = s.stdout
+	c.Stderr = s.stderr
 
 	return &Cmd{Cmd: c}, nil
-}
-
-func (s *Shell) duplicateReader(fd io.Reader) io.Reader {
-	if f, ok := fd.(*os.File); ok {
-		return os.NewFile(f.Fd(), f.Name())
-	}
-	return fd
-}
-
-func (s *Shell) duplicateWriter(fd io.Writer) io.Writer {
-	if f, ok := fd.(*os.File); ok {
-		return os.NewFile(f.Fd(), f.Name())
-	}
-	return fd
 }
 
 func (s *Shell) RegisterAlias(ident, alias string) error {
@@ -576,9 +542,9 @@ func (c *Cmd) Copy(src, dst int) {
 	}
 	switch src {
 	case fdOut:
-		c.Stderr = c.Stdout
-	case fdErr:
 		c.Stdout = c.Stderr
+	case fdErr:
+		c.Stderr = c.Stdout
 	default:
 	}
 }
@@ -586,26 +552,26 @@ func (c *Cmd) Copy(src, dst int) {
 func (c *Cmd) Replace(fd int, f *os.File) error {
 	switch fd {
 	case fdIn:
-		// closeFile(c.Stdin)
+		closeFile(c.Stdin)
 		c.Stdin = f
 	case fdOut:
 		if err := sameFile(c.Stdin, f); err != nil {
 			return err
 		}
-		// closeFile(c.Stdout)
+		closeFile(c.Stdout)
 		c.Stdout = f
 	case fdErr:
 		if err := sameFile(c.Stdin, f); err != nil {
 			return err
 		}
-		// closeFile(c.Stderr)
+		closeFile(c.Stderr)
 		c.Stderr = f
 	case fdBoth:
 		if err := sameFile(c.Stdin, f); err != nil {
 			return err
 		}
-		// closeFile(c.Stdout)
-		// closeFile(c.Stderr)
+		closeFile(c.Stdout)
+		closeFile(c.Stderr)
 		c.Stdout, c.Stderr = f, f
 	default:
 		return fmt.Errorf("invalid file description %d", fd)
@@ -657,8 +623,39 @@ func sameFile(in, out interface{}) error {
 	return err
 }
 
-// func closeFile(c interface{}) {
-// 	if c, ok := c.(io.Closer); ok {
-// 		c.Close()
-// 	}
-// }
+func closeFile(c interface{}) {
+	if c, ok := c.(io.Closer); ok {
+		c.Close()
+	}
+}
+
+type shellWriter struct {
+	file  int
+	inner io.Writer
+}
+
+func Writer(fd int, w io.Writer) io.Writer {
+	if _, ok := w.(*shellWriter); ok {
+		return w
+	}
+	return &shellWriter{file: fd, inner: w}
+}
+
+func (w *shellWriter) Write(bs []byte) (int, error) {
+	return w.inner.Write(bs)
+}
+
+type shellReader struct {
+	inner io.Reader
+}
+
+func Reader(r io.Reader) io.Reader {
+	if _, ok := r.(*shellReader); ok {
+		return r
+	}
+	return &shellReader{r}
+}
+
+func (r *shellReader) Read(bs []byte) (int, error) {
+	return r.inner.Read(bs)
+}
