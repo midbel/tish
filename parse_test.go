@@ -20,6 +20,25 @@ func TestParse(t *testing.T) {
 	t.Run("parameters", testParseParameters)
 	t.Run("pipes", testParsePipes)
 	t.Run("comments", testParseComments)
+	t.Run("subshells", testParseSubshell)
+}
+
+func testParseSubshell(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `(cd dir; echo $PWD)`,
+			Word: makeList(kindShell,
+				makeList(kindSeq,
+					makeList(kindSimple, Literal("cd"), Literal("dir")),
+					makeList(kindSimple,
+						Literal("echo"),
+						Variable{ident: "echo", quoted: false, apply: Identity()},
+					),
+				),
+			),
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseComments(t *testing.T) {
@@ -782,6 +801,13 @@ func testParseSimple(t *testing.T) {
 					Variable{ident: "FOO", quoted: false, apply: Identity()},
 					Variable{ident: "BAR", quoted: false, apply: Identity()},
 				),
+			),
+		},
+		{
+			Input: "echo;\necho;\n",
+			Word: makeList(kindSeq,
+				Literal("echo"),
+				Literal("echo"),
 			),
 		},
 	}
