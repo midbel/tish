@@ -2,6 +2,7 @@ package tish
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,6 +15,45 @@ type ShellCase struct {
 	Out   string
 	Err   string
 	File  string
+}
+
+func TestShellScript(t *testing.T) {
+	r, errp := os.Open("testdata/script.sh")
+	if errp != nil {
+		t.Fatalf("fail to open script.sh: %s", errp)
+	}
+	defer r.Close()
+
+	var (
+		in bytes.Reader
+		out bytes.Buffer
+		err bytes.Buffer
+	)
+	sh := NewShell(&in, &out, &err)
+	if err := sh.Execute(r); err != nil {
+		t.Fatalf("error when executing script: %s", err)
+	}
+	if errc := compareFile("testdata/script.out.golden", out.Bytes()); errc != nil {
+		t.Errorf("stdout: %s", errc)
+		t.Errorf("got\n")
+		t.Error(out.String())
+	}
+	if errc := compareFile("testdata/script.err.golden", err.Bytes()); errc != nil {
+		t.Errorf("stderr: %s", errc)
+		t.Errorf("got\n")
+		t.Error(err.String())
+	}
+}
+
+func compareFile(file string, got []byte) error {
+	want, err := ioutil.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(want, got) {
+		err = fmt.Errorf("%s: output mismatched!", file)
+	}
+	return err
 }
 
 func TestShellExecute(t *testing.T) {
