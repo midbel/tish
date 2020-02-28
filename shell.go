@@ -635,6 +635,9 @@ type shellWriter struct {
 }
 
 func Writer(fd int, w io.Writer) io.Writer {
+	if _, ok := w.(io.Closer); !ok {
+		return w
+	}
 	if _, ok := w.(*shellWriter); ok {
 		return w
 	}
@@ -650,6 +653,9 @@ type shellReader struct {
 }
 
 func Reader(r io.Reader) io.Reader {
+	if _, ok := r.(io.Closer); !ok {
+		return r
+	}
 	if _, ok := r.(*shellReader); ok {
 		return r
 	}

@@ -89,6 +89,11 @@ func TestShellExecute(t *testing.T) {
 			Err:   "",
 		},
 		{
+			Input: `echo -h 2>&1 | echo -i`,
+			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Err:   "",
+		},
+		{
 			Input: `echo foobar >&2`,
 			Err:   "foobar",
 		},
@@ -96,15 +101,15 @@ func TestShellExecute(t *testing.T) {
 			Input: `echo -h 2>&1`,
 			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
 		},
-		// {
-		// 	Input: `echo -h > testdata/help.txt~ 2>&1`,
-		// 	Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
-		// 	File:  `testdata/help.txt~`,
-		// },
-		// {
-		// 	Input: `echo -h  2>&1 > testdata/help.txt~`,
-		// 	Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
-		// },
+		{
+			Input: `echo -h > testdata/help.txt~ 2>&1`,
+			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			File:  `testdata/help.txt~`,
+		},
+		{
+			Input: `echo -h  2>&1 > testdata/help.txt~`,
+			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+		},
 	}
 	testShellCase(t, data)
 }
