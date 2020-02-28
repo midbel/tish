@@ -2,6 +2,7 @@ package tish
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,6 +16,8 @@ const (
 	Tish    = "tish"
 )
 
+const About = ""
+
 func init() {
 	home, _ := os.UserHomeDir()
 	DefaultProfile = filepath.Join(home, ".tishrc")
@@ -24,8 +27,19 @@ func Run() error {
 	var (
 		profile = flag.String("r", DefaultProfile, "initialize shell from given scripts")
 		cmdline = flag.Bool("c", false, "read command from the command string")
+		version = flag.Bool("v", false, "print version and exit")
+		help    = flag.Bool("h", false, "print help message and exit")
 	)
 	flag.Parse()
+
+	if *help {
+		fmt.Fprintln(os.Stderr, About)
+		os.Exit(int(ExitHelp))
+	}
+	if *version {
+		fmt.Fprintf(os.Stderr, "%s %s\n", Tish, Version)
+		os.Exit(int(ExitHelp))
+	}
 
 	sh := DefaultShell()
 	if r, err := os.Open(*profile); err == nil {
