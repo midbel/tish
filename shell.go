@@ -189,6 +189,8 @@ func (s *Shell) executeList(i List) error {
 		execute = s.executeOr
 	case kindAnd:
 		execute = s.executeAnd
+	case kindShell:
+		execute = s.executeSubshell
 	default:
 		return fmt.Errorf("tish: %s can not be executed", i.kind)
 	}
@@ -201,6 +203,10 @@ func (s *Shell) executeAssignment(a Assignment) error {
 		err = s.Define(a.ident, vs)
 	}
 	return err
+}
+
+func (s *Shell) executeSubshell(ws []Word) error {
+	return nil
 }
 
 func (s *Shell) executeSequence(ws []Word) error {

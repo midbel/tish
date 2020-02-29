@@ -46,16 +46,29 @@ func Parse(r io.Reader) (Word, error) {
 }
 
 func (p *parser) Parse() (Word, error) {
-	return p.parseSequence()
+	return p.parseSequence(tokEOF)
 }
 
-func (p *parser) parseSequence() (Word, error) {
+func (p *parser) parseSequence(delimiter rune) (Word, error) {
 	ws := List{kind: kindSeq}
 
-	for !p.isDone() {
+	for p.curr.Type != delimiter && !p.isDone() {
 		if p.isComment() {
 			p.next()
 			p.next()
+			continue
+		}
+		if p.curr.Type == tokBeginList {
+			p.next()
+			w, err := p.parseSequence(tokEndList)
+			if err != nil {
+				return nil, err
+			}
+			w = List{
+				kind:  kindShell,
+				words: []Word{w},
+			}
+			ws.words = append(ws.words, w)
 			continue
 		}
 		w, err := p.parseCommand()
@@ -63,7 +76,7 @@ func (p *parser) parseSequence() (Word, error) {
 			return nil, err
 		}
 		switch p.curr.Type {
-		case tokEOF:
+		case delimiter:
 		case tokOr, tokAnd:
 			w, err = p.parseConditional(w)
 		case semicolon:
@@ -710,6 +723,7 @@ func (p *parser) isControl() bool {
 	case tokPipe:
 	case tokPipeBoth:
 	case tokEndSub:
+	case tokEndList:
 	case tokEndArith:
 	default:
 		return isControl(p.curr.Type)

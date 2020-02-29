@@ -197,7 +197,7 @@ func scanDefault(s *Scanner) ScanFunc {
 		case lcurly:
 			return scanBraces
 		case lparen:
-			return scanList
+			return scanSubshell
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)
@@ -294,13 +294,14 @@ func scanRedirections(s *Scanner) {
 	}
 }
 
-func scanList(s *Scanner) ScanFunc {
+func scanSubshell(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
 		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
 			r == dollar || r == lcurly || r == equal
 	}
 
 	s.readRune()
+	s.skip(func(r rune) bool { return isBlank(r) || r == newline })
 	s.emitTypeOf(tokBeginList)
 	for s.char != rparen {
 		switch s.char {
@@ -313,7 +314,7 @@ func scanList(s *Scanner) ScanFunc {
 		case space, tab:
 			scanBlanks(s)
 		case dollar:
-			scanDollar(s)
+			scanDollar(s)(s)
 		case squote:
 			scanQuotedStrong(s)
 		case dquote:
@@ -321,7 +322,7 @@ func scanList(s *Scanner) ScanFunc {
 		case lcurly:
 			scanBraces(s)
 		case lparen:
-			scanList(s)
+			scanSubshell(s)
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)
@@ -642,7 +643,7 @@ func scanSlice(s *Scanner) {
 
 func scanArithmetic(s *Scanner) ScanFunc {
 	s.emitTypeOf(tokBeginArith)
-
+	s.skip(func(r rune) bool { return isBlank(r) || r == newline })
 	for {
 		switch {
 		case s.char == tokEOF:
@@ -763,6 +764,7 @@ func scanSubstitution(s *Scanner) ScanFunc {
 		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
 			r == dollar || r == lcurly || r == equal
 	}
+	s.skip(func(r rune) bool { return isBlank(r) || r == newline })
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
 		switch s.char {
@@ -780,7 +782,7 @@ func scanSubstitution(s *Scanner) ScanFunc {
 		case lcurly:
 			scanBraces(s)
 		case lparen:
-			scanList(s)
+			scanSubshell(s)
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)

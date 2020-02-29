@@ -45,7 +45,7 @@ foo
 bar
 
 # braces expansion
-#foo bar
+foo bar
 foo-1 foo-2 foo-3 bar-4 bar-5 bar-6
 
 # parameter expansion (part 1)

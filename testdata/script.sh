@@ -53,7 +53,7 @@ echo foo || echo bar
 false || echo bar
 
 # braces expansion
-#echo {foo,bar}
+echo {foo,bar}
 echo {foo-{1,2,3}, bar-{4,5,6}}
 
 # parameter expansion (part 1)
@@ -70,3 +70,5 @@ echo "substr2 : ${FOOBAR:(-3):0}"
 echo "${FOOBAR:-DEFAULT}"
 echo "${DEFAULT:=DEFAULT}"
 echo "${FOOBAR:+DEFAULT}"
+
+echo $PWD
