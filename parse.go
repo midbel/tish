@@ -250,39 +250,29 @@ func (p *parser) parseConditional(left Word) (Word, error) {
 }
 
 func (p *parser) parsePreBraces(prolog Word) (Word, error) {
-	// fmt.Println(">> entering braces", p.curr, p.peek)
-	// defer func() {
-	// 	fmt.Println("<< leaving braces", p.curr, p.peek)
-	// }()
 	p.next()
 
 	ws := List{kind: kindBraces}
-	for !p.isDone() {
-		if p.curr.Type == tokEndBrace {
-			break
-		}
+	for !p.isDone() && p.curr.Type != tokEndBrace {
 		if !p.isWord() {
-			return nil, fmt.Errorf("braces: %s is not a word", p.curr)
+			return nil, fmt.Errorf("braces: %s not a word", p.curr)
 		}
 		ws.words = append(ws.words, Literal(p.curr.Literal))
-
 		p.next()
-		if p.curr.Type == tokEndBrace {
-			break
-		}
-		switch p.curr.Type {
-		case tokBeginBrace:
+
+		if p.curr.Type == tokBeginBrace {
 			n := len(ws.words) - 1
 			w, err := p.parsePreBraces(ws.words[n])
 			if err != nil {
 				return nil, err
 			}
 			ws.words[n] = w
-		case comma:
-		default:
-			return nil, fmt.Errorf("braces: %s is not allowed", p.curr)
 		}
-		p.next()
+
+		if p.curr.Type == comma {
+			p.next()
+			continue
+		}
 	}
 	p.next()
 
@@ -305,7 +295,7 @@ func (p *parser) parsePreBraces(prolog Word) (Word, error) {
 }
 
 func (p *parser) parsePostBraces(w Word) (Word, error) {
-	if b, ok := w.(Brace); ok && !(p.isBlank() || p.isEOL()) {
+	if b, ok := w.(Brace); ok && p.isWord() {
 		epilog, err := p.parseWord()
 		if err != nil {
 			return nil, err
