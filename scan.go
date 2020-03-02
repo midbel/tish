@@ -678,6 +678,7 @@ func scanArithmetic(s *Scanner) ScanFunc {
 		case s.char == lparen:
 			scanGroup(s)
 		case s.char == dollar:
+			s.readRune()
 			scanVariable(s)
 			continue
 		case s.char == space || s.char == tab:
@@ -703,6 +704,7 @@ func scanGroup(s *Scanner) {
 		case isOperator(s.char):
 			s.emitTypeOf(s.char)
 		case s.char == dollar:
+			s.readRune()
 			scanVariable(s)
 			continue
 		case s.char == lparen:
@@ -883,17 +885,13 @@ func scanBlanks(s *Scanner) ScanFunc {
 }
 
 func scanVariable(s *Scanner) ScanFunc {
-	if s.char == dollar {
-		s.readRune()
-	}
-	if isDigit(s.char) {
-		s.emit(fmt.Sprintf("invalid char in variable name: %c", s.char), tokError)
-	}
-
 	if isInternal(s.char) {
 		s.emit(string(s.char), tokVar)
 		s.readRune()
 		return scanDefault
+	}
+	if isDigit(s.char) {
+		s.emit(fmt.Sprintf("invalid char in variable name: %c", s.char), tokError)
 	}
 
 	var buf bytes.Buffer
