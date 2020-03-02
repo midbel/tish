@@ -152,7 +152,7 @@ func (f *Filesystem) LookPath(name string, paths []string) (string, error) {
 	}
 	var err error
 	for _, p := range paths {
-		n := filepath.Join(p, name)
+		n := filepath.Join(f.root, p, name)
 		if err = checkFile(n); err == nil {
 			name = n
 			break
