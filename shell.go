@@ -329,7 +329,11 @@ func (s *Shell) prepare(args []string) (Command, error) {
 
 		return &c, nil
 	}
-	c := exec.Command(args[0], args[1:]...)
+	cmd, err := s.LookPath(args[0])
+	if err != nil {
+		return nil, err
+	}
+	c := exec.Command(cmd, args[1:]...)
 
 	if es := s.locals.Environ(); len(es) > 0 {
 		c.Env = append(c.Env, es...)
@@ -365,6 +369,11 @@ func (s *Shell) UnregisterAlias(alias string) {
 	} else {
 		delete(s.alias, alias)
 	}
+}
+
+func (s *Shell) LookPath(cmd string) (string, error) {
+	ps, _ := s.Resolve("PATH")
+	return s.Filesystem.LookPath(cmd, ps)
 }
 
 func (s *Shell) Exit(n ErrCode) {

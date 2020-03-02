@@ -8,7 +8,6 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"os/exec"
 	"plugin"
 	"strconv"
 	"strings"
@@ -877,7 +876,7 @@ func Type(b Builtin) ErrCode {
 			continue
 		}
 		// will look later for functions - when builtin will have access to it
-		if _, err := exec.LookPath(a); err == nil {
+		if _, err := b.LookPath(a); err == nil {
 			fmt.Fprintf(b.Stdout, "%s: command\n", a)
 			continue
 		}

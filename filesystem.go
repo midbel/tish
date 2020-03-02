@@ -42,6 +42,13 @@ func RootedFS(root string) (*Filesystem, error) {
 	return &fs, fs.chdir(fs.root)
 }
 
+func (f *Filesystem) Reset() error {
+	for i := range f.dirs {
+		f.dirs[i] = ""
+	}
+	return f.chdir(f.root)
+}
+
 func (f *Filesystem) Chdir(dir string) error {
 	switch dir {
 	case "-":
@@ -138,5 +145,18 @@ func (f *Filesystem) Copy() *Filesystem {
 }
 
 func (f *Filesystem) LookPath(name string, paths []string) (string, error) {
-	return name, nil
+	if len(paths) == 0 || strings.Contains(name, separator) {
+		if err := checkFile(name); err != nil {
+			return name, err
+		}
+	}
+	var err error
+	for _, p := range paths {
+		n := filepath.Join(p, name)
+		if err = checkFile(n); err == nil {
+			name = n
+			break
+		}
+	}
+	return name, err
 }
