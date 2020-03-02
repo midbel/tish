@@ -24,11 +24,14 @@ func init() {
 }
 
 func Run() error {
+	sh := DefaultShell()
+
 	var (
-		profile = flag.String("r", DefaultProfile, "initialize shell from given scripts")
+		profile = flag.String("p", DefaultProfile, "initialize shell from given scripts")
 		cmdline = flag.Bool("c", false, "read command from the command string")
 		version = flag.Bool("v", false, "print version and exit")
 		help    = flag.Bool("h", false, "print help message and exit")
+		// rootdir = flag.String("r", "", "change root directory of shell")
 	)
 	flag.Parse()
 
@@ -41,7 +44,16 @@ func Run() error {
 		os.Exit(int(ExitHelp))
 	}
 
-	sh := DefaultShell()
+	// if *rootdir == "" {
+	// 	*rootdir = "/"
+	// }
+	// var err error
+	// sh.workdir, err = RootedFS(*rootdir)
+	// if err != nil {
+	// 	fmt.Fprintln(os.Stderr, err)
+	// 	os.Exit(int(ExitNoFile))
+	// }
+
 	if r, err := os.Open(*profile); err == nil {
 		err := sh.Execute(r)
 		r.Close()

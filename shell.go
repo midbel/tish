@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -82,23 +83,23 @@ func NewShell(in io.Reader, out, err io.Writer) *Shell {
 	return &s
 }
 
-func (s *Shell) Enter() {
-	s.locals = NewEnclosedEnvironment(s.locals)
-}
-
-func (s *Shell) Leave() {
-	s.locals.Unwrap()
-}
-
 func (s *Shell) Cwd() string {
-	return s.dirs.hist[s.dirs.ptr]
+	return s.dirs.hist[s.dirs.ptr-1]
 }
 
 func (s *Shell) PushDir(dir string) error {
+	switch dir {
+	case "..":
+		dir = filepath.Dir(s.Cwd())
+	case ".":
+		return nil
+	default:
+	}
 	i, err := os.Stat(dir)
 	if err != nil {
 		return err
 	}
+
 	if !i.IsDir() {
 		return fmt.Errorf("%s: not a directory", dir)
 	}
@@ -316,7 +317,7 @@ func (s *Shell) buildCommand(ws []Word) (Command, error) {
 		args = append(args, xs...)
 	}
 
-	cmd, err := s.prepare(args)
+	cmd, err := s.prepare(s.expandFilenames(args))
 	if err != nil {
 		return nil, err
 	}
@@ -382,6 +383,13 @@ func (s *Shell) prepare(args []string) (Command, error) {
 	return &Cmd{Cmd: c}, nil
 }
 
+func (s *Shell) expandFilenames(args []string) []string {
+	// for _, a := range args {
+	//
+	// }
+	return args
+}
+
 func (s *Shell) RegisterAlias(ident, alias string) error {
 	w, err := Parse(strings.NewReader(alias))
 	if err != nil {
@@ -401,6 +409,14 @@ func (s *Shell) UnregisterAlias(alias string) {
 
 func (s *Shell) Exit(n ErrCode) {
 	os.Exit(int(n))
+}
+
+func (s *Shell) Enter() {
+	s.locals = NewEnclosedEnvironment(s.locals)
+}
+
+func (s *Shell) Leave() {
+	s.locals.Unwrap()
 }
 
 func (s *Shell) Resolve(ident string) ([]string, error) {

@@ -2,8 +2,8 @@ testdata
 midbel
 
 # read special varaible: UID, $$
-# 12345
-# 1000
+12345
+1000
 
 # read foo.txt with alias
 foo
