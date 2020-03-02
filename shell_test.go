@@ -30,7 +30,11 @@ func TestShellScript(t *testing.T) {
 		out bytes.Buffer
 		err bytes.Buffer
 	)
-	sh := NewShell(&in, &out, &err)
+	fs, errf := DefaultFS()
+	if errf != nil {
+		t.Fatalf("init filesystem: %s", errf)
+	}
+	sh := NewShell(fs, &in, &out, &err)
 	sh.uid = 1000
 	sh.pid = 12345
 
@@ -173,10 +177,14 @@ func TestShellExecute(t *testing.T) {
 			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
 		},
 	}
-	testShellCase(t, data)
+	fs, errf := DefaultFS()
+	if errf != nil {
+		t.Fatalf("init filesystem: %s", errf)
+	}
+	testShellCase(t, fs, data)
 }
 
-func testShellCase(t *testing.T, data []ShellCase) {
+func testShellCase(t *testing.T, fs *Filesystem, data []ShellCase) {
 	t.Helper()
 
 	var (
@@ -193,7 +201,7 @@ func testShellCase(t *testing.T, data []ShellCase) {
 		sout.Reset()
 		serr.Reset()
 
-		sh := NewShell(sin, &sout, &serr)
+		sh := NewShell(fs, sin, &sout, &serr)
 		if err := sh.ExecuteString(d.Input); err != nil {
 			t.Errorf("%s: unexpected error %s", d.Input, err)
 			continue

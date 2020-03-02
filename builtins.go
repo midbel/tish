@@ -275,7 +275,7 @@ func init() {
 		"pwd": {
 			Usage: "pwd",
 			Short: "print the name of the current working directory",
-			Exec:  Cwd,
+			Exec:  WorkDir,
 		},
 		"cd": {
 			Usage: "cd [dir]",
@@ -418,7 +418,7 @@ func Chdir(b Builtin) ErrCode {
 	return ExitOk
 }
 
-func Cwd(b Builtin) ErrCode {
+func WorkDir(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")

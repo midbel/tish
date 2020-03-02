@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -41,27 +40,30 @@ type Shell struct {
 
 	alias map[string]Word
 
-	dirs struct {
-		ptr  int
-		hist []string
-	}
+	*Filesystem
+
 	proc struct {
 		exit ErrCode // exit code of the last executed process
 		pid  int     // pid of the last executed process
 	}
 }
 
-func DefaultShell() *Shell {
+func DefaultShell() (*Shell, error) {
+  fs, errf := DefaultFS()
+  if errf != nil {
+    return nil, errf
+  }
 	var (
 		in  = Reader(os.Stdin)
 		out = Writer(os.Stdout)
 		err = Writer(os.Stderr)
 	)
-	return NewShell(in, out, err)
+	return NewShell(fs, in, out, err), nil
 }
 
-func NewShell(in io.Reader, out, err io.Writer) *Shell {
+func NewShell(fs *Filesystem, in io.Reader, out, err io.Writer) *Shell {
 	defer os.Clearenv()
+
 	s := Shell{
 		uid:    os.Getuid(),
 		pid:    os.Getpid(),
@@ -70,52 +72,47 @@ func NewShell(in io.Reader, out, err io.Writer) *Shell {
 		stdout: out,
 		stderr: err,
 		alias:  make(map[string]Word),
+    Filesystem: fs,
 	}
 	s.globals = NewEnvironment()
 	s.locals = NewEnclosedEnvironment(s.globals)
 
-	s.dirs.hist = make([]string, MaxHistSize)
-
-	if cwd, err := os.Getwd(); err == nil {
-		s.PushDir(cwd)
-	}
-
 	return &s
 }
 
-func (s *Shell) Cwd() string {
-	return s.dirs.hist[s.dirs.ptr-1]
-}
-
-func (s *Shell) PushDir(dir string) error {
-	switch dir {
-	case "..":
-		dir = filepath.Dir(s.Cwd())
-	case ".":
-		return nil
-	default:
-	}
-	i, err := os.Stat(dir)
-	if err != nil {
-		return err
-	}
-
-	if !i.IsDir() {
-		return fmt.Errorf("%s: not a directory", dir)
-	}
-	ix := s.dirs.ptr % MaxHistSize
-	s.dirs.hist[ix] = dir
-	s.dirs.ptr++
-
-	return nil
-}
-
-func (s *Shell) PopDir() {
-	s.dirs.ptr--
-	if s.dirs.ptr < 0 {
-		s.dirs.ptr = MaxHistSize - 1
-	}
-}
+// func (s *Shell) Cwd() string {
+// 	return s.dirs.hist[s.dirs.ptr-1]
+// }
+//
+// func (s *Shell) PushDir(dir string) error {
+// 	switch dir {
+// 	case "..":
+// 		dir = filepath.Dir(s.Cwd())
+// 	case ".":
+// 		return nil
+// 	default:
+// 	}
+// 	i, err := os.Stat(dir)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	if !i.IsDir() {
+// 		return fmt.Errorf("%s: not a directory", dir)
+// 	}
+// 	ix := s.dirs.ptr % MaxHistSize
+// 	s.dirs.hist[ix] = dir
+// 	s.dirs.ptr++
+//
+// 	return nil
+// }
+//
+// func (s *Shell) PopDir() {
+// 	s.dirs.ptr--
+// 	if s.dirs.ptr < 0 {
+// 		s.dirs.ptr = MaxHistSize - 1
+// 	}
+// }
 
 func (s *Shell) Execute(r io.Reader) error {
 	w, err := Parse(r)
@@ -231,7 +228,7 @@ func (s *Shell) executeSubstitution(ws []Word) error {
 }
 
 func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode, error) {
-	sh := NewShell(in, out, err)
+	sh := NewShell(s.Filesystem.Copy(), in, out, err)
 	sh.locals = s.locals.Copy()
 	sh.globals = sh.locals.Unwrap()
 	sh.level = s.level + 1

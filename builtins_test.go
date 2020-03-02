@@ -168,6 +168,10 @@ func get(ident string) (Builtin, error) {
 		out bytes.Buffer
 		err bytes.Buffer
 	)
-	b.Shell = NewShell(in, &out, &err)
+	fs, errf := DefaultFS()
+	if errf != nil {
+		return Builtin{}, errf
+	}
+	b.Shell = NewShell(fs, in, &out, &err)
 	return b, nil
 }
