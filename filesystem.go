@@ -46,27 +46,39 @@ func (f *Filesystem) Chdir(dir string) error {
 	switch dir {
 	case "-":
 		return nil
-	case "/":
+	case separator:
 		return f.chdir(f.root)
 	default:
 	}
+
 	base := f.cwd()
 	if filepath.IsAbs(dir) {
 		base = f.root
 	}
-	dir = filepath.Join(base, filepath.Clean(dir))
-	return f.chdir(dir)
+	for _, d := range strings.Split(dir, separator) {
+		switch d {
+		case "..":
+			base, _ = filepath.Split(base)
+			if len(base) < len(f.root) {
+				return fmt.Errorf("%s: no such file or directory", dir)
+			}
+		case ".", "":
+		default:
+			base = filepath.Join(base, d)
+		}
+	}
+	return f.chdir(base)
 }
 
 func (f *Filesystem) chdir(dir string) error {
-	if dir != "/" {
+	if dir != separator {
 		i, err := os.Stat(dir)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: no such file or directory", filepath.Base(dir))
 		}
 
 		if !i.IsDir() {
-			return fmt.Errorf("%s: not a directory", dir)
+			return fmt.Errorf("%s: not a directory", filepath.Base(dir))
 		}
 	}
 	ix := f.ptr % MaxHistSize

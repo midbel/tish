@@ -1,4 +1,4 @@
-testdata
+/testdata
 midbel
 
 # read special varaible: UID, $$
@@ -66,3 +66,4 @@ DEFAULT
 / # cd /
 /testdata # cd testdata
 / # cd ..
+/testdata

@@ -1,4 +1,4 @@
-export HOME="testdata"
+export HOME="/testdata"
 echo $HOME
 echo -h;
 
@@ -74,7 +74,12 @@ echo "${FOOBAR:+DEFAULT}"
 # filesystem
 cd /
 echo $PWD
+cd .. # try to go somewhere outside of the filesystem
 cd testdata
 echo $PWD
 cd ..
 echo $PWD
+cd
+echo $PWD
+cd foo.txt # can not cd into a regular file
+cd empty # can not cd into a directory that does not exist
