@@ -71,6 +71,10 @@ echo "${FOOBAR:-DEFAULT}"
 echo "${DEFAULT:=DEFAULT}"
 echo "${FOOBAR:+DEFAULT}"
 
+# filesystem
+cd /
+echo $PWD
+cd testdata
 echo $PWD
 cd ..
 echo $PWD

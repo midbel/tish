@@ -30,7 +30,7 @@ func TestShellScript(t *testing.T) {
 		out bytes.Buffer
 		err bytes.Buffer
 	)
-	fs, errf := DefaultFS()
+	fs, errf := Cwd()
 	if errf != nil {
 		t.Fatalf("init filesystem: %s", errf)
 	}

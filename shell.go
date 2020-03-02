@@ -17,10 +17,7 @@ import (
 
 var ErrFailed = errors.New("process terminated with failure")
 
-const (
-	MaxHistSize   = 100
-	MaxShellDepth = 100
-)
+const MaxShellDepth = 100
 
 type Shell struct {
 	Args []string
@@ -49,10 +46,10 @@ type Shell struct {
 }
 
 func DefaultShell() (*Shell, error) {
-  fs, errf := DefaultFS()
-  if errf != nil {
-    return nil, errf
-  }
+	fs, errf := DefaultFS()
+	if errf != nil {
+		return nil, errf
+	}
 	var (
 		in  = Reader(os.Stdin)
 		out = Writer(os.Stdout)
@@ -65,54 +62,20 @@ func NewShell(fs *Filesystem, in io.Reader, out, err io.Writer) *Shell {
 	defer os.Clearenv()
 
 	s := Shell{
-		uid:    os.Getuid(),
-		pid:    os.Getpid(),
-		Time:   time.Now(),
-		stdin:  in,
-		stdout: out,
-		stderr: err,
-		alias:  make(map[string]Word),
-    Filesystem: fs,
+		uid:        os.Getuid(),
+		pid:        os.Getpid(),
+		Time:       time.Now(),
+		stdin:      in,
+		stdout:     out,
+		stderr:     err,
+		alias:      make(map[string]Word),
+		Filesystem: fs,
 	}
 	s.globals = NewEnvironment()
 	s.locals = NewEnclosedEnvironment(s.globals)
 
 	return &s
 }
-
-// func (s *Shell) Cwd() string {
-// 	return s.dirs.hist[s.dirs.ptr-1]
-// }
-//
-// func (s *Shell) PushDir(dir string) error {
-// 	switch dir {
-// 	case "..":
-// 		dir = filepath.Dir(s.Cwd())
-// 	case ".":
-// 		return nil
-// 	default:
-// 	}
-// 	i, err := os.Stat(dir)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	if !i.IsDir() {
-// 		return fmt.Errorf("%s: not a directory", dir)
-// 	}
-// 	ix := s.dirs.ptr % MaxHistSize
-// 	s.dirs.hist[ix] = dir
-// 	s.dirs.ptr++
-//
-// 	return nil
-// }
-//
-// func (s *Shell) PopDir() {
-// 	s.dirs.ptr--
-// 	if s.dirs.ptr < 0 {
-// 		s.dirs.ptr = MaxHistSize - 1
-// 	}
-// }
 
 func (s *Shell) Execute(r io.Reader) error {
 	w, err := Parse(r)

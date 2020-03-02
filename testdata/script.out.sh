@@ -61,3 +61,8 @@ substr2 : BAR
 FOOBAR
 DEFAULT
 DEFAULT
+
+# filesystem
+/ # cd /
+/testdata # cd testdata
+/ # cd ..
