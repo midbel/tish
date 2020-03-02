@@ -310,7 +310,12 @@ func Chdir(b Builtin) ErrCode {
 		return ExitOk
 	}
 	if dir == "" {
-		dir, _ = os.Getwd()
+		vs, _ := b.Resolve("HOME")
+		if len(vs) == 0 {
+			fmt.Fprintln(b.stderr, "$HOME not define")
+			return ExitVariable
+		}
+		dir = vs[0]
 	}
 	if *follow {
 		d, err := filepath.EvalSymlinks(dir)

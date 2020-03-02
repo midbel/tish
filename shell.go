@@ -17,39 +17,10 @@ import (
 
 var ErrFailed = errors.New("process terminated with failure")
 
-const MaxHistSize = 100
-
-type ErrCode int
-
 const (
-	ExitOk ErrCode = iota
-	ExitHelp
-	ExitBadUsage
-	ExitIO
-	ExitVariable
-	ExitExec
-	ExitNotExec
-	ExitDoneExec
-	ExitUnknown
-	ExitNoFile
+	MaxHistSize   = 100
+	MaxShellDepth = 100
 )
-
-func (e ErrCode) Success() bool {
-	return e == ExitOk
-}
-
-func (e ErrCode) Failure() bool {
-	return !e.Success()
-}
-
-type Command interface {
-	Start() error
-	Wait() ErrCode
-	Run() ErrCode
-
-	Replace(int, *os.File) error
-	Copy(int, int)
-}
 
 type Shell struct {
 	Args []string
@@ -120,7 +91,7 @@ func (s *Shell) Leave() {
 }
 
 func (s *Shell) Cwd() string {
-	return s.dirs.hist[s.dirs.ptr-1]
+	return s.dirs.hist[s.dirs.ptr]
 }
 
 func (s *Shell) PushDir(dir string) error {
@@ -464,7 +435,6 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 		}
 	case "OS":
 		vs = append(vs, runtime.GOOS)
-	case "HOME":
 	case "SHELL":
 		vs = append(vs, Tish)
 	case "SECONDS":
@@ -494,81 +464,6 @@ func (s *Shell) SetReadOnly(ident string, ro bool) {
 
 func (s *Shell) Environ() []string {
 	return s.locals.Environ()
-}
-
-type Cmd struct {
-	*exec.Cmd
-}
-
-func (c *Cmd) Copy(src, dst int) {
-	if src == dst {
-		return
-	}
-	switch src {
-	case fdOut:
-		c.Stdout = c.Stderr
-	case fdErr:
-		c.Stderr = c.Stdout
-	default:
-	}
-}
-
-func (c *Cmd) Replace(fd int, f *os.File) error {
-	switch fd {
-	case fdIn:
-		closeFile(c.Stdin)
-		c.Stdin = f
-	case fdOut:
-		if err := sameFile(c.Stdin, f); err != nil {
-			return err
-		}
-		closeFile(c.Stdout)
-		c.Stdout = f
-	case fdErr:
-		if err := sameFile(c.Stdin, f); err != nil {
-			return err
-		}
-		closeFile(c.Stderr)
-		c.Stderr = f
-	case fdBoth:
-		if err := sameFile(c.Stdin, f); err != nil {
-			return err
-		}
-		closeFile(c.Stdout)
-		closeFile(c.Stderr)
-		c.Stdout, c.Stderr = f, f
-	default:
-		return fmt.Errorf("invalid file description %d", fd)
-	}
-	return nil
-}
-
-func (c *Cmd) Pid() int {
-	return c.ProcessState.Pid()
-}
-
-func (c *Cmd) Wait() ErrCode {
-	var (
-		code ErrCode
-		exit *exec.ExitError
-		err  = c.Cmd.Wait()
-	)
-	if errors.As(err, &exit) {
-		code = ErrCode(exit.ExitCode())
-	}
-	return code
-}
-
-func (c *Cmd) Run() ErrCode {
-	var (
-		code ErrCode
-		exit *exec.ExitError
-		err  = c.Cmd.Run()
-	)
-	if errors.As(err, &exit) {
-		code = ErrCode(exit.ExitCode())
-	}
-	return code
 }
 
 func sameFile(in, out interface{}) error {

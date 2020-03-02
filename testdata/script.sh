@@ -72,3 +72,5 @@ echo "${DEFAULT:=DEFAULT}"
 echo "${FOOBAR:+DEFAULT}"
 
 echo $PWD
+cd ..
+echo $PWD
