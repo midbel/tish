@@ -304,7 +304,8 @@ func Chdir(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
-	dir := flag.Arg(0)
+	fmt.Println(set.Args())
+	dir := set.Arg(0)
 	if dir == "-" {
 		b.PopDir()
 		return ExitOk
@@ -525,7 +526,7 @@ func Date(b Builtin) ErrCode {
 		return ExitHelp
 	}
 	var delta time.Duration
-	switch strings.ToLower(flag.Arg(0)) {
+	switch strings.ToLower(set.Arg(0)) {
 	case "yesterday":
 		delta = -24 * time.Hour
 	case "tomorrow":
