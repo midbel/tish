@@ -363,11 +363,10 @@ func Alias(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
-	args := set.Args()
 	for _, a := range set.Args() {
-		ix := strings.Index(args[0], "=")
+		ix := strings.Index(a, "=")
 		if ix <= 0 {
-			fmt.Fprintf(b.Stderr, "%s: missing equal or alias name\n", args[0])
+			fmt.Fprintf(b.Stderr, "%s: missing equal or alias name\n", a)
 			continue
 		}
 		if err := b.RegisterAlias(a[:ix], a[ix+1:]); err != nil {
