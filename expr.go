@@ -39,7 +39,7 @@ type Expr struct {
 	expr Evaluator
 }
 
-func (e Expr) Expand(env *Env) ([]string, error) {
+func (e Expr) Expand(env Environment) ([]string, error) {
 	n, err := e.expr.Eval(env)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (e Expr) asWord() Word {
 }
 
 type Evaluator interface {
-	Eval(*Env) (Number, error)
+	Eval(Environment) (Number, error)
 	fmt.Stringer
 }
 
@@ -75,7 +75,7 @@ type infix struct {
 	op    rune
 }
 
-func (i infix) Eval(e *Env) (Number, error) {
+func (i infix) Eval(e Environment) (Number, error) {
 	left, err := i.left.Eval(e)
 	if err != nil {
 		return 0, err
@@ -144,7 +144,7 @@ type prefix struct {
 	op    rune
 }
 
-func (p prefix) Eval(e *Env) (Number, error) {
+func (p prefix) Eval(e Environment) (Number, error) {
 	right, err := p.right.Eval(e)
 	if err != nil {
 		return 0, err

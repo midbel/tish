@@ -338,7 +338,7 @@ func (s *Shell) buildCommand(ws []Word) (Command, error) {
 			rs = append(rs, r)
 			continue
 		}
-		xs, err := w.Expand(s.locals)
+		xs, err := w.Expand(s)
 		if err != nil {
 			return nil, err
 		}
@@ -432,8 +432,11 @@ func (s *Shell) Exit(n ErrCode) {
 	os.Exit(int(n))
 }
 
-func (s *Shell) Resolve(ident string) []string {
-	vs := make([]string, 0, 1)
+func (s *Shell) Resolve(ident string) ([]string, error) {
+	var (
+		vs  = make([]string, 0, 1)
+		err error
+	)
 	switch ident {
 	case "?":
 		if s.proc.exit > 0 {
@@ -468,13 +471,13 @@ func (s *Shell) Resolve(ident string) []string {
 		elapsed := time.Now().UTC().Sub(s.Time)
 		vs = append(vs, strconv.Itoa(int(elapsed.Seconds())))
 	default:
-		vs, _ = s.locals.Get(ident)
+		vs, err = s.locals.Resolve(ident)
 	}
-	return vs
+	return vs, err
 }
 
 func (s *Shell) Define(ident string, values []string) error {
-	err := s.locals.Set(ident, values)
+	err := s.locals.Define(ident, values)
 	if err != nil && !errors.Is(err, ErrReadOnly) {
 		err = nil
 	}
@@ -482,7 +485,7 @@ func (s *Shell) Define(ident string, values []string) error {
 }
 
 func (s *Shell) Export(ident string, values []string) {
-	s.globals.Set(ident, values)
+	s.globals.Define(ident, values)
 }
 
 func (s *Shell) SetReadOnly(ident string, ro bool) {

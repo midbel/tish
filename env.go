@@ -11,6 +11,14 @@ var (
 	ErrNotDefined = errors.New("variable not defined")
 )
 
+type Environment interface {
+	Resolve(string) ([]string, error)
+	Define(string, []string) error
+	SetReadOnly(string, bool)
+
+	Environ() []string
+}
+
 type envval struct {
 	Values   []string
 	ReadOnly bool
@@ -32,29 +40,12 @@ func NewEnclosedEnvironment(e *Env) *Env {
 	}
 }
 
-func (e *Env) Get(n string) ([]string, error) {
-	val, ok := e.locals[n]
-	if ok {
-		vs := make([]string, len(val.Values))
-		copy(vs, val.Values)
-		return vs, nil
-	}
-	if e.parent != nil {
-		return e.parent.Get(n)
-	}
-	return nil, fmt.Errorf("%s: %w", n, ErrNotDefined)
+func (e *Env) Resolve(n string) ([]string, error) {
+	return e.resolve(n)
 }
 
-func (e *Env) Set(n string, vs []string) error {
-	val, ok := e.locals[n]
-	if ok && val.ReadOnly {
-		return fmt.Errorf("%s: %w", n, ErrReadOnly)
-	}
-	e.locals[n] = envval{
-		Values:   vs,
-		ReadOnly: false,
-	}
-	return nil
+func (e *Env) Define(n string, vs []string) error {
+	return e.define(n, vs)
 }
 
 func (e *Env) Del(n string) {
@@ -110,4 +101,29 @@ func (e *Env) Copy() *Env {
 		vs[k] = e
 	}
 	return &Env{locals: vs}
+}
+
+func (e *Env) resolve(n string) ([]string, error) {
+	val, ok := e.locals[n]
+	if ok {
+		vs := make([]string, len(val.Values))
+		copy(vs, val.Values)
+		return vs, nil
+	}
+	if e.parent != nil {
+		return e.parent.resolve(n)
+	}
+	return nil, fmt.Errorf("%s: %w", n, ErrNotDefined)
+}
+
+func (e *Env) define(n string, vs []string) error {
+	val, ok := e.locals[n]
+	if ok && val.ReadOnly {
+		return fmt.Errorf("%s: %w", n, ErrReadOnly)
+	}
+	e.locals[n] = envval{
+		Values:   vs,
+		ReadOnly: false,
+	}
+	return nil
 }

@@ -16,7 +16,6 @@ const (
 	kindPipeBoth
 	kindAnd
 	kindOr
-	kindList
 	kindSub
 	kindExpr
 	kindBraces
@@ -42,8 +41,6 @@ func (k Kind) String() string {
 		return "and"
 	case kindOr:
 		return "or"
-	case kindList:
-		return "list"
 	case kindSub:
 		return "substitution"
 	case kindExpr:
@@ -56,7 +53,7 @@ func (k Kind) String() string {
 }
 
 type Word interface {
-	Expand(*Env) ([]string, error)
+	Expand(Environment) ([]string, error)
 	Equal(Word) bool
 	fmt.Stringer
 
@@ -92,7 +89,7 @@ type List struct {
 	kind  Kind
 }
 
-func (i List) Expand(e *Env) ([]string, error) {
+func (i List) Expand(e Environment) ([]string, error) {
 	ws := make([]string, 0, len(i.words)*4)
 	for _, w := range i.words {
 		xs, err := w.Expand(e)
@@ -159,14 +156,14 @@ type Redirect struct {
 	Word
 }
 
-func (r Redirect) Expand(e *Env) ([]string, error) {
+func (r Redirect) Expand(e Environment) ([]string, error) {
 	if r.Word == nil {
 		return nil, nil
 	}
 	return r.Word.Expand(e)
 }
 
-func (r Redirect) Open(e *Env) (*os.File, error) {
+func (r Redirect) Open(e Environment) (*os.File, error) {
 	args, err := r.Expand(e)
 	if err != nil {
 		return nil, err
@@ -237,7 +234,7 @@ type Brace struct {
 	word   Word
 }
 
-func (b Brace) Expand(e *Env) ([]string, error) {
+func (b Brace) Expand(e Environment) ([]string, error) {
 	if b.word == nil {
 		return nil, nil
 	}
@@ -295,9 +292,9 @@ type Variable struct {
 	apply  Apply
 }
 
-func (v Variable) Expand(e *Env) ([]string, error) {
+func (v Variable) Expand(e Environment) ([]string, error) {
 	if v.apply == nil {
-		return e.Get(v.ident)
+		return e.Resolve(v.ident)
 	}
 	return v.apply.Apply(v.ident, e)
 }
@@ -314,8 +311,8 @@ func (v Variable) Equal(w Word) bool {
 	return other.ident == v.ident && other.quoted == v.quoted // && other.apply.Equal(v.apply)
 }
 
-func (v Variable) Eval(e *Env) (Number, error) {
-	vs, err := e.Get(v.ident)
+func (v Variable) Eval(e Environment) (Number, error) {
+	vs, err := e.Resolve(v.ident)
 	if err != nil {
 		return 0, err
 	}
@@ -332,7 +329,7 @@ func (v Variable) asWord() Word {
 
 type Literal string
 
-func (i Literal) Expand(_ *Env) ([]string, error) {
+func (i Literal) Expand(_ Environment) ([]string, error) {
 	return []string{string(i)}, nil
 }
 
@@ -354,11 +351,11 @@ func (i Literal) asWord() Word {
 
 type Number int64
 
-func (n Number) Eval(_ *Env) (Number, error) {
+func (n Number) Eval(_ Environment) (Number, error) {
 	return n, nil
 }
 
-func (n Number) Expand(_ *Env) ([]string, error) {
+func (n Number) Expand(_ Environment) ([]string, error) {
 	x := strconv.FormatInt(int64(n), 10)
 	return []string{x}, nil
 }
@@ -384,7 +381,7 @@ type Assignment struct {
 	word  Word
 }
 
-func (a Assignment) Expand(e *Env) ([]string, error) {
+func (a Assignment) Expand(e Environment) ([]string, error) {
 	return a.word.Expand(e)
 }
 
@@ -439,7 +436,7 @@ type If struct {
 	alt  Word
 }
 
-func (i If) Expand(e *Env) ([]string, error) {
+func (i If) Expand(e Environment) ([]string, error) {
 	return nil, nil
 }
 
@@ -464,7 +461,7 @@ type For struct {
 	word Word
 }
 
-func (f For) Expand(e *Env) ([]string, error) {
+func (f For) Expand(e Environment) ([]string, error) {
 	return nil, nil
 }
 
@@ -489,7 +486,7 @@ type Match struct {
 	words []Word
 }
 
-func (m Match) Expand(e *Env) ([]string, error) {
+func (m Match) Expand(e Environment) ([]string, error) {
 	return nil, nil
 }
 

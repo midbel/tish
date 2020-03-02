@@ -836,7 +836,7 @@ func Environ(b Builtin) ErrCode {
 
 	es := make([]string, 0, set.NArg())
 	for _, e := range set.Args() {
-		vs := b.Resolve(e)
+		vs, _ := b.Resolve(e)
 		if len(vs) == 0 {
 			continue
 		}

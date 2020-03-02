@@ -23,9 +23,9 @@ func testExpandAssignments(t *testing.T) {
 	}
 	for _, d := range data {
 		env := NewEnvironment()
-		env.Set(d.ident, d.values)
+		env.Define(d.ident, d.values)
 
-		vs, err := env.Get(d.ident)
+		vs, err := env.Resolve(d.ident)
 		if err != nil {
 			t.Errorf("%s: %s", d.ident, err)
 			continue
@@ -263,7 +263,7 @@ func testExpandVariables(t *testing.T) {
 			}
 		}
 		env.Del(d.Literal)
-		if _, err := env.Get(d.Literal); err == nil {
+		if _, err := env.Resolve(d.Literal); err == nil {
 			t.Errorf("%s: deleted variable has been resolved", v)
 		}
 	}
@@ -297,15 +297,15 @@ func testExpandWords(t *testing.T) {
 
 func buildEnv() *Env {
 	p := NewEnvironment()
-	p.Set("HOME", []string{"/home/midbel"})
-	p.Set("SHELL", []string{"/bin/shell"})
-	p.Set("PWD", []string{"github.com/midbel/tish"})
-	p.Set("THREE", []string{"3"})
+	p.Define("HOME", []string{"/home/midbel"})
+	p.Define("SHELL", []string{"/bin/shell"})
+	p.Define("PWD", []string{"github.com/midbel/tish"})
+	p.Define("THREE", []string{"3"})
 
 	e := NewEnclosedEnvironment(p)
-	e.Set("FOO", []string{"foo"})
-	e.Set("BAR", []string{"bar"})
-	e.Set("NINE", []string{"9"})
+	e.Define("FOO", []string{"foo"})
+	e.Define("BAR", []string{"bar"})
+	e.Define("NINE", []string{"9"})
 
 	return e
 }
