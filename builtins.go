@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"plugin"
 	"strconv"
 	"strings"
@@ -292,6 +291,11 @@ func init() {
 			Short: "",
 			Exec:  PopDir,
 		},
+		"chroot": {
+			Usage: "chroot dir",
+			Short: "change root directory",
+			Exec:  Chroot,
+		},
 		// "time":    {},
 		// "source":  {},
 	}
@@ -335,6 +339,25 @@ func ExecCommand(b Builtin) ErrCode {
 	return ExitOk
 }
 
+func Chroot(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	return ExitOk
+}
+
 func PushDir(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
@@ -350,6 +373,16 @@ func PushDir(b Builtin) ErrCode {
 	if *help {
 		set.Usage()
 		return ExitHelp
+	}
+
+	if step, errc := strconv.ParseInt(set.Arg(0), 10, 64); errc == nil {
+		b.PushDir(step)
+	} else {
+		err := b.Chdir(set.Arg(0))
+		if err != nil {
+			fmt.Fprintln(b.Stderr, err)
+			return ExitBadUsage
+		}
 	}
 	return ExitOk
 }
@@ -370,14 +403,19 @@ func PopDir(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
+	step, err := strconv.ParseInt(set.Arg(0), 10, 64)
+	if err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	b.PopDir(step)
 	return ExitOk
 }
 
 func Chdir(b Builtin) ErrCode {
 	var (
-		set    = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		follow = set.Bool("f", false, "follow symlinks")
-		help   = set.Bool("h", false, "show help message and exit")
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.Stderr, b.Help())
@@ -391,10 +429,6 @@ func Chdir(b Builtin) ErrCode {
 		return ExitHelp
 	}
 	dir := set.Arg(0)
-	if dir == "-" {
-		b.PopDir()
-		return ExitOk
-	}
 	if dir == "" {
 		vs, _ := b.Resolve("HOME")
 		if len(vs) == 0 {
@@ -403,15 +437,7 @@ func Chdir(b Builtin) ErrCode {
 		}
 		dir = vs[0]
 	}
-	if *follow {
-		d, err := filepath.EvalSymlinks(dir)
-		if err != nil {
-			fmt.Fprintln(b.Stderr, err)
-			return ExitNoFile
-		}
-		dir = d
-	}
-	if err := b.PushDir(dir); err != nil {
+	if err := b.Chdir(dir); err != nil {
 		fmt.Fprintln(b.Stderr, err)
 		return ExitNoFile
 	}

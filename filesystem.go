@@ -3,12 +3,13 @@ package tish
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
-const (
-	dirParent  = ".."
-	dirCurrent = "."
-)
+const MaxHistSize = 500
+
+const separator = string(filepath.Separator)
 
 type Filesystem struct {
 	ptr  int
@@ -18,12 +19,12 @@ type Filesystem struct {
 }
 
 func Cwd() (*Filesystem, error) {
-  cwd, _ := os.Getwd()
-  return RootedFS(cwd)
+	cwd, _ := os.Getwd()
+	return RootedFS(cwd)
 }
 
 func DefaultFS() (*Filesystem, error) {
-	return RootedFS("/")
+	return RootedFS(separator)
 }
 
 func RootedFS(root string) (*Filesystem, error) {
@@ -35,26 +36,66 @@ func RootedFS(root string) (*Filesystem, error) {
 		return nil, fmt.Errorf("%s: not a directory", root)
 	}
 	fs := Filesystem{
-		dirs: make([]string, 1000),
+		dirs: make([]string, MaxHistSize),
 		root: root,
 	}
-	return &fs, nil
-}
-
-func (f *Filesystem) Cwd() string {
-	return ""
+	return &fs, fs.chdir(fs.root)
 }
 
 func (f *Filesystem) Chdir(dir string) error {
+	switch dir {
+	case "-":
+		return nil
+	case "/":
+		return f.chdir(f.root)
+	default:
+	}
+	base := f.cwd()
+	if filepath.IsAbs(dir) {
+		base = f.root
+	}
+	dir = filepath.Join(base, filepath.Clean(dir))
+	return f.chdir(dir)
+}
+
+func (f *Filesystem) chdir(dir string) error {
+	if dir != "/" {
+		i, err := os.Stat(dir)
+		if err != nil {
+			return err
+		}
+
+		if !i.IsDir() {
+			return fmt.Errorf("%s: not a directory", dir)
+		}
+	}
+	ix := f.ptr % MaxHistSize
+	f.dirs[ix] = dir
+	f.ptr++
+
 	return nil
 }
 
-func (f *Filesystem) PushDir(dir string) error {
-	return nil
+func (f *Filesystem) Cwd() string {
+	str := strings.TrimPrefix(f.cwd(), f.root)
+	if !strings.HasPrefix(str, separator) {
+		str = separator + str
+	}
+	return str
 }
 
-func (f *Filesystem) PopDir() {
+func (f *Filesystem) cwd() string {
+	ptr := f.ptr - 1
+	if ptr < 0 {
+		ptr = MaxHistSize - 1
+	}
+	return f.dirs[ptr]
+}
 
+func (f *Filesystem) PushDir(step int64) {
+}
+
+func (f *Filesystem) PopDir(step int64) {
 }
 
 func (f *Filesystem) Open(name string) (*os.File, error) {
@@ -78,8 +119,12 @@ func (f *Filesystem) OpenFile(name string, flag int, perm int) (*os.File, error)
 func (f *Filesystem) Copy() *Filesystem {
 	fs := f
 
-	fs.dirs = make([]string, len(f.dirs))
+	fs.dirs = make([]string, MaxHistSize)
 	copy(fs.dirs, f.dirs)
 
 	return fs
+}
+
+func (f *Filesystem) LookPath(name string, paths []string) (string, error) {
+	return name, nil
 }
