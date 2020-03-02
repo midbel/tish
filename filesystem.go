@@ -58,41 +58,11 @@ func (f *Filesystem) Chdir(dir string) error {
 	default:
 	}
 
-	base := f.cwd()
-	if filepath.IsAbs(dir) {
-		base = f.root
+	file, err := f.normalize(dir)
+	if err == nil {
+		err = f.chdir(file)
 	}
-	for _, d := range strings.Split(dir, separator) {
-		switch d {
-		case "..":
-			base, _ = filepath.Split(base)
-			if len(base) < len(f.root) {
-				return fmt.Errorf("%s: no such file or directory", dir)
-			}
-		case ".", "":
-		default:
-			base = filepath.Join(base, d)
-		}
-	}
-	return f.chdir(base)
-}
-
-func (f *Filesystem) chdir(dir string) error {
-	if dir != separator {
-		i, err := os.Stat(dir)
-		if err != nil {
-			return fmt.Errorf("%s: no such file or directory", filepath.Base(dir))
-		}
-
-		if !i.IsDir() {
-			return fmt.Errorf("%s: not a directory", filepath.Base(dir))
-		}
-	}
-	ix := f.ptr % MaxHistSize
-	f.dirs[ix] = dir
-	f.ptr++
-
-	return nil
+	return err
 }
 
 func (f *Filesystem) Cwd() string {
@@ -103,14 +73,6 @@ func (f *Filesystem) Cwd() string {
 	return str
 }
 
-func (f *Filesystem) cwd() string {
-	ptr := f.ptr - 1
-	if ptr < 0 {
-		ptr = MaxHistSize - 1
-	}
-	return f.dirs[ptr]
-}
-
 func (f *Filesystem) PushDir(step int64) {
 }
 
@@ -118,21 +80,33 @@ func (f *Filesystem) PopDir(step int64) {
 }
 
 func (f *Filesystem) Open(name string) (*os.File, error) {
-	return nil, nil
+	file, err := f.normalize(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(file)
 }
 
 func (f *Filesystem) Create(name string) (*os.File, error) {
 	if f.ro {
 		return nil, fmt.Errorf("filesystem open in read only")
 	}
-	return nil, nil
+	file, err := f.normalize(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Create(file)
 }
 
-func (f *Filesystem) OpenFile(name string, flag int, perm int) (*os.File, error) {
+func (f *Filesystem) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
 	if mode := flag & os.O_RDONLY; mode == 0 {
 		return nil, fmt.Errorf("filesystem open in read only")
 	}
-	return nil, nil
+	file, err := f.normalize(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.OpenFile(file, flag, perm)
 }
 
 func (f *Filesystem) Copy() *Filesystem {
@@ -159,4 +133,50 @@ func (f *Filesystem) LookPath(name string, paths []string) (string, error) {
 		}
 	}
 	return name, err
+}
+
+func (f *Filesystem) chdir(dir string) error {
+	if dir != separator {
+		i, err := os.Stat(dir)
+		if err != nil {
+			return fmt.Errorf("%s: no such file or directory", filepath.Base(dir))
+		}
+
+		if !i.IsDir() {
+			return fmt.Errorf("%s: not a directory", filepath.Base(dir))
+		}
+	}
+	ix := f.ptr % MaxHistSize
+	f.dirs[ix] = dir
+	f.ptr++
+
+	return nil
+}
+
+func (f *Filesystem) normalize(file string) (string, error) {
+	base := f.cwd()
+	if filepath.IsAbs(file) {
+		base = f.root
+	}
+	for _, d := range strings.Split(file, separator) {
+		switch d {
+		case "..":
+			base, _ = filepath.Split(base)
+			if len(base) < len(f.root) {
+				return "", fmt.Errorf("%s: no such file or directory", file)
+			}
+		case ".", "":
+		default:
+			base = filepath.Join(base, d)
+		}
+	}
+	return base, nil
+}
+
+func (f *Filesystem) cwd() string {
+	ptr := f.ptr - 1
+	if ptr < 0 {
+		ptr = MaxHistSize - 1
+	}
+	return f.dirs[ptr]
 }
