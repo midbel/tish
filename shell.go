@@ -125,8 +125,8 @@ func (s *Shell) executeList(i List) error {
 		execute = s.executeAnd
 	case kindShell:
 		execute = s.executeSubshell
-  case kindSub:
-    execute = s.executeSubstitution
+	case kindSub:
+		execute = s.executeSubstitution
 	default:
 		return fmt.Errorf("tish: %s can not be executed", i.kind)
 	}
@@ -139,26 +139,6 @@ func (s *Shell) executeAssignment(a Assignment) error {
 		err = s.Define(a.ident, vs)
 	}
 	return err
-}
-
-func (s *Shell) executeSubshell(ws []Word) error {
-	return nil
-}
-
-func (s *Shell) executeSubstitution(ws []Word) error {
-  args, err := s.expandSubstitution(ws)
-  if err != nil {
-    return err
-  }
-  cmd, err := s.prepare(args)
-  if err != nil {
-    return err
-  }
-  s.proc.exit = cmd.Run()
-	if p, ok := cmd.(interface{ Pid() int }); ok {
-		s.proc.pid = p.Pid()
-	}
-  return nil
 }
 
 func (s *Shell) executeSequence(ws []Word) error {
@@ -192,16 +172,6 @@ func (s *Shell) executeAnd(ws []Word) error {
 		}
 	}
 	return err
-}
-
-func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode, error) {
-	sh := NewShell(s.Filesystem.Copy(), in, out, err)
-	sh.locals = s.locals.Copy()
-	sh.globals = sh.locals.Unwrap()
-	sh.level = s.level + 1
-
-	errx := sh.execute(w)
-	return sh.proc.exit, errx
 }
 
 func (s *Shell) executePipeline(ws []Word) error {
@@ -253,6 +223,44 @@ func (s *Shell) executeSimple(ws []Word) error {
 		s.proc.pid = p.Pid()
 	}
 	return nil
+}
+
+func (s *Shell) executeSubshell(ws []Word) error {
+	w := List{
+		kind:  kindSimple,
+		words: ws,
+	}
+	code, err := s.executeShell(w, s.stdin, s.stdout, s.stderr)
+	if err == nil && code.Failure() {
+		err = ErrFailed
+	}
+	return err
+}
+
+func (s *Shell) executeSubstitution(ws []Word) error {
+	args, err := s.expandSubstitution(ws)
+	if err != nil {
+		return err
+	}
+	cmd, err := s.prepare(args)
+	if err != nil {
+		return err
+	}
+	s.proc.exit = cmd.Run()
+	if p, ok := cmd.(interface{ Pid() int }); ok {
+		s.proc.pid = p.Pid()
+	}
+	return nil
+}
+
+func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode, error) {
+	sh := NewShell(s.Filesystem.Copy(), in, out, err)
+	sh.locals = s.locals.Copy()
+	sh.globals = sh.locals.Unwrap()
+	sh.level = s.level + 1
+
+	errx := sh.execute(w)
+	return sh.proc.exit, errx
 }
 
 func (s *Shell) buildCommand(ws []Word) (Command, error) {

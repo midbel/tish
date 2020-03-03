@@ -50,6 +50,10 @@ func (s *Scanner) Scan() (Token, error) {
 		err = fmt.Errorf(str)
 		s.drain()
 	}
+	tok.Position = Position{
+		Line:   s.line,
+		Column: s.column,
+	}
 	return tok, err
 }
 
@@ -76,10 +80,6 @@ func (s *Scanner) emit(str string, typof rune) {
 		Literal: str,
 		Type:    typof,
 		Quoted:  s.isQuoted(),
-		Position: Position{
-			Line:   s.line,
-			Column: s.column,
-		},
 	}
 	s.queue <- tok
 }

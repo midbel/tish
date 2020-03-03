@@ -47,6 +47,24 @@ func testParseSubshell(t *testing.T) {
 				),
 			),
 		},
+		{
+			Input: "(cd dir; echo $PWD)\necho $PWD",
+			Word: makeList(kindSeq,
+				makeList(kindShell,
+					makeList(kindSeq,
+						makeList(kindSimple, Literal("cd"), Literal("dir")),
+						makeList(kindSimple,
+							Literal("echo"),
+							Variable{ident: "PWD", quoted: false, apply: Identity()},
+						),
+					),
+				),
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "PWD", quoted: false, apply: Identity()},
+				),
+			),
+		},
 	}
 	runParseCase(t, data)
 }

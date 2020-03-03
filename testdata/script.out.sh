@@ -76,3 +76,8 @@ DEFAULT
 # command substitutition
 foobar foo bar barfoo # echo foobar $(echo foo $(echo bar)) barfoo
 foobar # $(echo echo foobar)
+
+# subshell
+/testdata
+SUBSHELL # (SUB=SUBSHELL; echo $SUB)
+NOT AVAILABLE # echo ${SUB:-"NOT AVAILABLE"}

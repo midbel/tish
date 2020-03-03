@@ -96,3 +96,8 @@ cd empty # can not cd into a directory that does not exist
 # command substitution
 echo foobar $(echo foo $(echo bar)) barfoo
 $(echo echo foobar)
+
+# subshell
+cd /
+(SUB=SUBSHELL; cd testdata; pwd; echo $SUB)
+#echo ${SUB:-"NOT AVAILABLE"}
