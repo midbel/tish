@@ -98,34 +98,35 @@ func (f *Filesystem) PopHead() {
 	f.dirs = f.dirs[:n-1]
 }
 
-func (f *Filesystem) PushDir(step int64) error {
+func (f *Filesystem) PushDir(step int64) {
 	n := len(f.dirs)
 	if step > 0 {
 		step = int64(n) - (step + 1)
 	} else if step < 0 {
 		step = -step
 	} else {
-		return nil // do nothing for now
+		return // do nothing for now
 	}
 	if step < 0 || n < int(step) {
-		return nil
+		return
 	}
 	first, last := f.dirs[:int(step)], f.dirs[int(step):]
 	f.dirs = append(last, first...)
-	return nil
 }
 
-func (f *Filesystem) PopDir(step int64) error {
+func (f *Filesystem) PopDir(step int64) {
 	n := len(f.dirs)
 	if step > 0 {
 		step = int64(n) - step
 	} else if step < 0 {
 		step = -step
 	} else {
-		return nil // do nothing for now
+		return // do nothing for now
+	}
+	if step < 0 || n < int(step) {
+		return
 	}
 	f.dirs = f.dirs[:int(step)]
-	return nil
 }
 
 func (f *Filesystem) Open(name string) (*os.File, error) {
@@ -148,7 +149,7 @@ func (f *Filesystem) Create(name string) (*os.File, error) {
 }
 
 func (f *Filesystem) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
-	if mode := flag & os.O_RDONLY; mode == 0 {
+	if mode := flag & os.O_RDONLY; f.ro && mode == 0 {
 		return nil, fmt.Errorf("filesystem open in read only")
 	}
 	file, err := f.normalize(name)

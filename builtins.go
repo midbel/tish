@@ -280,6 +280,11 @@ func init() {
 			Short: "change the shell current working directory",
 			Exec:  Chdir,
 		},
+		"dirs": {
+			Usage: "dirs [-l] [-c] [-n]",
+			Short: "show the list of directories remembered in the stack",
+			Exec:  Dirs,
+		},
 		"pushd": {
 			Usage: "pushd [dir]",
 			Short: "",
@@ -357,10 +362,58 @@ func Chroot(b Builtin) ErrCode {
 	return ExitOk
 }
 
+func Dirs(b Builtin) ErrCode {
+	var (
+		set   = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		count = set.Int("n", 0, "display n entries from the directory stack")
+		list  = set.Bool("l", false, "print one entry per line")
+		clear = set.Bool("c", false, "clear the directory stack")
+		help  = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	if *clear {
+		b.Reset()
+		return ExitOk
+	}
+	var (
+		dirs = b.Dirs()
+		n    = len(dirs)
+	)
+	if *count > 0 {
+		*count = n - *count
+	} else {
+		*count = -*count
+	}
+	if *count > 0 && *count < n {
+		dirs = dirs[:*count]
+	}
+	for i, d := range dirs {
+		if *list {
+			fmt.Fprintf(b.Stdout, "%d ", i)
+		}
+		fmt.Fprint(b.Stdout, d)
+		if *list {
+			fmt.Fprintln(b.Stdout)
+		}
+	}
+	return ExitOk
+}
+
 func PushDir(b Builtin) ErrCode {
 	var (
-		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		help = set.Bool("h", false, "show help message and exit")
+		set   = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help  = set.Bool("h", false, "show help message and exit")
+		quiet = set.Bool("q", false, "quiet")
 	)
 	set.Usage = func() {
 		fmt.Fprintln(b.Stderr, b.Help())
@@ -390,7 +443,9 @@ func PushDir(b Builtin) ErrCode {
 			fmt.Fprintln(b.Stderr, err)
 			return ExitBadUsage
 		}
-		fmt.Fprintln(b.Stdout, old, b.Cwd())
+		if !*quiet {
+			fmt.Fprintln(b.Stdout, old, b.Cwd())
+		}
 	}
 	return ExitOk
 }
@@ -461,7 +516,6 @@ func Chdir(b Builtin) ErrCode {
 func WorkDir(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
-		list = set.Bool("l", false, "show directories")
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
@@ -475,13 +529,7 @@ func WorkDir(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
-	if *list {
-		for i, d := range b.Dirs() {
-			fmt.Fprintf(b.Stdout, "%d %s\n", i, d)
-		}
-	} else {
-		fmt.Fprintln(b.Stdout, b.Cwd())
-	}
+	fmt.Fprintln(b.Stdout, b.Cwd())
 	return ExitOk
 }
 
