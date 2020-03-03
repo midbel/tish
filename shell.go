@@ -134,7 +134,7 @@ func (s *Shell) executeList(i List) error {
 }
 
 func (s *Shell) executeAssignment(a Assignment) error {
-	vs, err := a.Expand(s.locals)
+	vs, err := a.Expand(s)
 	if err == nil {
 		err = s.Define(a.ident, vs)
 	}
@@ -226,11 +226,10 @@ func (s *Shell) executeSimple(ws []Word) error {
 }
 
 func (s *Shell) executeSubshell(ws []Word) error {
-	w := List{
-		kind:  kindSimple,
-		words: ws,
-	}
-	code, err := s.executeShell(w, s.stdin, s.stdout, s.stderr)
+  if len(ws) != 1 {
+    return ErrFailed
+  }
+	code, err := s.executeShell(ws[0], s.stdin, s.stdout, s.stderr)
 	if err == nil && code.Failure() {
 		err = ErrFailed
 	}

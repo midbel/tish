@@ -100,4 +100,5 @@ $(echo echo foobar)
 # subshell
 cd /
 (SUB=SUBSHELL; cd testdata; pwd; echo $SUB)
-#echo ${SUB:-"NOT AVAILABLE"}
+pwd
+echo ${SUB:-NOT AVAILABLE}
