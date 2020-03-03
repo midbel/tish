@@ -42,6 +42,10 @@ func (s *Scanner) Scan() (Token, error) {
 	if !ok {
 		err, tok = io.EOF, eof
 	}
+	tok.Position = Position{
+		Line:   s.line,
+		Column: s.column,
+	}
 	if tok.Type == tokError && err == nil {
 		str := tok.Literal
 		if s.pos < len(s.buffer) {
@@ -49,10 +53,6 @@ func (s *Scanner) Scan() (Token, error) {
 		}
 		err = fmt.Errorf(str)
 		s.drain()
-	}
-	tok.Position = Position{
-		Line:   s.line,
-		Column: s.column,
 	}
 	return tok, err
 }
@@ -85,7 +85,10 @@ func (s *Scanner) emit(str string, typof rune) {
 }
 
 func (s *Scanner) emitTypeOf(typof rune) {
-	s.queue <- Token{Type: typof}
+	s.queue <- Token{
+		Type:   typof,
+		Quoted: s.isQuoted(),
+	}
 }
 
 func (s *Scanner) run() {
@@ -872,6 +875,9 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 }
 
 func scanQuotedStrong(s *Scanner) {
+	s.enterQuote()
+	defer s.leaveQuote()
+
 	var buf bytes.Buffer
 	buf.WriteRune(squote)
 

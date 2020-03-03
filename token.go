@@ -121,7 +121,13 @@ type Token struct {
 }
 
 func (t Token) Equal(other Token) bool {
-	return t.Type == other.Type && t.Literal == other.Literal
+	if t.Type == tokBlank && other.Type == tokBlank {
+		return true
+	}
+	if t.Type == tokEOF && other.Type == tokEOF {
+		return true
+	}
+	return t.Type == other.Type && t.Literal == other.Literal && t.Quoted == other.Quoted
 }
 
 func (t Token) String() string {
@@ -182,5 +188,5 @@ func (t Token) String() string {
 	default:
 		return fmt.Sprintf("unknown(%d)", t.Type)
 	}
-	return fmt.Sprintf("%s(%s)", str, t.Literal)
+	return fmt.Sprintf("%s(literal=%s, quoted=%t)", str, t.Literal, t.Quoted)
 }
