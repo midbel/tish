@@ -215,31 +215,46 @@ func testExpandVariables(t *testing.T) {
 		Literal string
 		Values  []string
 		Defined bool
+		Quoted  bool
 	}{
 		{
 			Literal: "FOO",
 			Values:  []string{"foo"},
 			Defined: true,
+			Quoted:  true,
 		},
 		{
 			Literal: "BAR",
 			Values:  []string{"bar"},
 			Defined: true,
+			Quoted:  true,
+		},
+		{
+			Literal: "FOOBAR",
+			Values:  []string{"foo", "bar"},
+			Defined: true,
+			Quoted:  false,
 		},
 		{
 			Literal: "SHELL",
 			Values:  []string{"/bin/shell"},
 			Defined: true,
+			Quoted:  true,
 		},
 		{
 			Literal: "MAIL",
 			Values:  []string{},
 			Defined: false,
+			Quoted:  true,
 		},
 	}
 
 	for _, d := range data {
-		v := Variable{ident: d.Literal}
+		v := Variable{
+			ident:  d.Literal,
+			apply:  Identity(),
+			quoted: d.Quoted,
+		}
 		vs, err := v.Expand(env)
 		if d.Defined {
 			if err != nil {
@@ -305,6 +320,7 @@ func buildEnv() *Env {
 	e := NewEnclosedEnvironment(p)
 	e.Define("FOO", []string{"foo"})
 	e.Define("BAR", []string{"bar"})
+	e.Define("FOOBAR", []string{"foo", "bar"})
 	e.Define("NINE", []string{"9"})
 
 	return e
