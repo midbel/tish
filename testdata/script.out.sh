@@ -72,3 +72,7 @@ DEFAULT
 / # cd .. -> pwd
 /testdata # cd -> echo $PWD
 /testdata # cd -> pwd
+
+# command substitutition
+foobar foo bar barfoo # echo foobar $(echo foo $(echo bar)) barfoo
+foobar # $(echo echo foobar)

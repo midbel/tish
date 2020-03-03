@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"strings"
@@ -17,6 +18,12 @@ func SplitFunc(str string, fn func(r rune) bool) []string {
 		return []string{""}
 	}
 	return split(strings.NewReader(str), fn)
+}
+
+func Words(r io.Reader) []string {
+	return split(bufio.NewReader(r), func(r rune) bool {
+		return r == space || r == tab || r == newline
+	})
 }
 
 func split(r io.RuneScanner, fn func(r rune) bool) []string {

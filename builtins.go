@@ -299,7 +299,7 @@ func init() {
 			Short: "change root directory",
 			Exec:  Chroot,
 		},
-		"source":  {
+		"source": {
 			Usage: "source file",
 			Short: "execute file in the context of the current shell",
 			Exec:  Source,

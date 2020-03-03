@@ -91,3 +91,8 @@ echo $PWD
 pwd
 cd foo.txt # can not cd into a regular file
 cd empty # can not cd into a directory that does not exist
+
+
+# command substitution
+echo foobar $(echo foo $(echo bar)) barfoo
+$(echo echo foobar)

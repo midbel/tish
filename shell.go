@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
-  "path/filepath"
-  "plugin"
+	"path/filepath"
+	"plugin"
 	"runtime"
 	"strconv"
 	"strings"
@@ -125,6 +125,8 @@ func (s *Shell) executeList(i List) error {
 		execute = s.executeAnd
 	case kindShell:
 		execute = s.executeSubshell
+  case kindSub:
+    execute = s.executeSubstitution
 	default:
 		return fmt.Errorf("tish: %s can not be executed", i.kind)
 	}
@@ -141,6 +143,22 @@ func (s *Shell) executeAssignment(a Assignment) error {
 
 func (s *Shell) executeSubshell(ws []Word) error {
 	return nil
+}
+
+func (s *Shell) executeSubstitution(ws []Word) error {
+  args, err := s.expandSubstitution(ws)
+  if err != nil {
+    return err
+  }
+  cmd, err := s.prepare(args)
+  if err != nil {
+    return err
+  }
+  s.proc.exit = cmd.Run()
+	if p, ok := cmd.(interface{ Pid() int }); ok {
+		s.proc.pid = p.Pid()
+	}
+  return nil
 }
 
 func (s *Shell) executeSequence(ws []Word) error {
@@ -174,22 +192,6 @@ func (s *Shell) executeAnd(ws []Word) error {
 		}
 	}
 	return err
-}
-
-func (s *Shell) executeSubstitution(ws []Word) error {
-	var (
-		in   bytes.Reader
-		out  bytes.Buffer
-		err  bytes.Buffer
-		word = List{
-			kind:  kindSeq,
-			words: ws,
-		}
-	)
-	if _, err := s.executeShell(word, &in, &out, &err); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode, error) {
@@ -272,18 +274,52 @@ func (s *Shell) buildCommand(ws []Word) (Command, error) {
 			rs = append(rs, r)
 			continue
 		}
-		xs, err := w.Expand(s)
+		var (
+			xs  []string
+			err error
+		)
+		switch w := w.(type) {
+		case List:
+			if w.kind == kindSub {
+				xs, err = s.expandSubstitution(w.words)
+			} else {
+				xs, err = w.Expand(s)
+			}
+		default:
+			xs, err = w.Expand(s)
+		}
 		if err != nil {
 			return nil, err
 		}
 		args = append(args, xs...)
 	}
-
 	cmd, err := s.prepare(s.expandFilenames(args))
 	if err != nil {
 		return nil, err
 	}
 	return s.replaceFiles(cmd, rs)
+}
+
+func (s *Shell) expandSubstitution(ws []Word) ([]string, error) {
+	var (
+		out  bytes.Buffer
+		word = List{
+			kind:  kindSeq,
+			words: ws,
+		}
+	)
+	var (
+		args []string
+		err  error
+		code ErrCode
+	)
+	if code, err = s.executeShell(word, s.stdin, &out, s.stderr); err == nil && code.Success() {
+		args = Words(&out)
+	}
+	if code.Failure() {
+		err = ErrFailed
+	}
+	return args, err
 }
 
 func (s *Shell) replaceFiles(cmd Command, rs []Redirect) (Command, error) {
@@ -414,18 +450,18 @@ func (s *Shell) Dirs() []string {
 }
 
 func (s *Shell) Chroot(root string) error {
-  if root == "-" {
-    if s.Filesystem.parent != nil {
-      s.Filesystem = s.Filesystem.parent
-    }
-    return nil
-  }
-  fs, err := s.Filesystem.Chroot(root)
-  if err != nil {
-    return err
-  }
-  s.Filesystem = fs
-  return nil
+	if root == "-" {
+		if s.Filesystem.parent != nil {
+			s.Filesystem = s.Filesystem.parent
+		}
+		return nil
+	}
+	fs, err := s.Filesystem.Chroot(root)
+	if err != nil {
+		return err
+	}
+	s.Filesystem = fs
+	return nil
 }
 
 func (s *Shell) LookPath(cmd string) (string, error) {
@@ -438,14 +474,14 @@ func (s *Shell) Exit(n ErrCode) {
 }
 
 func (s *Shell) Extend(files []string, replace bool) error {
-  for _, f := range files {
-    p, err := plugin.Open(filepath.Join(s.cwd(), f))
-    if err != nil {
-      return err
-    }
-    sym, err := p.Lookup("Builtins")
+	for _, f := range files {
+		p, err := plugin.Open(filepath.Join(s.cwd(), f))
 		if err != nil {
-      return fmt.Errorf("missing Builtins symbol")
+			return err
+		}
+		sym, err := p.Lookup("Builtins")
+		if err != nil {
+			return fmt.Errorf("missing Builtins symbol")
 		}
 		list, ok := sym.(func() []*Builtin)
 		if !ok {
@@ -458,8 +494,8 @@ func (s *Shell) Extend(files []string, replace bool) error {
 			b.external = true
 			builtins[b.String()] = *b
 		}
-  }
-  return nil
+	}
+	return nil
 }
 
 func (s *Shell) Enter() {
