@@ -281,6 +281,10 @@ func (s *Shell) buildCommand(ws []Word) (Command, error) {
 	if err != nil {
 		return nil, err
 	}
+	return s.replaceFiles(cmd, rs)
+}
+
+func (s *Shell) replaceFiles(cmd Command, rs []Redirect) (Command, error) {
 	for _, r := range rs {
 		if r.mode == modRelink {
 			switch r.file {
@@ -292,7 +296,25 @@ func (s *Shell) buildCommand(ws []Word) (Command, error) {
 				return nil, fmt.Errorf("invalid file descriptor given %d", r.file)
 			}
 		} else {
-			f, err := r.Open(s.locals)
+			args, err := r.Expand(s)
+			if err != nil {
+				return nil, err
+			}
+			if len(args) == 0 {
+				continue
+			}
+			var flag int
+			switch r.mode {
+			case modRead:
+				flag = os.O_RDONLY
+			case modWrite:
+				flag = os.O_CREATE | os.O_TRUNC | os.O_WRONLY
+			case modAppend:
+				flag = os.O_CREATE | os.O_APPEND | os.O_WRONLY
+			default:
+				return nil, fmt.Errorf("unsupported mode")
+			}
+			f, err := s.OpenFile(args[0], flag, 0644)
 			if err != nil {
 				return nil, err
 			}
@@ -369,6 +391,24 @@ func (s *Shell) UnregisterAlias(alias string) {
 	} else {
 		delete(s.alias, alias)
 	}
+}
+
+func (s *Shell) Dirs() []string {
+	var (
+		dirs = make([]string, 0, 10)
+		home string
+	)
+	vs, _ := s.Resolve("HOME")
+	if len(vs) > 0 {
+		home = vs[0]
+	}
+	for _, d := range s.Filesystem.Dirs() {
+		if home != "" && strings.HasPrefix(d, home) {
+			d = strings.Replace(d, home, "~", 1)
+		}
+		dirs = append(dirs, d)
+	}
+	return dirs
 }
 
 func (s *Shell) LookPath(cmd string) (string, error) {

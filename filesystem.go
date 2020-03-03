@@ -12,7 +12,6 @@ const MaxHistSize = 500
 const separator = string(filepath.Separator)
 
 type Filesystem struct {
-	ptr  int
 	dirs []string
 	root string
 	ro   bool
@@ -36,16 +35,14 @@ func RootedFS(root string) (*Filesystem, error) {
 		return nil, fmt.Errorf("%s: not a directory", root)
 	}
 	fs := Filesystem{
-		dirs: make([]string, MaxHistSize),
+		dirs: make([]string, 0, MaxHistSize),
 		root: root,
 	}
 	return &fs, fs.chdir(fs.root)
 }
 
 func (f *Filesystem) Reset() error {
-	for i := range f.dirs {
-		f.dirs[i] = ""
-	}
+	f.dirs = f.dirs[:0]
 	return f.chdir(f.root)
 }
 
@@ -73,10 +70,62 @@ func (f *Filesystem) Cwd() string {
 	return str
 }
 
-func (f *Filesystem) PushDir(step int64) {
+func (f *Filesystem) Dirs() []string {
+	dirs := make([]string, len(f.dirs))
+	for i, j := 0, len(dirs)-1; i < len(dirs); i, j = i+1, j-1 {
+		dirs[i] = strings.TrimPrefix(f.dirs[j], f.root)
+		if !strings.HasPrefix(dirs[i], separator) {
+			dirs[i] = separator + dirs[i]
+		}
+	}
+	return dirs
 }
 
-func (f *Filesystem) PopDir(step int64) {
+func (f *Filesystem) SwitchHead() {
+	n := len(f.dirs)
+	if n < 2 {
+		return
+	}
+	n--
+	f.dirs[n-1], f.dirs[n] = f.dirs[n], f.dirs[n-1]
+}
+
+func (f *Filesystem) PopHead() {
+	n := len(f.dirs)
+	if n == 0 {
+		return
+	}
+	f.dirs = f.dirs[:n-1]
+}
+
+func (f *Filesystem) PushDir(step int64) error {
+	n := len(f.dirs)
+	if step > 0 {
+		step = int64(n) - (step + 1)
+	} else if step < 0 {
+		step = -step
+	} else {
+		return nil // do nothing for now
+	}
+	if step < 0 || n < int(step) {
+		return nil
+	}
+	first, last := f.dirs[:int(step)], f.dirs[int(step):]
+	f.dirs = append(last, first...)
+	return nil
+}
+
+func (f *Filesystem) PopDir(step int64) error {
+	n := len(f.dirs)
+	if step > 0 {
+		step = int64(n) - step
+	} else if step < 0 {
+		step = -step
+	} else {
+		return nil // do nothing for now
+	}
+	f.dirs = f.dirs[:int(step)]
+	return nil
 }
 
 func (f *Filesystem) Open(name string) (*os.File, error) {
@@ -146,10 +195,8 @@ func (f *Filesystem) chdir(dir string) error {
 			return fmt.Errorf("%s: not a directory", filepath.Base(dir))
 		}
 	}
-	ix := f.ptr % MaxHistSize
-	f.dirs[ix] = dir
-	f.ptr++
 
+	f.dirs = append(f.dirs, dir)
 	return nil
 }
 
@@ -174,9 +221,9 @@ func (f *Filesystem) normalize(file string) (string, error) {
 }
 
 func (f *Filesystem) cwd() string {
-	ptr := f.ptr - 1
-	if ptr < 0 {
-		ptr = MaxHistSize - 1
+	n := len(f.dirs)
+	if n == 0 {
+		return f.root
 	}
-	return f.dirs[ptr]
+	return f.dirs[n-1]
 }

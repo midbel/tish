@@ -374,14 +374,23 @@ func PushDir(b Builtin) ErrCode {
 		return ExitHelp
 	}
 
+	if set.NArg() == 0 {
+		b.SwitchHead()
+		return ExitOk
+	}
+
 	if step, errc := strconv.ParseInt(set.Arg(0), 10, 64); errc == nil {
 		b.PushDir(step)
 	} else {
-		err := b.Chdir(set.Arg(0))
+		var (
+			old = b.Cwd()
+			err = b.Chdir(set.Arg(0))
+		)
 		if err != nil {
 			fmt.Fprintln(b.Stderr, err)
 			return ExitBadUsage
 		}
+		fmt.Fprintln(b.Stdout, old, b.Cwd())
 	}
 	return ExitOk
 }
@@ -402,6 +411,12 @@ func PopDir(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
+
+	if set.NArg() == 0 {
+		b.PopHead()
+		return ExitOk
+	}
+
 	step, err := strconv.ParseInt(set.Arg(0), 10, 64)
 	if err != nil {
 		fmt.Fprintln(b.Stderr, err)
@@ -446,6 +461,7 @@ func Chdir(b Builtin) ErrCode {
 func WorkDir(b Builtin) ErrCode {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		list = set.Bool("l", false, "show directories")
 		help = set.Bool("h", false, "show help message and exit")
 	)
 	set.Usage = func() {
@@ -459,7 +475,13 @@ func WorkDir(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
-	fmt.Fprintln(b.Stdout, b.Cwd())
+	if *list {
+		for i, d := range b.Dirs() {
+			fmt.Fprintf(b.Stdout, "%d %s\n", i, d)
+		}
+	} else {
+		fmt.Fprintln(b.Stdout, b.Cwd())
+	}
 	return ExitOk
 }
 
