@@ -19,6 +19,10 @@ type Scanner struct {
 	queue chan Token
 
 	quoted int
+
+	line   int
+	column int
+	seen   int
 }
 
 func NewScanner(r io.Reader) *Scanner {
@@ -26,6 +30,7 @@ func NewScanner(r io.Reader) *Scanner {
 	s := &Scanner{
 		buffer: bytes.ReplaceAll(str, []byte("\r\n"), []byte("\n")),
 		queue:  make(chan Token),
+		line:   1,
 	}
 	go s.run()
 	return s
@@ -71,6 +76,10 @@ func (s *Scanner) emit(str string, typof rune) {
 		Literal: str,
 		Type:    typof,
 		Quoted:  s.isQuoted(),
+		Position: Position{
+			Line:   s.line,
+			Column: s.column,
+		},
 	}
 	s.queue <- tok
 }
@@ -114,11 +123,25 @@ func (s *Scanner) readRune() {
 		s.next = len(s.buffer)
 	}
 	s.char, s.pos, s.next = r, s.next, s.next+n
+
+	if s.char == newline {
+		s.line++
+		s.seen, s.column = s.column, 0
+	} else {
+		s.column++
+	}
 }
 
 func (s *Scanner) unreadRune() {
 	if s.next <= 0 || s.char == 0 {
 		return
+	}
+
+	if s.char == newline {
+		s.line--
+		s.column = s.seen
+	} else {
+		s.column--
 	}
 
 	s.next, s.pos = s.pos, s.pos-utf8.RuneLen(s.char)

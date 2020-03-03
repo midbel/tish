@@ -104,10 +104,20 @@ var (
 	blank = Token{Type: tokBlank}
 )
 
+type Position struct {
+	Line   int
+	Column int
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("%d:%d", p.Line, p.Column)
+}
+
 type Token struct {
 	Literal string
 	Type    rune
 	Quoted  bool
+	Position
 }
 
 func (t Token) Equal(other Token) bool {
