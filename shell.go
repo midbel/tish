@@ -226,9 +226,9 @@ func (s *Shell) executeSimple(ws []Word) error {
 }
 
 func (s *Shell) executeSubshell(ws []Word) error {
-  if len(ws) != 1 {
-    return ErrFailed
-  }
+	if len(ws) != 1 {
+		return ErrFailed
+	}
 	code, err := s.executeShell(ws[0], s.stdin, s.stdout, s.stderr)
 	if err == nil && code.Failure() {
 		err = ErrFailed
@@ -257,9 +257,6 @@ func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode,
 	sh.locals = s.locals.Copy()
 	sh.globals = sh.locals.Unwrap()
 	sh.level = s.level + 1
-
-  fmt.Println("shell", s.Filesystem.Cwd())
-  fmt.Println("subshell", sh.Filesystem.Cwd())
 
 	errx := sh.execute(w)
 	return sh.proc.exit, errx
