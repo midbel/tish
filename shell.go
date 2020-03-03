@@ -411,6 +411,21 @@ func (s *Shell) Dirs() []string {
 	return dirs
 }
 
+func (s *Shell) Chroot(root string) error {
+  if root == "-" {
+    if s.Filesystem.parent != nil {
+      s.Filesystem = s.Filesystem.parent
+    }
+    return nil
+  }
+  fs, err := s.Filesystem.Chroot(root)
+  if err != nil {
+    return err
+  }
+  s.Filesystem = fs
+  return nil
+}
+
 func (s *Shell) LookPath(cmd string) (string, error) {
 	ps, _ := s.Resolve("PATH")
 	return s.Filesystem.LookPath(cmd, ps)

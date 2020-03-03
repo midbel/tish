@@ -1,5 +1,5 @@
 write arguments to standard output
-usage: echo [-i] [-h] [arg...]
+usage: echo [-i] [-n] [-h] [arg...]
 foobar
 
 # filesystem (cd)

@@ -15,6 +15,8 @@ type Filesystem struct {
 	dirs []string
 	root string
 	ro   bool
+
+	parent *Filesystem
 }
 
 func Cwd() (*Filesystem, error) {
@@ -63,6 +65,18 @@ func (f *Filesystem) Chdir(dir string) error {
 		err = f.chdir(file)
 	}
 	return err
+}
+
+func (f *Filesystem) Chroot(root string) (*Filesystem, error) {
+	if err := f.Chdir(root); err != nil {
+		return nil, err
+	}
+	fs, err := RootedFS(f.cwd())
+	if err != nil {
+		return nil, err
+	}
+	fs.parent = f
+	return fs, nil
 }
 
 func (f *Filesystem) Cwd() string {
@@ -165,7 +179,7 @@ func (f *Filesystem) OpenFile(name string, flag int, perm os.FileMode) (*os.File
 func (f *Filesystem) Copy() *Filesystem {
 	fs := f
 
-	fs.dirs = make([]string, MaxHistSize)
+	fs.dirs = make([]string, len(f.dirs))
 	copy(fs.dirs, f.dirs)
 
 	return fs

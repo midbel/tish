@@ -98,7 +98,7 @@ func TestShellExecute(t *testing.T) {
 		},
 		{
 			Input: `echo -h`,
-			Err:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Err:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 		},
 		{
 			Input: `echo -i < testdata/foo.txt`,
@@ -132,7 +132,7 @@ func TestShellExecute(t *testing.T) {
 		},
 		{
 			Input: `echo -h 2> testdata/help.txt~`,
-			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Out:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 			File:  "testdata/help.txt~",
 		},
 		{
@@ -142,7 +142,7 @@ func TestShellExecute(t *testing.T) {
 		{
 			Input: `echo -h | echo -i`,
 			Out:   "",
-			Err:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Err:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 		},
 		{
 			Input: `echo foo bar | echo -i`,
@@ -151,12 +151,12 @@ func TestShellExecute(t *testing.T) {
 		},
 		{
 			Input: `echo -h |& echo -i`,
-			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Out:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 			Err:   "",
 		},
 		{
 			Input: `echo -h 2>&1 | echo -i`,
-			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Out:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 			Err:   "",
 		},
 		{
@@ -165,16 +165,16 @@ func TestShellExecute(t *testing.T) {
 		},
 		{
 			Input: `echo -h 2>&1`,
-			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Out:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 		},
 		{
 			Input: `echo -h > testdata/help.txt~ 2>&1`,
-			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Out:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 			File:  `testdata/help.txt~`,
 		},
 		{
 			Input: `echo -h  2>&1 > testdata/help.txt~`,
-			Out:   "write arguments to standard output\nusage: echo [-i] [-h] [arg...]",
+			Out:   "write arguments to standard output\nusage: echo [-i] [-n] [-h] [arg...]",
 		},
 	}
 	fs, errf := Cwd()

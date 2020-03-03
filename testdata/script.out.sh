@@ -56,6 +56,7 @@ prefix  : BAR
 replace : F00BAR
 substr1 : FOO
 substr2 : BAR
+substr3 : FOO
 
 # parameter expansion (part 2)
 FOOBAR
@@ -63,7 +64,11 @@ DEFAULT
 DEFAULT
 
 # filesystem
-/ # cd /
-/testdata # cd testdata
-/ # cd ..
-/testdata
+/ # cd / -> echo $WD
+/ # cd / -> pwd
+/testdata # cd testdata -> echo $PWD
+/testdata # cd testdata -> pwd
+/ # cd .. -> echo $PWD
+/ # cd .. -> pwd
+/testdata # cd -> echo $PWD
+/testdata # cd -> pwd

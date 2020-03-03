@@ -171,22 +171,22 @@ var builtins map[string]Builtin
 func init() {
 	builtins = map[string]Builtin{
 		"echo": {
-			Usage: "echo [-i] [-h] [arg...]",
+			Usage: "echo [-i] [-n] [-h] [arg...]",
 			Short: "write arguments to standard output",
 			Exec:  Echo,
 		},
 		"date": {
-			Usage: "date [-u] [-h]",
+			Usage: "date [-u] [-h] [yesterday|tomorrow]",
 			Short: "write current date time to standart output",
 			Exec:  Date,
 		},
 		"help": {
-			Usage: "help [-h] builtin",
+			Usage: "help [-i] [-s] [-h] builtin",
 			Short: "print help text for a builtin command",
 			Exec:  Help,
 		},
 		"builtins": {
-			Usage: "builtins [-h]",
+			Usage: "builtins [-i] [-h]",
 			Short: "print list of builtins and a short description",
 			Exec:  Builtins,
 		},
@@ -216,7 +216,7 @@ func init() {
 			Exec:  False,
 		},
 		"seq": {
-			Usage: "seq [-h] [lower] [upper] [increment]",
+			Usage: "seq [-f] [-s] [-h] [lower] [upper] [increment]",
 			Short: "print a sequence of numbers",
 			Exec:  Seq,
 		},
@@ -236,8 +236,8 @@ func init() {
 			Exec:  Environ,
 		},
 		"readonly": {
-			Usage: "readonly [-h] ",
-			Short: "",
+			Usage: "readonly [-n] [-h] [name...]",
+			Short: "set variable read only",
 			Exec:  Readonly,
 		},
 		"export": {
@@ -261,7 +261,7 @@ func init() {
 			Exec:  ExecBuiltin,
 		},
 		"alias": {
-			Usage: "alias name=value",
+			Usage: "alias name=value [name=value...]",
 			Short: "register an alias with given name",
 			Exec:  Alias,
 		},
@@ -271,27 +271,27 @@ func init() {
 			Exec:  Unalias,
 		},
 		"pwd": {
-			Usage: "pwd",
+			Usage: "pwd [-h]",
 			Short: "print the name of the current working directory",
 			Exec:  WorkDir,
 		},
 		"cd": {
-			Usage: "cd [dir]",
+			Usage: "cd [-h] [dir|-]",
 			Short: "change the shell current working directory",
 			Exec:  Chdir,
 		},
 		"dirs": {
-			Usage: "dirs [-l] [-c] [-n]",
+			Usage: "dirs [-h] [-l] [-c] [-n]",
 			Short: "show the list of directories remembered in the stack",
 			Exec:  Dirs,
 		},
 		"pushd": {
-			Usage: "pushd [dir]",
+			Usage: "pushd [-q] [dir | -N | +N]",
 			Short: "",
 			Exec:  PushDir,
 		},
 		"popd": {
-			Usage: "popd [dir]",
+			Usage: "popd [-h] [-N | +N]",
 			Short: "",
 			Exec:  PopDir,
 		},
@@ -300,9 +300,43 @@ func init() {
 			Short: "change root directory",
 			Exec:  Chroot,
 		},
+		"source":  {
+			Usage: "source file",
+			Short: "execute file in the context of the current shell",
+			Exec:  Source,
+		},
 		// "time":    {},
-		// "source":  {},
 	}
+}
+
+func Source(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	r, err := b.Open(set.Arg(0))
+	if err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitNoFile
+	}
+	defer r.Close()
+
+	if err := b.Execute(r); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitUnknown
+	}
+	return ExitOk
 }
 
 func ExecBuiltin(b Builtin) ErrCode {
@@ -358,6 +392,10 @@ func Chroot(b Builtin) ErrCode {
 	if *help {
 		set.Usage()
 		return ExitHelp
+	}
+	if err := b.Chroot(set.Arg(0)); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitNoFile
 	}
 	return ExitOk
 }

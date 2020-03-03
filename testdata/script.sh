@@ -66,6 +66,10 @@ echo "replace : ${FOOBAR//O/0}"
 echo "substr1 : ${FOOBAR:0:3}"
 echo "substr2 : ${FOOBAR:(-3):0}"
 
+THREE=3
+ZERO=0
+echo "substr3 : ${FOOBAR:$ZERO:$THREE}"
+
 # parameter expansion (part 2)
 echo "${FOOBAR:-DEFAULT}"
 echo "${DEFAULT:=DEFAULT}"
@@ -74,12 +78,16 @@ echo "${FOOBAR:+DEFAULT}"
 # filesystem
 cd /
 echo $PWD
+pwd
 cd .. # try to go somewhere outside of the filesystem
 cd testdata
 echo $PWD
+pwd
 cd ..
 echo $PWD
+pwd
 cd
 echo $PWD
+pwd
 cd foo.txt # can not cd into a regular file
 cd empty # can not cd into a directory that does not exist
