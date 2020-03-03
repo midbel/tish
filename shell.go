@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+  "path/filepath"
+  "plugin"
 	"runtime"
 	"strconv"
 	"strings"
@@ -433,6 +435,31 @@ func (s *Shell) LookPath(cmd string) (string, error) {
 
 func (s *Shell) Exit(n ErrCode) {
 	os.Exit(int(n))
+}
+
+func (s *Shell) Extend(files []string, replace bool) error {
+  for _, f := range files {
+    p, err := plugin.Open(filepath.Join(s.cwd(), f))
+    if err != nil {
+      return err
+    }
+    sym, err := p.Lookup("Builtins")
+		if err != nil {
+      return fmt.Errorf("missing Builtins symbol")
+		}
+		list, ok := sym.(func() []*Builtin)
+		if !ok {
+			return fmt.Errorf("symbol: invalid signature")
+		}
+		for _, b := range list() {
+			if _, ok := builtins[b.String()]; ok && !replace {
+				continue
+			}
+			b.external = true
+			builtins[b.String()] = *b
+		}
+  }
+  return nil
 }
 
 func (s *Shell) Enter() {

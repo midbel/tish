@@ -8,7 +8,6 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"plugin"
 	"strconv"
 	"strings"
 	"time"
@@ -1197,28 +1196,9 @@ func Enable(b Builtin) ErrCode {
 		}
 		return ExitOk
 	}
-	for _, a := range set.Args() {
-		p, err := plugin.Open(a)
-		if err != nil {
-			fmt.Fprintln(b.Stderr, err)
-			return ExitIO
-		}
-		sym, err := p.Lookup("Builtins")
-		if err != nil {
-			fmt.Fprintln(b.Stderr, err)
-			return ExitUnknown
-		}
-		list, ok := sym.(func() []*Builtin)
-		if !ok {
-			fmt.Fprintln(b.Stderr, "invalid signature")
-		}
-		for _, b := range list() {
-			if _, ok := builtins[b.String()]; ok && !*overwrite {
-				continue
-			}
-			b.external = true
-			builtins[b.String()] = *b
-		}
+	if err := b.Extend(set.Args(), *overwrite); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitUnknown
 	}
 	return ExitOk
 }
