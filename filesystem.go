@@ -49,6 +49,9 @@ func (f *Filesystem) Reset() error {
 func (f *Filesystem) Chdir(dir string) error {
 	switch dir {
 	case "-":
+		if n := len(f.dirs); n > 0 {
+			f.chdir(f.dirs[n-1])
+		}
 		return nil
 	case separator:
 		return f.chdir(f.root)
