@@ -17,6 +17,7 @@ type Environment interface {
 	SetReadOnly(string, bool)
 
 	Environ() []string
+	LocalEnviron() []string
 }
 
 type envval struct {
@@ -71,16 +72,21 @@ func (e *Env) SetReadOnly(ident string, ro bool) {
 	e.locals[ident] = ev
 }
 
-func (e *Env) Environ() []string {
+func (e *Env) LocalEnviron() []string {
 	var env []string
-	if e.parent != nil {
-		env = e.parent.Environ()
-	}
 	for k, vs := range e.locals {
 		str := fmt.Sprintf("%s=%s", k, strings.Join(vs.Values, " "))
 		env = append(env, str)
 	}
 	return env
+}
+
+func (e *Env) Environ() []string {
+	var env []string
+	if e.parent != nil {
+		env = e.parent.Environ()
+	}
+	return append(env, e.LocalEnviron()...)
 }
 
 func (e *Env) Unwrap() *Env {

@@ -304,6 +304,16 @@ func init() {
 			Short: "execute file in the context of the current shell",
 			Exec:  Source,
 		},
+		"set": {
+			Usage: "set",
+			Short: "set specific shell option(s)",
+			Exec:  nil,
+		},
+		"unset": {
+			Usage: "unset",
+			Short: "unset specific shell option(s)",
+			Exec:  nil,
+		},
 		// "time":    {},
 	}
 }

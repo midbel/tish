@@ -399,6 +399,9 @@ func (s *Shell) replaceFiles(cmd Command, rs []Redirect) (Command, error) {
 			case modRead:
 				flag = os.O_RDONLY
 			case modWrite:
+				if !s.AllowOverwritingFiles() {
+					flag = os.O_EXCL
+				}
 				flag = os.O_CREATE | os.O_TRUNC | os.O_WRONLY
 			case modAppend:
 				flag = os.O_CREATE | os.O_APPEND | os.O_WRONLY
@@ -625,7 +628,15 @@ func (s *Shell) SetReadOnly(ident string, ro bool) {
 }
 
 func (s *Shell) Environ() []string {
+	if !s.CopyAllVariables() {
+		es := s.globals.Environ()
+		return append(es, s.LocalEnviron()...)
+	}
 	return s.locals.Environ()
+}
+
+func (s *Shell) LocalEnviron() []string {
+	return s.locals.LocalEnviron()
 }
 
 func (s *Shell) CopyAllVariables() bool {
