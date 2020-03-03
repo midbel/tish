@@ -293,10 +293,24 @@ type Variable struct {
 }
 
 func (v Variable) Expand(e Environment) ([]string, error) {
+	var (
+		vs  []string
+		err error
+	)
 	if v.apply == nil {
-		return e.Resolve(v.ident)
+		vs, err = e.Resolve(v.ident)
+	} else {
+		vs, err = v.apply.Apply(v.ident, e)
 	}
-	return v.apply.Apply(v.ident, e)
+	if err != nil || v.quoted {
+		return vs, err
+	}
+	xs := make([]string, 0, len(vs)*5)
+	for _, v := range vs {
+		str := Split(v)
+		xs = append(xs, str...)
+	}
+	return xs, nil
 }
 
 func (v Variable) String() string {

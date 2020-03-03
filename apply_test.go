@@ -275,8 +275,9 @@ func runApplyTest(t *testing.T, env *Env, data ...ApplyCase) {
 
 	for i, d := range data {
 		v := Variable{
-			ident: d.Ident,
-			apply: d.Apply,
+			ident:  d.Ident,
+			apply:  d.Apply,
+			quoted: true,
 		}
 		vs, err := v.Expand(env)
 		if err != nil {

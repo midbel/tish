@@ -310,17 +310,18 @@ func (o lower) Apply(ident string, e Environment) ([]string, error) {
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
-	str := vs[0]
-	if o.all {
-		str = strings.ToLower(str)
-	} else {
-		rs := []rune(str)
-		if unicode.IsUpper(rs[0]) {
-			rs[0] = unicode.SimpleFold(rs[0])
+	for i := 0; i < len(vs); i++ {
+		if o.all {
+			vs[i] = strings.ToLower(vs[i])
+		} else {
+			rs := []rune(vs[i])
+			if unicode.IsUpper(rs[0]) {
+				rs[0] = unicode.SimpleFold(rs[0])
+			}
+			vs[i] = string(rs)
 		}
-		str = string(rs)
 	}
-	return []string{str}, nil
+	return vs, nil
 }
 
 func (o lower) Equal(a Apply) bool {
@@ -345,17 +346,18 @@ func (u upper) Apply(ident string, e Environment) ([]string, error) {
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
-	str := vs[0]
-	if u.all {
-		str = strings.ToUpper(str)
-	} else {
-		rs := []rune(str)
-		if unicode.IsLower(rs[0]) {
-			rs[0] = unicode.SimpleFold(rs[0])
+	for i := 0; i < len(vs); i++ {
+		if u.all {
+			vs[i] = strings.ToUpper(vs[i])
+		} else {
+			rs := []rune(vs[i])
+			if unicode.IsLower(rs[0]) {
+				rs[0] = unicode.SimpleFold(rs[0])
+			}
+			vs[i] = string(rs)
 		}
-		str = string(rs)
 	}
-	return []string{str}, nil
+	return vs, nil
 }
 
 func (u upper) Equal(a Apply) bool {
