@@ -258,6 +258,9 @@ func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode,
 	sh.globals = sh.locals.Unwrap()
 	sh.level = s.level + 1
 
+  fmt.Println("shell", s.Filesystem.Cwd())
+  fmt.Println("subshell", sh.Filesystem.Cwd())
+
 	errx := sh.execute(w)
 	return sh.proc.exit, errx
 }
