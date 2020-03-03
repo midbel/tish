@@ -23,7 +23,7 @@ const (
 )
 
 func (e ErrCode) Success() bool {
-	return e == ExitOk
+	return e == ExitOk || e == ExitHelp
 }
 
 func (e ErrCode) Failure() bool {

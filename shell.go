@@ -17,7 +17,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var ErrFailed = errors.New("process terminated with failure")
+var (
+	ErrFailed = errors.New("process terminated with failure")
+	ErrFatal  = errors.New("fatal")
+)
 
 const MaxShellDepth = 100
 
@@ -45,7 +48,24 @@ type Shell struct {
 		exit ErrCode // exit code of the last executed process
 		pid  int     // pid of the last executed process
 	}
+
+	options Option
 }
+
+type Option uint64
+
+const (
+	NoFileExpansion Option = 1 << (iota + 1)
+	NoBraceExpansion
+	NoOverwriteFiles
+	ExitOnError
+	NoLocalVariables
+	AllowUndefinedVariables
+	NullGlob
+	EmptyGlob
+)
+
+const DefaultOptions = NoLocalVariables | AllowUndefinedVariables
 
 func DefaultShell() (*Shell, error) {
 	fs, errf := DefaultFS()
@@ -72,6 +92,7 @@ func NewShell(fs *Filesystem, in io.Reader, out, err io.Writer) *Shell {
 		stderr:     err,
 		alias:      make(map[string]Word),
 		Filesystem: fs,
+		options:    DefaultOptions,
 	}
 	s.globals = NewEnvironment()
 	s.locals = NewEnclosedEnvironment(s.globals)
@@ -145,6 +166,9 @@ func (s *Shell) executeSequence(ws []Word) error {
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
+		if errors.Is(err, ErrFatal) {
+			return err
+		}
 	}
 	return err
 }
@@ -153,6 +177,9 @@ func (s *Shell) executeOr(ws []Word) error {
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
+		if errors.Is(err, ErrFatal) {
+			return err
+		}
 		if err == nil && s.proc.exit.Success() {
 			break
 		}
@@ -164,6 +191,9 @@ func (s *Shell) executeAnd(ws []Word) error {
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
+		if errors.Is(err, ErrFatal) {
+			return err
+		}
 		if err != nil || s.proc.exit.Failure() {
 			if err == nil {
 				err = ErrFailed
@@ -207,7 +237,11 @@ func (s *Shell) executePipeline(ws []Word) error {
 		s.proc.exit, errx = s.executeShell(ws[len(ws)-1], in, s.stdout, s.stderr)
 		return
 	})
-	return grp.Wait()
+	errw := grp.Wait()
+	if s.proc.exit.Failure() && s.ExitOnError() {
+		return ErrFatal
+	}
+	return errw
 }
 
 func (s *Shell) executeSimple(ws []Word) error {
@@ -221,6 +255,9 @@ func (s *Shell) executeSimple(ws []Word) error {
 	s.proc.exit = cmd.Run()
 	if p, ok := cmd.(interface{ Pid() int }); ok {
 		s.proc.pid = p.Pid()
+	}
+	if s.proc.exit.Failure() && s.ExitOnError() {
+		return ErrFatal
 	}
 	return nil
 }
@@ -248,6 +285,9 @@ func (s *Shell) executeSubstitution(ws []Word) error {
 	s.proc.exit = cmd.Run()
 	if p, ok := cmd.(interface{ Pid() int }); ok {
 		s.proc.pid = p.Pid()
+	}
+	if s.proc.exit.Failure() && s.ExitOnError() {
+		return ErrFatal
 	}
 	return nil
 }
@@ -296,6 +336,9 @@ func (s *Shell) buildCommand(ws []Word) (Command, error) {
 				xs, err = w.Expand(s)
 			}
 		default:
+			if _, ok := w.(Brace); ok && !s.AllowBraceExpansion() {
+				continue
+			}
 			xs, err = w.Expand(s)
 		}
 		if err != nil {
@@ -405,7 +448,7 @@ func (s *Shell) prepare(args []string) (Command, error) {
 	}
 	c := exec.Command(cmd, args[1:]...)
 
-	if es := s.locals.Environ(); len(es) > 0 {
+	if es := s.Environ(); len(es) > 0 {
 		c.Env = append(c.Env, es...)
 	}
 	c.Dir = s.Cwd()
@@ -418,6 +461,9 @@ func (s *Shell) prepare(args []string) (Command, error) {
 }
 
 func (s *Shell) expandFilenames(args []string) []string {
+	if !s.AllowFileExpansion() {
+		return args
+	}
 	// for _, a := range args {
 	//
 	// }
@@ -555,6 +601,9 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 		vs = append(vs, strconv.Itoa(int(elapsed.Seconds())))
 	default:
 		vs, err = s.locals.Resolve(ident)
+		if errors.Is(err, ErrNotDefined) && s.AllowUndefinedVariables() {
+			err = nil
+		}
 	}
 	return vs, err
 }
@@ -579,26 +628,36 @@ func (s *Shell) Environ() []string {
 	return s.locals.Environ()
 }
 
-func sameFile(in, out interface{}) error {
-	fin, ok := in.(*os.File)
-	if !ok {
-		return nil
-	}
-	fout, ok := out.(*os.File)
-	if !ok {
-		return nil
-	}
-	var err error
-	if fin.Name() == fout.Name() {
-		err = fmt.Errorf("%s: already open for reading", fin.Name())
-	}
-	return err
+func (s *Shell) CopyAllVariables() bool {
+	return s.options&NoLocalVariables == 0
 }
 
-func closeFile(c interface{}) {
-	if c, ok := c.(io.Closer); ok {
-		c.Close()
-	}
+func (s *Shell) AllowOverwritingFiles() bool {
+	return s.options&NoOverwriteFiles == 0
+}
+
+func (s *Shell) AllowFileExpansion() bool {
+	return s.options&NoFileExpansion == 0
+}
+
+func (s *Shell) AllowBraceExpansion() bool {
+	return s.options&NoBraceExpansion == 0
+}
+
+func (s *Shell) AllowUndefinedVariables() bool {
+	return s.options&AllowUndefinedVariables == 0
+}
+
+func (s *Shell) ExitOnError() bool {
+	return s.options&ExitOnError != 0
+}
+
+func (s *Shell) NullGlob() bool {
+	return s.options&NullGlob != 0
+}
+
+func (s *Shell) EmptyGlob() bool {
+	return s.options&EmptyGlob != 0
 }
 
 type shellWriter struct {

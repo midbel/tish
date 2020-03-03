@@ -2,6 +2,7 @@ package tish
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -245,4 +246,26 @@ func (f *Filesystem) cwd() string {
 		return f.root
 	}
 	return f.dirs[n-1]
+}
+
+func sameFile(in, out interface{}) error {
+	fin, ok := in.(*os.File)
+	if !ok {
+		return nil
+	}
+	fout, ok := out.(*os.File)
+	if !ok {
+		return nil
+	}
+	var err error
+	if fin.Name() == fout.Name() {
+		err = fmt.Errorf("%s: already open for reading", fin.Name())
+	}
+	return err
+}
+
+func closeFile(c interface{}) {
+	if c, ok := c.(io.Closer); ok {
+		c.Close()
+	}
 }

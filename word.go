@@ -85,8 +85,9 @@ func (p Pipe) String() string {
 }
 
 type List struct {
-	words []Word
-	kind  Kind
+	words  []Word
+	kind   Kind
+	quoted bool
 }
 
 func (i List) Expand(e Environment) ([]string, error) {
