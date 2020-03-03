@@ -38,16 +38,6 @@ func testParseSubshell(t *testing.T) {
 			),
 		},
 		{
-			Input: `cd dir; echo $PWD`,
-			Word: makeList(kindSeq,
-				makeList(kindSimple, Literal("cd"), Literal("dir")),
-				makeList(kindSimple,
-					Literal("echo"),
-					Variable{ident: "PWD", quoted: false, apply: Identity()},
-				),
-			),
-		},
-		{
 			Input: "(cd dir; echo $PWD)\necho $PWD",
 			Word: makeList(kindSeq,
 				makeList(kindShell,
@@ -62,6 +52,37 @@ func testParseSubshell(t *testing.T) {
 				makeList(kindSimple,
 					Literal("echo"),
 					Variable{ident: "PWD", quoted: false, apply: Identity()},
+				),
+			),
+		},
+		{
+			Input: `echo foo; (cd dir && echo $PWD); echo bar`,
+			Word: makeList(kindSeq,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				makeList(kindShell,
+					makeList(kindAnd,
+						makeList(kindSimple, Literal("cd"), Literal("dir")),
+						makeList(kindSimple,
+							Literal("echo"),
+							Variable{ident: "PWD", quoted: false, apply: Identity()},
+						),
+					),
+				),
+				makeList(kindSimple, Literal("echo"), Literal("bar")),
+			),
+		},
+		{
+			Input: `(cd dir; (echo $PWD); cd ..)`,
+			Word: makeList(kindShell,
+				makeList(kindSeq,
+					makeList(kindSimple, Literal("cd"), Literal("dir")),
+					makeList(kindShell,
+						makeList(kindSimple,
+							Literal("echo"),
+							Variable{ident: "PWD", quoted: false, apply: Identity()},
+						),
+					),
+					makeList(kindSimple, Literal("cd"), Literal("..")),
 				),
 			),
 		},
@@ -873,18 +894,9 @@ func makeExpr(e Evaluator) Word {
 }
 
 func makeList(kind Kind, ws ...Word) Word {
-	// if kind == kindPipe || kind == kindPipeBoth {
-	// 	i := List{kind: kind, words: ws}
-	// 	return Pipe{
-	// 		kind: kind,
-	// 		Word: i.asWord(),
-	// 	}
-	// }
-	if len(ws) == 1 && !(kind == kindSub || kind == kindExpr) {
-		return ws[0]
-	}
-	return List{
+	w := List{
 		words: ws,
 		kind:  kind,
 	}
+	return w.asWord()
 }

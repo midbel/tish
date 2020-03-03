@@ -132,10 +132,16 @@ func (i List) Equal(w Word) bool {
 }
 
 func (i List) asWord() Word {
-	if i.kind == kindSub || i.kind == kindExpr || len(i.words) != 1 {
-		return i
+	if len(i.words) == 1 {
+		switch i.kind {
+		case kindSub:
+		case kindExpr:
+		case kindShell:
+		default:
+			return i.words[0].asWord()
+		}
 	}
-	return i.words[0].asWord()
+	return i
 }
 
 const (

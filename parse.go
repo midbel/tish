@@ -59,26 +59,17 @@ func (p *parser) parseSequence(delimiter rune) (Word, error) {
 			continue
 		}
 		if p.curr.Type == tokBeginList {
-			p.next()
-			w, err := p.parseSequence(tokEndList)
+			w, err := p.parseSubshell()
 			if err != nil {
 				return nil, err
 			}
-			w = List{
-				kind:  kindShell,
-				words: []Word{w},
-			}
 			ws.words = append(ws.words, w)
-			if p.curr.Type == semicolon {
-				p.next()
-			}
 			continue
 		}
 		w, err := p.parseCommand()
 		if err != nil {
 			return nil, err
 		}
-		ws.words = append(ws.words, w)
 		switch p.curr.Type {
 		case delimiter:
 		case tokOr, tokAnd:
@@ -90,9 +81,34 @@ func (p *parser) parseSequence(delimiter rune) (Word, error) {
 		if err != nil {
 			return nil, err
 		}
-		p.next()
+		ws.words = append(ws.words, w)
+		if p.curr.Type != delimiter {
+			p.next()
+		}
 	}
 	return ws.asWord(), nil
+}
+
+func (p *parser) parseSubshell() (Word, error) {
+	p.next()
+
+	w, err := p.parseSequence(tokEndList)
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type != tokEndList {
+		return nil, fmt.Errorf("subshell(%s): unexpected token %s", p.curr.Position, p.curr)
+	}
+	p.next()
+
+	w = List{
+		kind:  kindShell,
+		words: []Word{w},
+	}
+	if p.curr.Type == semicolon {
+		p.next()
+	}
+	return w, nil
 }
 
 func (p *parser) parseCommand() (Word, error) {
