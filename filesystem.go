@@ -3,13 +3,13 @@ package tish
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
 const MaxHistSize = 500
 
-const separator = string(filepath.Separator)
+const separator = "/" //string(path.Separator)
 
 type Filesystem struct {
 	dirs []string
@@ -177,12 +177,13 @@ func (f *Filesystem) OpenFile(name string, flag int, perm os.FileMode) (*os.File
 }
 
 func (f *Filesystem) Copy() *Filesystem {
-	fs := f
+	fs := *f
 
 	fs.dirs = make([]string, len(f.dirs))
 	copy(fs.dirs, f.dirs)
+	fs.parent = nil
 
-	return fs
+	return &fs
 }
 
 func (f *Filesystem) LookPath(name string, paths []string) (string, error) {
@@ -193,7 +194,7 @@ func (f *Filesystem) LookPath(name string, paths []string) (string, error) {
 	}
 	var err error
 	for _, p := range paths {
-		n := filepath.Join(f.root, p, name)
+		n := path.Join(f.root, p, name)
 		if err = checkFile(n); err == nil {
 			name = n
 			break
@@ -206,11 +207,11 @@ func (f *Filesystem) chdir(dir string) error {
 	if dir != separator {
 		i, err := os.Stat(dir)
 		if err != nil {
-			return fmt.Errorf("%s: no such file or directory", filepath.Base(dir))
+			return fmt.Errorf("%s: no such file or directory", path.Base(dir))
 		}
 
 		if !i.IsDir() {
-			return fmt.Errorf("%s: not a directory", filepath.Base(dir))
+			return fmt.Errorf("%s: not a directory", path.Base(dir))
 		}
 	}
 
@@ -220,19 +221,19 @@ func (f *Filesystem) chdir(dir string) error {
 
 func (f *Filesystem) normalize(file string) (string, error) {
 	base := f.cwd()
-	if filepath.IsAbs(file) {
+	if path.IsAbs(file) {
 		base = f.root
 	}
 	for _, d := range strings.Split(file, separator) {
 		switch d {
 		case "..":
-			base, _ = filepath.Split(base)
+			base, _ = path.Split(base)
 			if len(base) < len(f.root) {
 				return "", fmt.Errorf("%s: no such file or directory", file)
 			}
 		case ".", "":
 		default:
-			base = filepath.Join(base, d)
+			base = path.Join(base, d)
 		}
 	}
 	return base, nil

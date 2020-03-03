@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -20,7 +20,7 @@ const About = ""
 
 func init() {
 	home, _ := os.UserHomeDir()
-	DefaultProfile = filepath.Join(home, ".tishrc")
+	DefaultProfile = path.Join(home, ".tishrc")
 }
 
 func Run() error {

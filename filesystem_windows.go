@@ -2,7 +2,7 @@ package tish
 
 import (
 	"os"
-	"path/filepath"
+	"path"
 )
 
 var cmdexts = []string{".exe", ".bat", ".cmd"}
@@ -15,7 +15,7 @@ func checkFile(file string) error {
 	if !i.Mode().IsRegular() {
 		return os.ErrPermission
 	}
-	for i, e := 0, filepath.Ext(file); i < len(cmdexts); i++ {
+	for i, e := 0, path.Ext(file); i < len(cmdexts); i++ {
 		if e == cmdexts[i] {
 			return nil
 		}

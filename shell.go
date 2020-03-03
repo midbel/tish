@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"path"
 	"plugin"
 	"runtime"
 	"strconv"
@@ -253,7 +253,10 @@ func (s *Shell) executeSubstitution(ws []Word) error {
 }
 
 func (s *Shell) executeShell(w Word, in io.Reader, out, err io.Writer) (ErrCode, error) {
-	sh := NewShell(s.Filesystem.Copy(), in, out, err)
+	var (
+		fs = s.Filesystem.Copy()
+		sh = NewShell(fs, in, out, err)
+	)
 	sh.locals = s.locals.Copy()
 	sh.globals = sh.locals.Unwrap()
 	sh.level = s.level + 1
@@ -482,7 +485,7 @@ func (s *Shell) Exit(n ErrCode) {
 
 func (s *Shell) Extend(files []string, replace bool) error {
 	for _, f := range files {
-		p, err := plugin.Open(filepath.Join(s.cwd(), f))
+		p, err := plugin.Open(path.Join(s.cwd(), f))
 		if err != nil {
 			return err
 		}
