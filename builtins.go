@@ -307,15 +307,53 @@ func init() {
 		"set": {
 			Usage: "set",
 			Short: "set specific shell option(s)",
-			Exec:  nil,
+			Exec:  SetOption,
 		},
 		"unset": {
 			Usage: "unset",
 			Short: "unset specific shell option(s)",
-			Exec:  nil,
+			Exec:  UnsetOption,
 		},
 		// "time":    {},
 	}
+}
+
+func SetOption(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	return ExitOk
+}
+
+func UnsetOption(b Builtin) ErrCode {
+	var (
+		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
+		help = set.Bool("h", false, "show help message and exit")
+	)
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
+	if err := set.Parse(b.Args); err != nil {
+		fmt.Fprintln(b.Stderr, err)
+		return ExitBadUsage
+	}
+	if *help {
+		set.Usage()
+		return ExitHelp
+	}
+	return ExitOk
 }
 
 func Source(b Builtin) ErrCode {
