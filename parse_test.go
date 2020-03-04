@@ -892,7 +892,7 @@ func makeEval(op rune, left, right Evaluator) Evaluator {
 }
 
 func makeExpr(e Evaluator) Word {
-	return makeList(kindExpr, Expr{expr: e})
+	return makeList(kindExpr|kindQuoted, Expr{expr: e})
 }
 
 func makeList(kind Kind, ws ...Word) Word {

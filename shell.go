@@ -19,7 +19,7 @@ import (
 
 var (
 	ErrFailed = errors.New("process terminated with failure")
-	ErrFatal  = errors.New("fatal")
+	ErrExit   = errors.New("exit")
 )
 
 const MaxShellDepth = 100
@@ -63,7 +63,7 @@ const (
 	NoLocalVariables
 	AllowUndefinedVariables
 	NullGlob
-	EmptyGlob
+	NoCaseGlob
 )
 
 const DefaultOptions = NoLocalVariables | AllowUndefinedVariables
@@ -167,7 +167,7 @@ func (s *Shell) executeSequence(ws []Word) error {
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
-		if errors.Is(err, ErrFatal) {
+		if errors.Is(err, ErrExit) {
 			return err
 		}
 	}
@@ -178,7 +178,7 @@ func (s *Shell) executeOr(ws []Word) error {
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
-		if errors.Is(err, ErrFatal) {
+		if errors.Is(err, ErrExit) {
 			return err
 		}
 		if err == nil && s.proc.exit.Success() {
@@ -192,7 +192,7 @@ func (s *Shell) executeAnd(ws []Word) error {
 	var err error
 	for _, w := range ws {
 		err = s.execute(w)
-		if errors.Is(err, ErrFatal) {
+		if errors.Is(err, ErrExit) {
 			return err
 		}
 		if err != nil || s.proc.exit.Failure() {
@@ -240,7 +240,7 @@ func (s *Shell) executePipeline(ws []Word) error {
 	})
 	errw := grp.Wait()
 	if s.proc.exit.Failure() && s.ExitOnError() {
-		return ErrFatal
+		return ErrExit
 	}
 	return errw
 }
@@ -258,7 +258,7 @@ func (s *Shell) executeSimple(ws []Word) error {
 		s.proc.pid = p.Pid()
 	}
 	if s.proc.exit.Failure() && s.ExitOnError() {
-		return ErrFatal
+		return ErrExit
 	}
 	return nil
 }
@@ -288,7 +288,7 @@ func (s *Shell) executeSubstitution(ws []Word) error {
 		s.proc.pid = p.Pid()
 	}
 	if s.proc.exit.Failure() && s.ExitOnError() {
-		return ErrFatal
+		return ErrExit
 	}
 	return nil
 }
@@ -472,10 +472,22 @@ func (s *Shell) expandFilenames(args []string) []string {
 	if !s.AllowFileExpansion() {
 		return args
 	}
-	// for _, a := range args {
-	//
-	// }
-	return args
+	var as []string
+	for _, a := range args {
+		fs, err := s.Filesystem.Expand(a, s.NoCaseGlob())
+		if err != nil {
+			return nil
+		}
+		if len(fs) == 0 {
+			if !s.NullGlob() {
+				fs = append(fs, a)
+			} else {
+				continue
+			}
+		}
+		as = append(as, fs...)
+	}
+	return as
 }
 
 func (s *Shell) RegisterAlias(ident, alias string) error {
@@ -676,8 +688,8 @@ func (s *Shell) NullGlob() bool {
 	return s.options&NullGlob != 0
 }
 
-func (s *Shell) EmptyGlob() bool {
-	return s.options&EmptyGlob != 0
+func (s *Shell) NoCaseGlob() bool {
+	return s.options&NoCaseGlob == 0
 }
 
 type shellWriter struct {

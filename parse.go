@@ -391,7 +391,7 @@ func (p *parser) parseArithmetic() (Word, error) {
 		return nil, err
 	}
 	ws := List{
-		kind:  kindExpr,
+		kind:  kindExpr | kindQuoted,
 		words: []Word{Expr{expr: e}},
 	}
 	p.next()

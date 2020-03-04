@@ -147,6 +147,51 @@ func (f *Filesystem) PopDir(step int64) {
 	f.dirs = f.dirs[:int(step)]
 }
 
+func (f *Filesystem) Expand(file string, nocase bool) ([]string, error) {
+	if !hasMeta(file) {
+		return []string{file}, nil
+	}
+	base := f.cwd()
+	if path.IsAbs(file) {
+		base = f.root
+	}
+	return f.findFiles(base, strings.Split(file, separator))
+}
+
+func (f *Filesystem) findFiles(base string, parts []string) ([]string, error) {
+	if len(parts) == 0 {
+		return nil, nil
+	}
+	r, err := f.Open(base)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	is, err := r.Readdir(0)
+	if err != nil {
+		return nil, err
+	}
+	var fs []string
+	for _, i := range is {
+		if !Match(parts[0], i.Name()) {
+			continue
+		}
+		file := path.Join(base, i.Name())
+		if i.IsDir() {
+			xs, err := f.findFiles(file, parts[1:])
+			if err != nil {
+				return nil, err
+			}
+			fs = append(fs, xs...)
+		} else {
+			if len(parts) == 1 {
+				fs = append(fs, file)
+			}
+		}
+	}
+	return fs, nil
+}
+
 func (f *Filesystem) Open(name string) (*os.File, error) {
 	file, err := f.normalize(name)
 	if err != nil {
