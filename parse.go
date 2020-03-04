@@ -346,6 +346,7 @@ func (p *parser) parsePostBraces(w Word) (Word, error) {
 }
 
 func (p *parser) parseSubstitution() (Word, error) {
+	quoted := p.curr.Quoted
 	p.next()
 
 	ws := List{kind: kindSeq}
@@ -375,6 +376,9 @@ func (p *parser) parseSubstitution() (Word, error) {
 	w := List{
 		words: []Word{ws.asWord()},
 		kind:  kindSub,
+	}
+	if quoted {
+		w.kind |= kindQuoted
 	}
 	return w, nil
 }

@@ -57,6 +57,7 @@ type Option uint64
 const (
 	NoFileExpansion Option = 1 << (iota + 1)
 	NoBraceExpansion
+	NoWordSplitting
 	NoOverwriteFiles
 	ExitOnError
 	NoLocalVariables
@@ -367,7 +368,11 @@ func (s *Shell) expandSubstitution(ws []Word) ([]string, error) {
 		code ErrCode
 	)
 	if code, err = s.executeShell(word, s.stdin, &out, s.stderr); err == nil && code.Success() {
-		args = Words(&out)
+		if s.AllowWordSplitting() {
+			args = Words(&out)
+		} else {
+			args = append(args, out.String())
+		}
 	}
 	if code.Failure() {
 		err = ErrFailed
@@ -641,6 +646,10 @@ func (s *Shell) LocalEnviron() []string {
 
 func (s *Shell) CopyAllVariables() bool {
 	return s.options&NoLocalVariables == 0
+}
+
+func (s *Shell) AllowWordSplitting() bool {
+	return s.options&NoWordSplitting == 0
 }
 
 func (s *Shell) AllowOverwritingFiles() bool {

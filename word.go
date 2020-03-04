@@ -7,10 +7,11 @@ import (
 	"strings"
 )
 
-type Kind int
+type Kind uint32
 
 const (
-	kindSimple Kind = iota
+	kindQuoted Kind = 1 << (iota + 1)
+	kindSimple
 	kindSeq
 	kindPipe
 	kindPipeBoth
@@ -24,7 +25,7 @@ const (
 )
 
 func (k Kind) String() string {
-	switch k {
+	switch k &^ kindQuoted {
 	case kindShell:
 		return "subshell"
 	case kindWord:
@@ -50,6 +51,10 @@ func (k Kind) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+func (k Kind) IsQuoted() bool {
+	return k&kindQuoted != 0
 }
 
 type Word interface {
@@ -85,9 +90,8 @@ func (p Pipe) String() string {
 }
 
 type List struct {
-	words  []Word
-	kind   Kind
-	quoted bool
+	words []Word
+	kind  Kind
 }
 
 func (i List) Expand(e Environment) ([]string, error) {
@@ -134,7 +138,7 @@ func (i List) Equal(w Word) bool {
 
 func (i List) asWord() Word {
 	if len(i.words) == 1 {
-		switch i.kind {
+		switch i.kind &^ kindQuoted {
 		case kindSub:
 		case kindExpr:
 		case kindShell:
