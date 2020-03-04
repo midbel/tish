@@ -19,6 +19,8 @@ type ShellCase struct {
 }
 
 func TestShellScript(t *testing.T) {
+	t.Cleanup(cleanup)
+
 	r, errp := os.Open("testdata/script.sh")
 	if errp != nil {
 		t.Fatalf("fail to open script.sh: %s", errp)
@@ -49,48 +51,8 @@ func TestShellScript(t *testing.T) {
 	}
 }
 
-func compareFile(t *testing.T, file string, got []byte) error {
-	t.Helper()
-
-	r, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	var (
-		want bytes.Buffer
-		scan = bufio.NewScanner(r)
-	)
-	for scan.Scan() {
-		line := scan.Text()
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if ix := strings.Index(line, "#"); ix > 0 {
-			line = strings.TrimSpace(line[:ix])
-			// line = line[:ix]
-		}
-		want.WriteString(line + "\n")
-	}
-	if err := scan.Err(); err != nil {
-		return err
-	}
-	if !bytes.Equal(want.Bytes(), got) {
-		t.Logf("want:\n%s", want.String())
-		t.Logf("got:\n%s", string(got))
-		err = fmt.Errorf("%s: output mismatched!", file)
-	}
-	return err
-}
-
 func TestShellExecute(t *testing.T) {
-	t.Cleanup(func() {
-		filepath.Walk("testdata", func(p string, i os.FileInfo, err error) error {
-			if i.Mode().IsRegular() && filepath.Ext(p) == ".txt~" {
-				os.Remove(p)
-			}
-			return err
-		})
-	})
+	t.Cleanup(cleanup)
 	data := []ShellCase{
 		{
 			Input: `echo foo bar`,
@@ -224,4 +186,46 @@ func testShellCase(t *testing.T, fs *Filesystem, data []ShellCase) {
 			t.Errorf("%s: stderr mismatched! want %s, got %s", d.Input, d.Err, got)
 		}
 	}
+}
+
+func compareFile(t *testing.T, file string, got []byte) error {
+	t.Helper()
+
+	r, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	var (
+		want bytes.Buffer
+		scan = bufio.NewScanner(r)
+	)
+	for scan.Scan() {
+		line := scan.Text()
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if ix := strings.Index(line, "#"); ix > 0 {
+			line = strings.TrimSpace(line[:ix])
+			// line = line[:ix]
+		}
+		want.WriteString(line + "\n")
+	}
+	if err := scan.Err(); err != nil {
+		return err
+	}
+	if !bytes.Equal(want.Bytes(), got) {
+		t.Logf("want:\n%s", want.String())
+		t.Logf("got:\n%s", string(got))
+		err = fmt.Errorf("%s: output mismatched!", file)
+	}
+	return err
+}
+
+func cleanup() {
+	filepath.Walk("testdata", func(p string, i os.FileInfo, err error) error {
+		if i.Mode().IsRegular() && filepath.Ext(p) == ".txt~" {
+			os.Remove(p)
+		}
+		return err
+	})
 }
