@@ -23,7 +23,7 @@ const (
 	lcurly     = '{'
 	rcurly     = '}'
 	lsquare    = '['
-	rqsquare   = ']'
+	rsquare    = ']'
 	underscore = '_'
 	pound      = '#'
 	plus       = '+'
@@ -94,6 +94,7 @@ const (
 	tokLowerAll
 	tokUpper
 	tokUpperAll
+	tokNot
 	tokEqual
 	tokNotEqual
 	tokGreat

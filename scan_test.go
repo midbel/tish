@@ -106,7 +106,7 @@ func testScanConditionals(t *testing.T) {
 			},
 		},
 		{
-			Input: `if [[-x echo]]; then ok; fi`,
+			Input: `if [[ -x echo ]]; then ok; fi`,
 			Words: []Token{
 				{Literal: "if", Type: tokKeyword},
 				{Type: tokBeginTest},
@@ -117,10 +117,32 @@ func testScanConditionals(t *testing.T) {
 				{Literal: "then", Type: tokKeyword},
 				{Literal: "ok", Type: tokWord},
 				{Type: semicolon},
+				{Literal: "fi", Type: tokKeyword},
 			},
 		},
 		{
-			Input: `if [[echo==$VAR]]; then ok; fi`,
+			Input: `if [[ -f echo ]] && [[ ! -x echo ]]; then ok; fi`,
+			Words: []Token{
+				{Literal: "if", Type: tokKeyword},
+				{Type: tokBeginTest},
+				{Literal: "f", Type: tokOp},
+				{Literal: "echo", Type: tokWord},
+				{Type: tokEndTest},
+				{Type: tokAnd},
+				{Type: tokBeginTest},
+				{Type: tokNot},
+				{Literal: "x", Type: tokOp},
+				{Literal: "echo", Type: tokWord},
+				{Type: tokEndTest},
+				{Type: semicolon},
+				{Literal: "then", Type: tokKeyword},
+				{Literal: "ok", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "fi", Type: tokKeyword},
+			},
+		},
+		{
+			Input: `if [[ echo==$VAR ]]; then ok; fi`,
 			Words: []Token{
 				{Literal: "if", Type: tokKeyword},
 				{Type: tokBeginTest},
@@ -132,6 +154,7 @@ func testScanConditionals(t *testing.T) {
 				{Literal: "then", Type: tokKeyword},
 				{Literal: "ok", Type: tokWord},
 				{Type: semicolon},
+				{Literal: "fi", Type: tokKeyword},
 			},
 		},
 	}

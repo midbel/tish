@@ -193,7 +193,12 @@ func scanDefault(s *Scanner) ScanFunc {
 			r == dollar || r == lcurly || r == equal || r == newline
 	}
 	for s.char != tokEOF {
-		scanRedirections(s)
+		if ok := scanRedirections(s); ok {
+			continue
+		}
+		if ok := scanTest(s); ok {
+			continue
+		}
 		switch s.char {
 		case newline:
 			s.emitTypeOf(semicolon)
@@ -256,76 +261,182 @@ func scanDefault(s *Scanner) ScanFunc {
 	return scanBlanks
 }
 
-func scanTest(s *Scanner) {
-
-}
-
-func scanRedirections(s *Scanner) {
-	for {
-		var (
-			peek = s.peekRune()
-			pos  = s.pos
-			tok  rune
-		)
-		switch s.char {
-		case langle:
-			tok = tokRedirectStdin
-		case rangle:
-			switch peek {
-			case ampersand:
-				s.readRune()
-				s.readRune()
-				if s.char == '2' {
-					tok = tokRedirectOutToErr
-				} else {
-					s.restore(pos)
-					return
-				}
-			case rangle:
-				s.readRune()
-				tok = tokAppendStdout
-			default:
-				tok = tokRedirectStdout
-			}
-		case ampersand:
-			if peek != rangle {
-				return
-			}
-			s.readRune()
-			if peek = s.peekRune(); peek == rangle {
-				s.readRune()
-				tok = tokAppendBoth
-			} else {
-				tok = tokRedirectBoth
-			}
-		case '2':
-			if peek != rangle {
-				return
-			}
-			s.readRune()
-			switch peek = s.peekRune(); peek {
-			case ampersand:
-				s.readRune()
-				s.readRune()
-				if s.char == '1' {
-					tok = tokRedirectErrToOut
-				} else {
-					s.restore(pos)
-				}
-			case rangle:
-				s.readRune()
-				tok = tokAppendStderr
-			default:
-				tok = tokRedirectStderr
-			}
-		default:
-			return
-		}
+func scanTest(s *Scanner) bool {
+	pos := s.pos
+	if s.char != lsquare {
+		return false
+	}
+	s.readRune()
+	if s.char != lsquare {
+		s.restore(pos)
+		return false
+	}
+	s.readRune()
+	if s.char != space {
+		s.restore(pos)
+		return false
+	}
+	s.skip(isBlank)
+	s.emitTypeOf(tokBeginTest)
+	if s.char == bang {
 		s.readRune()
-		s.emitTypeOf(tok)
-
+		s.emitTypeOf(tokNot)
 		s.skip(isBlank)
 	}
+	if s.char == minus {
+		// <operator> word
+		s.readRune()
+		s.emit(string(s.char), tokOp)
+		s.readRune()
+		s.skip(isBlank)
+		if s.char == dollar {
+			s.readRune()
+			scanVariable(s)
+		} else {
+			scanWord(s, isBlank)
+		}
+	} else {
+		if s.char == dollar {
+			s.readRune()
+			scanVariable(s)
+		} else {
+			scanWord(s, func(r rune) bool {
+				return isBlank(r) || r == equal || r == bang || r == langle || r == rangle
+			})
+		}
+		switch s.char {
+		case equal:
+			s.readRune()
+			if s.char == equal {
+				s.emitTypeOf(tokEqual)
+			} else {
+				s.emit(fmt.Sprintf("unexpected char in test expression %c", s.char), tokError)
+				return false
+			}
+			s.readRune()
+		case bang:
+			s.readRune()
+			if s.char == equal {
+				s.emitTypeOf(tokNotEqual)
+			} else {
+				s.emit(fmt.Sprintf("unexpected char in test expression %c", s.char), tokError)
+				return false
+			}
+			s.readRune()
+		case langle:
+			s.readRune()
+			if s.char == equal {
+				s.readRune()
+				s.emitTypeOf(tokLessEq)
+			} else {
+				s.emitTypeOf(tokLess)
+			}
+		case rangle:
+			s.readRune()
+			if s.char == equal {
+				s.readRune()
+				s.emitTypeOf(tokGreatEq)
+			} else {
+				s.emitTypeOf(tokGreat)
+			}
+		default:
+			s.emit(fmt.Sprintf("unexpected char in test expression %c", s.char), tokError)
+			return false
+		}
+		if s.char == dollar {
+			s.readRune()
+			scanVariable(s)
+		} else {
+			scanWord(s, isBlank)
+		}
+		// word <operator> word
+	}
+	s.skip(isBlank)
+	s.unreadRune()
+	if !isBlank(s.char) {
+		s.emit("unterminated test expression", tokError)
+	}
+
+	s.readRune()
+	if s.char != rsquare {
+		s.emit("unterminated test expression", tokError)
+		return false
+	}
+	s.readRune()
+	if s.char != rsquare {
+		s.emit("unterminated test expression", tokError)
+		return false
+	}
+	s.emitTypeOf(tokEndTest)
+	s.readRune()
+	return true
+}
+
+func scanRedirections(s *Scanner) bool {
+	var (
+		peek = s.peekRune()
+		pos  = s.pos
+		tok  rune
+	)
+	switch s.char {
+	case langle:
+		tok = tokRedirectStdin
+	case rangle:
+		switch peek {
+		case ampersand:
+			s.readRune()
+			s.readRune()
+			if s.char == '2' {
+				tok = tokRedirectOutToErr
+			} else {
+				s.restore(pos)
+				return false
+			}
+		case rangle:
+			s.readRune()
+			tok = tokAppendStdout
+		default:
+			tok = tokRedirectStdout
+		}
+	case ampersand:
+		if peek != rangle {
+			return false
+		}
+		s.readRune()
+		if peek = s.peekRune(); peek == rangle {
+			s.readRune()
+			tok = tokAppendBoth
+		} else {
+			tok = tokRedirectBoth
+		}
+	case '2':
+		if peek != rangle {
+			return false
+		}
+		s.readRune()
+		switch peek = s.peekRune(); peek {
+		case ampersand:
+			s.readRune()
+			s.readRune()
+			if s.char == '1' {
+				tok = tokRedirectErrToOut
+			} else {
+				s.restore(pos)
+			}
+		case rangle:
+			s.readRune()
+			tok = tokAppendStderr
+		default:
+			tok = tokRedirectStderr
+		}
+	default:
+		return false
+	}
+	s.readRune()
+	s.emitTypeOf(tok)
+
+	s.skip(isBlank)
+	return true
 }
 
 func scanSubshell(s *Scanner) ScanFunc {
