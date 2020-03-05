@@ -17,7 +17,7 @@ func TestMatch(t *testing.T) {
 		{Pattern: "foo*", Input: "foobar", Match: true},
 		{Pattern: "*bar", Input: "foobar", Match: true},
 		{Pattern: "f*r", Input: "foobar", Match: true},
-    {Pattern: "f*bar", Input: "foostar", Match: false},
+		{Pattern: "f*bar", Input: "foostar", Match: false},
 		{Pattern: "f[a-z][a-z]bar", Input: "foobar", Match: true},
 		{Pattern: "f[!0-9][^0-9]bar", Input: "foobar", Match: true},
 		{Pattern: "f[oO][oO]bar", Input: "foobar", Match: true},

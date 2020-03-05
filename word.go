@@ -53,7 +53,7 @@ func (k Kind) String() string {
 }
 
 func (k Kind) Kind() Kind {
-	return k&^kindQuoted
+	return k &^ kindQuoted
 }
 
 func (k Kind) IsQuoted() bool {

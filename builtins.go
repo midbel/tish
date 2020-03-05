@@ -319,12 +319,12 @@ func init() {
 }
 
 func SetOption(b Builtin) ErrCode {
-	options := []struct{
+	options := []struct {
 		Label string
-		Short  string
-		Flag bool
+		Short string
+		Flag  bool
 		Option
-	} {
+	}{
 		{Label: "f", Short: "no file expansion", Option: NoFileExpansion},
 		{Label: "b", Short: "no brace expansion", Option: NoBraceExpansion},
 		{Label: "w", Short: "no word splitting", Option: NoWordSplitting},
@@ -364,12 +364,12 @@ func SetOption(b Builtin) ErrCode {
 }
 
 func UnsetOption(b Builtin) ErrCode {
-	options := []struct{
+	options := []struct {
 		Label string
-		Short  string
-		Flag bool
+		Short string
+		Flag  bool
 		Option
-	} {
+	}{
 		{Label: "f", Short: "no file expansion", Option: NoFileExpansion},
 		{Label: "b", Short: "no brace expansion", Option: NoBraceExpansion},
 		{Label: "w", Short: "no word splitting", Option: NoWordSplitting},
