@@ -40,8 +40,17 @@ const (
 	arobase    = '@'
 )
 
+var keywords = map[string]rune{
+	"if": tokKeyword,
+	"else": tokKeyword,
+	"elif": tokKeyword,
+	"fi": tokKeyword,
+	"for": tokKeyword,
+}
+
 const (
 	tokEOF rune = -(iota + 1)
+	tokKeyword
 	tokBlank
 	tokQuoted
 	tokWord
@@ -120,6 +129,10 @@ type Token struct {
 	Position
 }
 
+func (t Token) isKeyword() bool {
+	return t.Type == tokKeyword
+}
+
 func (t Token) Equal(other Token) bool {
 	if t.Type == tokBlank && other.Type == tokBlank {
 		return true
@@ -139,6 +152,8 @@ func (t Token) String() string {
 		return "eof"
 	case tokError:
 		str = "error"
+	case tokKeyword:
+		str = "keyword"
 	case tokWord:
 		str = "word"
 	case tokVar:

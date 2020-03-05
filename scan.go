@@ -81,6 +81,9 @@ func (s *Scanner) emit(str string, typof rune) {
 		Type:    typof,
 		Quoted:  s.isQuoted(),
 	}
+	if _, ok := keywords[tok.Literal] && !tok.Quoted {
+		tok.Type = tokKeyword
+	}
 	s.queue <- tok
 }
 
