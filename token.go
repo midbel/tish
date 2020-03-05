@@ -35,6 +35,9 @@ const (
 	langle     = '<'
 	rangle     = '>'
 	caret      = '^'
+	question   = '?'
+	bang       = '!'
+	arobase    = '@'
 )
 
 const (
@@ -101,25 +104,41 @@ var (
 	blank = Token{Type: tokBlank}
 )
 
+type Position struct {
+	Line   int
+	Column int
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("%d:%d", p.Line, p.Column)
+}
+
 type Token struct {
 	Literal string
 	Type    rune
 	Quoted  bool
+	Position
 }
 
 func (t Token) Equal(other Token) bool {
-	return t.Type == other.Type && t.Literal == other.Literal
+	if t.Type == tokBlank && other.Type == tokBlank {
+		return true
+	}
+	if t.Type == tokEOF && other.Type == tokEOF {
+		return true
+	}
+	return t.Type == other.Type && t.Literal == other.Literal && t.Quoted == other.Quoted
 }
 
 func (t Token) String() string {
 	var str string
 	switch t.Type {
-	case tokError:
-		return "<error>"
 	case tokBlank:
 		return "<blank>"
 	case tokEOF:
 		return "eof"
+	case tokError:
+		str = "error"
 	case tokWord:
 		str = "word"
 	case tokVar:
@@ -169,5 +188,5 @@ func (t Token) String() string {
 	default:
 		return fmt.Sprintf("unknown(%d)", t.Type)
 	}
-	return fmt.Sprintf("%s(%s)", str, t.Literal)
+	return fmt.Sprintf("%s(literal=%s, quoted=%t)", str, t.Literal, t.Quoted)
 }

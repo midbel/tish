@@ -19,14 +19,18 @@ type Scanner struct {
 	queue chan Token
 
 	quoted int
+
+	line   int
+	column int
+	seen   int
 }
 
-// func NewScanner(r io.Reader) *Scanner
 func NewScanner(r io.Reader) *Scanner {
 	str, _ := ioutil.ReadAll(r)
 	s := &Scanner{
-		buffer: str,
+		buffer: bytes.ReplaceAll(str, []byte("\r\n"), []byte("\n")),
 		queue:  make(chan Token),
+		line:   1,
 	}
 	go s.run()
 	return s
@@ -37,6 +41,10 @@ func (s *Scanner) Scan() (Token, error) {
 	tok, ok := <-s.queue
 	if !ok {
 		err, tok = io.EOF, eof
+	}
+	tok.Position = Position{
+		Line:   s.line,
+		Column: s.column,
 	}
 	if tok.Type == tokError && err == nil {
 		str := tok.Literal
@@ -77,7 +85,10 @@ func (s *Scanner) emit(str string, typof rune) {
 }
 
 func (s *Scanner) emitTypeOf(typof rune) {
-	s.queue <- Token{Type: typof}
+	s.queue <- Token{
+		Type:   typof,
+		Quoted: s.isQuoted(),
+	}
 }
 
 func (s *Scanner) run() {
@@ -115,11 +126,25 @@ func (s *Scanner) readRune() {
 		s.next = len(s.buffer)
 	}
 	s.char, s.pos, s.next = r, s.next, s.next+n
+
+	if s.char == newline {
+		s.line++
+		s.seen, s.column = s.column, 0
+	} else {
+		s.column++
+	}
 }
 
 func (s *Scanner) unreadRune() {
 	if s.next <= 0 || s.char == 0 {
 		return
+	}
+
+	if s.char == newline {
+		s.line--
+		s.column = s.seen
+	} else {
+		s.column--
 	}
 
 	s.next, s.pos = s.pos, s.pos-utf8.RuneLen(s.char)
@@ -198,12 +223,16 @@ func scanDefault(s *Scanner) ScanFunc {
 		case lcurly:
 			return scanBraces
 		case lparen:
-			return scanList
+			return scanSubshell
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)
 		case semicolon:
 			s.readRune()
+			s.skip(func(r rune) bool { return s.char == semicolon })
+			if s.char == newline {
+				s.skip(func(r rune) bool { return s.char == newline })
+			}
 			s.skip(isBlank)
 			s.emitTypeOf(semicolon)
 		case pipe:
@@ -291,13 +320,14 @@ func scanRedirections(s *Scanner) {
 	}
 }
 
-func scanList(s *Scanner) ScanFunc {
+func scanSubshell(s *Scanner) ScanFunc {
 	delim := func(r rune) bool {
 		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
 			r == dollar || r == lcurly || r == equal
 	}
 
 	s.readRune()
+	s.skip(func(r rune) bool { return isBlank(r) || r == newline })
 	s.emitTypeOf(tokBeginList)
 	for s.char != rparen {
 		switch s.char {
@@ -310,7 +340,7 @@ func scanList(s *Scanner) ScanFunc {
 		case space, tab:
 			scanBlanks(s)
 		case dollar:
-			scanDollar(s)
+			scanDollar(s)(s)
 		case squote:
 			scanQuotedStrong(s)
 		case dquote:
@@ -318,7 +348,7 @@ func scanList(s *Scanner) ScanFunc {
 		case lcurly:
 			scanBraces(s)
 		case lparen:
-			scanList(s)
+			scanSubshell(s)
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)
@@ -353,7 +383,7 @@ func scanBraces(s *Scanner) ScanFunc {
 	s.emitTypeOf(tokBeginBrace)
 	for s.char != rcurly {
 		switch {
-		case s.char == tokEOF:
+		case s.char == tokEOF || s.char == semicolon || s.char == newline:
 			s.emit("unterminated braces expression", tokError)
 			return nil
 		case s.char == space || s.char == tab:
@@ -370,9 +400,13 @@ func scanBraces(s *Scanner) ScanFunc {
 		}
 		s.readRune()
 	}
+	if s.char != rcurly {
+		s.emit("unterminated braces expansion", tokError)
+		return nil
+	}
 	s.readRune()
-
 	s.emitTypeOf(tokEndBrace)
+
 	if s.char == tokEOF {
 		s.emitTypeOf(s.char)
 		return nil
@@ -398,11 +432,14 @@ func scanComment(s *Scanner) ScanFunc {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-
+	if s.char == squote || s.char == newline {
+		s.readRune()
+	}
 	s.skip(func(r rune) bool { return isBlank(s.char) || s.char == newline })
-
 	s.emit(buf.String(), tokComment)
-	return nil
+	s.emitTypeOf(semicolon)
+	// return nil
+	return scanDefault
 }
 
 func scanDollar(s *Scanner) ScanFunc {
@@ -632,7 +669,7 @@ func scanSlice(s *Scanner) {
 
 func scanArithmetic(s *Scanner) ScanFunc {
 	s.emitTypeOf(tokBeginArith)
-
+	s.skip(func(r rune) bool { return isBlank(r) || r == newline })
 	for {
 		switch {
 		case s.char == tokEOF:
@@ -667,6 +704,7 @@ func scanArithmetic(s *Scanner) ScanFunc {
 		case s.char == lparen:
 			scanGroup(s)
 		case s.char == dollar:
+			s.readRune()
 			scanVariable(s)
 			continue
 		case s.char == space || s.char == tab:
@@ -692,6 +730,7 @@ func scanGroup(s *Scanner) {
 		case isOperator(s.char):
 			s.emitTypeOf(s.char)
 		case s.char == dollar:
+			s.readRune()
 			scanVariable(s)
 			continue
 		case s.char == lparen:
@@ -753,6 +792,7 @@ func scanSubstitution(s *Scanner) ScanFunc {
 		return isComment(r) || isBlank(r) || isQuote(r) || isControl(r) ||
 			r == dollar || r == lcurly || r == equal
 	}
+	s.skip(func(r rune) bool { return isBlank(r) || r == newline })
 	s.emitTypeOf(tokBeginSub)
 	for s.char != rparen {
 		switch s.char {
@@ -770,7 +810,7 @@ func scanSubstitution(s *Scanner) ScanFunc {
 		case lcurly:
 			scanBraces(s)
 		case lparen:
-			scanList(s)
+			scanSubshell(s)
 		case equal:
 			s.readRune()
 			s.emitTypeOf(equal)
@@ -835,6 +875,9 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 }
 
 func scanQuotedStrong(s *Scanner) {
+	s.enterQuote()
+	defer s.leaveQuote()
+
 	var buf bytes.Buffer
 	buf.WriteRune(squote)
 
@@ -860,8 +903,8 @@ func scanBlanks(s *Scanner) ScanFunc {
 	case pipe:
 	case langle:
 	case rangle:
+	case pound:
 	default:
-		// fmt.Printf("scanBlanks: default: %c - %c\n", s.char, s.peekRune())
 		if k := s.peekRune(); s.char == '2' && k == rangle {
 			break
 		}
@@ -871,8 +914,10 @@ func scanBlanks(s *Scanner) ScanFunc {
 }
 
 func scanVariable(s *Scanner) ScanFunc {
-	if s.char == dollar {
+	if isInternal(s.char) {
+		s.emit(string(s.char), tokVar)
 		s.readRune()
+		return scanDefault
 	}
 	if isDigit(s.char) {
 		s.emit(fmt.Sprintf("invalid char in variable name: %c", s.char), tokError)
@@ -945,5 +990,11 @@ func isAlpha(r rune) bool {
 }
 
 func isOperator(r rune) bool {
-	return r == plus || r == div || r == minus || r == mul || r == modulo || r == pipe || r == ampersand
+	return r == plus || r == div || r == minus || r == mul ||
+		r == modulo || r == pipe || r == ampersand ||
+		r == langle || r == rangle
+}
+
+func isInternal(r rune) bool {
+	return r == question || r == dollar || r == bang || r == pound || r == arobase
 }

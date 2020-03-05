@@ -8,7 +8,7 @@ import (
 )
 
 type Apply interface {
-	Apply(string, *Env) ([]string, error)
+	Apply(string, Environment) ([]string, error)
 	Equal(Apply) bool
 	fmt.Stringer
 }
@@ -25,8 +25,8 @@ func Substring(offset, length Word) Apply {
 	}
 }
 
-func (s substring) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (s substring) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
@@ -73,7 +73,7 @@ func (s substring) String() string {
 	return fmt.Sprintf("substring(%d, %d)", s.offset, s.length)
 }
 
-func (s substring) expandValues(e *Env) (int, int, error) {
+func (s substring) expandValues(e Environment) (int, int, error) {
 	var offset, length int
 
 	if off, ok := s.offset.(Number); !ok {
@@ -113,8 +113,8 @@ func Length() Apply {
 	return length{}
 }
 
-func (n length) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (n length) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
@@ -140,8 +140,8 @@ func TrimPrefix(w Word, longest bool) Apply {
 	return trimPrefix{pattern: w, longest: longest}
 }
 
-func (p trimPrefix) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (p trimPrefix) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
@@ -177,8 +177,8 @@ func TrimSuffix(w Word, longest bool) Apply {
 	return trimSuffix{pattern: w, longest: longest}
 }
 
-func (s trimSuffix) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (s trimSuffix) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
@@ -241,8 +241,8 @@ func ReplaceSuffix(src, dst Word) Apply {
 	}
 }
 
-func (r replace) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (r replace) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
@@ -284,7 +284,7 @@ func (r replace) String() string {
 	return fmt.Sprintf("replace(%s, %s)", r.src, r.dst)
 }
 
-func (r replace) expandValues(e *Env) (string, string, error) {
+func (r replace) expandValues(e Environment) (string, string, error) {
 	var src, dst string
 	vs, err := r.src.Expand(e)
 	if err == nil && len(vs) > 0 {
@@ -305,22 +305,23 @@ func Lower(all bool) Apply {
 	return lower{all}
 }
 
-func (o lower) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (o lower) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
-	str := vs[0]
-	if o.all {
-		str = strings.ToLower(str)
-	} else {
-		rs := []rune(str)
-		if unicode.IsUpper(rs[0]) {
-			rs[0] = unicode.SimpleFold(rs[0])
+	for i := 0; i < len(vs); i++ {
+		if o.all {
+			vs[i] = strings.ToLower(vs[i])
+		} else {
+			rs := []rune(vs[i])
+			if unicode.IsUpper(rs[0]) {
+				rs[0] = unicode.SimpleFold(rs[0])
+			}
+			vs[i] = string(rs)
 		}
-		str = string(rs)
 	}
-	return []string{str}, nil
+	return vs, nil
 }
 
 func (o lower) Equal(a Apply) bool {
@@ -340,22 +341,23 @@ func Upper(all bool) Apply {
 	return upper{all}
 }
 
-func (u upper) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (u upper) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil || len(vs) == 0 {
 		return vs, err
 	}
-	str := vs[0]
-	if u.all {
-		str = strings.ToUpper(str)
-	} else {
-		rs := []rune(str)
-		if unicode.IsLower(rs[0]) {
-			rs[0] = unicode.SimpleFold(rs[0])
+	for i := 0; i < len(vs); i++ {
+		if u.all {
+			vs[i] = strings.ToUpper(vs[i])
+		} else {
+			rs := []rune(vs[i])
+			if unicode.IsLower(rs[0]) {
+				rs[0] = unicode.SimpleFold(rs[0])
+			}
+			vs[i] = string(rs)
 		}
-		str = string(rs)
 	}
-	return []string{str}, nil
+	return vs, nil
 }
 
 func (u upper) Equal(a Apply) bool {
@@ -376,11 +378,11 @@ func SetIfUndef(str Word) Apply {
 	return setifundef{str}
 }
 
-func (s setifundef) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (s setifundef) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil {
 		vs, err = s.str.Expand(e)
-		e.Set(ident, vs)
+		e.Define(ident, vs)
 	}
 	return vs, err
 }
@@ -403,8 +405,8 @@ func GetIfUndef(str Word) Apply {
 	return getifundef{str}
 }
 
-func (g getifundef) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (g getifundef) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err != nil {
 		vs, err = g.str.Expand(e)
 	}
@@ -429,8 +431,8 @@ func GetIfDef(str Word) Apply {
 	return getifdef{str}
 }
 
-func (g getifdef) Apply(ident string, e *Env) ([]string, error) {
-	vs, err := e.Get(ident)
+func (g getifdef) Apply(ident string, e Environment) ([]string, error) {
+	vs, err := e.Resolve(ident)
 	if err == nil {
 		vs, err = g.str.Expand(e)
 	}
@@ -452,8 +454,8 @@ func Identity() Apply {
 	return identity{}
 }
 
-func (i identity) Apply(ident string, e *Env) ([]string, error) {
-	return e.Get(ident)
+func (i identity) Apply(ident string, e Environment) ([]string, error) {
+	return e.Resolve(ident)
 }
 
 func (_ identity) Equal(a Apply) bool {

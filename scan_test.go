@@ -11,24 +11,6 @@ type ScanCase struct {
 	Words []Token
 }
 
-func TestSplit(t *testing.T) {
-	str := `echo foo bar`
-	words := []string{"echo", "foo", "bar"}
-
-	vs, err := Split(str)
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if len(vs) != len(words) {
-		t.Fatalf("mismatched values! want %q, got %q", words, vs)
-	}
-	for i := 0; i < len(words); i++ {
-		if vs[i] != words[i] {
-			t.Errorf("word mismatch! want %q, got %q", words[i], vs[i])
-		}
-	}
-}
-
 func TestScannerQuoted(t *testing.T) {
 	str := `echo $VAR "$VAR"`
 	words := []Token{
@@ -715,16 +697,23 @@ echo bar # comment
 			`,
 			Words: []Token{
 				{Literal: "prolog", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "foo", Type: tokWord},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "bar", Type: tokWord},
-				{Literal: "epilog", Type: tokComment},
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
+				{Literal: "epilog", Type: tokComment},
+				{Type: semicolon},
+				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
@@ -742,9 +731,11 @@ echo bar
 				{Literal: "foo", Type: tokWord},
 				{Type: semicolon},
 				{Literal: "comment 1\ncomment 2\ncomment 3\n", Type: tokComment},
+				{Type: semicolon},
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "bar", Type: tokWord},
+				{Type: semicolon},
 			},
 		},
 	}
@@ -799,14 +790,15 @@ func testScanSimple(t *testing.T) {
 			Input: `echo #comment`,
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
-				blank,
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
 			Input: `#comment`,
 			Words: []Token{
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
@@ -831,7 +823,7 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foobar", Type: tokWord},
+				{Literal: "foobar", Type: tokWord, Quoted: true},
 			},
 		},
 		{
@@ -839,7 +831,7 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foo\"bar", Type: tokWord},
+				{Literal: "foo\"bar", Type: tokWord, Quoted: true},
 			},
 		},
 		{
@@ -847,7 +839,7 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foo\\bar", Type: tokWord},
+				{Literal: "foo\\bar", Type: tokWord, Quoted: true},
 			},
 		},
 		{
@@ -855,7 +847,7 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foobar", Type: tokWord},
+				{Literal: "foobar", Type: tokWord, Quoted: true},
 			},
 		},
 		{
@@ -863,9 +855,9 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "", Type: tokWord},
+				{Literal: "", Type: tokWord, Quoted: true},
 				blank,
-				{Literal: "", Type: tokWord},
+				{Literal: "", Type: tokWord, Quoted: true},
 			},
 		},
 		{
@@ -874,7 +866,7 @@ func testScanSimple(t *testing.T) {
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "foo", Type: tokWord},
-				{Literal: " foobar ", Type: tokWord},
+				{Literal: " foobar ", Type: tokWord, Quoted: true},
 				{Literal: "bar", Type: tokWord},
 			},
 		},
@@ -884,7 +876,7 @@ func testScanSimple(t *testing.T) {
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "foo", Type: tokWord},
-				{Literal: " foobar ", Type: tokWord},
+				{Literal: " foobar ", Type: tokWord, Quoted: true},
 				{Literal: "bar", Type: tokWord},
 			},
 		},
@@ -895,7 +887,7 @@ func testScanSimple(t *testing.T) {
 				blank,
 				{Literal: "foo", Type: tokWord},
 				blank,
-				{Literal: "HOME", Type: tokVar},
+				{Literal: "HOME", Type: tokVar, Quoted: true},
 			},
 		},
 		{
@@ -904,7 +896,7 @@ func testScanSimple(t *testing.T) {
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "foo", Type: tokWord},
-				{Literal: "HOME", Type: tokVar},
+				{Literal: "HOME", Type: tokVar, Quoted: true},
 				{Literal: "bar", Type: tokWord},
 			},
 		},
@@ -914,9 +906,9 @@ func testScanSimple(t *testing.T) {
 				{Literal: "echo", Type: tokWord},
 				blank,
 				{Literal: "foo", Type: tokWord},
-				{Literal: " <", Type: tokWord},
-				{Literal: "HOME", Type: tokVar},
-				{Literal: "> ", Type: tokWord},
+				{Literal: " <", Type: tokWord, Quoted: true},
+				{Literal: "HOME", Type: tokVar, Quoted: true},
+				{Literal: "> ", Type: tokWord, Quoted: true},
 				{Literal: "bar", Type: tokWord},
 			},
 		},
@@ -988,11 +980,11 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foo", Type: tokWord},
+				{Literal: "foo", Type: tokWord, Quoted: true},
 				{Type: tokAnd},
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "bar", Type: tokWord},
+				{Literal: "bar", Type: tokWord, Quoted: true},
 			},
 		},
 		{
@@ -1000,11 +992,11 @@ func testScanSimple(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foo", Type: tokWord},
+				{Literal: "foo", Type: tokWord, Quoted: true},
 				{Type: tokOr},
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "bar", Type: tokWord},
+				{Literal: "bar", Type: tokWord, Quoted: true},
 			},
 		},
 		{
@@ -1055,8 +1047,35 @@ func testScanSimple(t *testing.T) {
 				{Literal: "VAR", Type: tokWord},
 				{Type: equal},
 				{Literal: "FOO", Type: tokVar},
-				blank,
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
+			},
+		},
+		{
+			Input: `echo $$ $? $# $! $@ $$`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Literal: "$", Type: tokVar},
+				blank,
+				{Literal: "?", Type: tokVar},
+				blank,
+				{Literal: "#", Type: tokVar},
+				blank,
+				{Literal: "!", Type: tokVar},
+				blank,
+				{Literal: "@", Type: tokVar},
+				blank,
+				{Literal: "$", Type: tokVar},
+			},
+		},
+		{
+			Input: "cat;\ngrep;",
+			Words: []Token{
+				{Literal: "cat", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "grep", Type: tokWord},
+				{Type: semicolon},
 			},
 		},
 	}
@@ -1091,8 +1110,8 @@ func testScanSubstitution(t *testing.T) {
 				blank,
 				{Literal: "VAR", Type: tokVar},
 				{Type: tokEndSub},
-				blank,
 				{Literal: "comment", Type: tokComment},
+				{Type: semicolon},
 			},
 		},
 		{
@@ -1138,8 +1157,8 @@ func testScanSubstitution(t *testing.T) {
 				blank,
 				{Literal: "foobar", Type: tokWord},
 				blank,
-				{Literal: "home = ", Type: tokWord},
-				{Literal: "HOME", Type: tokVar},
+				{Literal: "home = ", Type: tokWord, Quoted: true},
+				{Literal: "HOME", Type: tokVar, Quoted: true},
 				{Type: tokEndSub},
 			},
 		},
@@ -1158,14 +1177,14 @@ func testScanSubstitution(t *testing.T) {
 				{Type: tokBeginSub},
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foobar", Type: tokWord},
+				{Literal: "foobar", Type: tokWord, Quoted: true},
 				blank,
-				{Literal: "VAR = ", Type: tokWord},
-				{Type: tokBeginSub},
-				{Literal: "echo", Type: tokWord},
+				{Literal: "VAR = ", Type: tokWord, Quoted: true},
+				{Type: tokBeginSub, Quoted: true},
+				{Literal: "echo", Type: tokWord, Quoted: true},
 				blank,
-				{Literal: "VAR", Type: tokVar},
-				{Type: tokEndSub},
+				{Literal: "VAR", Type: tokVar, Quoted: true},
+				{Type: tokEndSub, Quoted: true},
 				{Type: tokEndSub},
 				{Type: tokEndSub},
 			},
@@ -1203,12 +1222,12 @@ func testScanArithmetic(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "sum = ", Type: tokWord},
-				{Type: tokBeginArith},
-				{Literal: "3.141592", Type: tokFloat},
-				{Type: minus},
-				{Literal: "2", Type: tokInt},
-				{Type: tokEndArith},
+				{Literal: "sum = ", Type: tokWord, Quoted: true},
+				{Type: tokBeginArith, Quoted: true},
+				{Literal: "3.141592", Type: tokFloat, Quoted: true},
+				{Type: minus, Quoted: true},
+				{Literal: "2", Type: tokInt, Quoted: true},
+				{Type: tokEndArith, Quoted: true},
 			},
 		},
 		{
@@ -1236,6 +1255,19 @@ func testScanArithmetic(t *testing.T) {
 				{Literal: "4", Type: tokInt},
 				{Type: rparen},
 				{Type: tokRightShift},
+				{Literal: "1", Type: tokInt},
+				{Type: tokEndArith},
+			},
+		},
+		{
+			Input: `echo $((2<<-1))`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginArith},
+				{Literal: "2", Type: tokInt},
+				{Type: tokLeftShift},
+				{Type: minus},
 				{Literal: "1", Type: tokInt},
 				{Type: tokEndArith},
 			},
@@ -1303,7 +1335,7 @@ func testScanBraces(t *testing.T) {
 			Words: []Token{
 				{Literal: "echo", Type: tokWord},
 				blank,
-				{Literal: "foobar {foo,bar}", Type: tokWord},
+				{Literal: "foobar {foo,bar}", Type: tokWord, Quoted: true},
 			},
 		},
 		{

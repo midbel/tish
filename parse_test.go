@@ -18,6 +18,93 @@ func TestParse(t *testing.T) {
 	t.Run("assignments", testParseAssignments)
 	t.Run("redirections", testParseRedirections)
 	t.Run("parameters", testParseParameters)
+	t.Run("pipes", testParsePipes)
+	t.Run("comments", testParseComments)
+	t.Run("subshells", testParseSubshell)
+}
+
+func testParseSubshell(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `(cd dir; echo $PWD)`,
+			Word: makeList(kindShell,
+				makeList(kindSeq,
+					makeList(kindSimple, Literal("cd"), Literal("dir")),
+					makeList(kindSimple,
+						Literal("echo"),
+						Variable{ident: "PWD", quoted: false, apply: Identity()},
+					),
+				),
+			),
+		},
+		{
+			Input: "(cd dir; echo $PWD)\necho $PWD",
+			Word: makeList(kindSeq,
+				makeList(kindShell,
+					makeList(kindSeq,
+						makeList(kindSimple, Literal("cd"), Literal("dir")),
+						makeList(kindSimple,
+							Literal("echo"),
+							Variable{ident: "PWD", quoted: false, apply: Identity()},
+						),
+					),
+				),
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "PWD", quoted: false, apply: Identity()},
+				),
+			),
+		},
+		{
+			Input: `echo foo; (cd dir && echo $PWD); echo bar`,
+			Word: makeList(kindSeq,
+				makeList(kindSimple, Literal("echo"), Literal("foo")),
+				makeList(kindShell,
+					makeList(kindAnd,
+						makeList(kindSimple, Literal("cd"), Literal("dir")),
+						makeList(kindSimple,
+							Literal("echo"),
+							Variable{ident: "PWD", quoted: false, apply: Identity()},
+						),
+					),
+				),
+				makeList(kindSimple, Literal("echo"), Literal("bar")),
+			),
+		},
+		{
+			Input: `(cd dir; (echo $PWD); cd ..)`,
+			Word: makeList(kindShell,
+				makeList(kindSeq,
+					makeList(kindSimple, Literal("cd"), Literal("dir")),
+					makeList(kindShell,
+						makeList(kindSimple,
+							Literal("echo"),
+							Variable{ident: "PWD", quoted: false, apply: Identity()},
+						),
+					),
+					makeList(kindSimple, Literal("cd"), Literal("..")),
+				),
+			),
+		},
+	}
+	runParseCase(t, data)
+}
+
+func testParseComments(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: `#comment`,
+			Word:  makeList(kindSeq),
+		},
+		{
+			Input: "#comment\necho foobar #comment",
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Literal("foobar"),
+			),
+		},
+	}
+	runParseCase(t, data)
 }
 
 func testParseParameters(t *testing.T) {
@@ -221,23 +308,16 @@ func testParseAssignments(t *testing.T) {
 			},
 		},
 		{
-			Input: `VAR=FOO BAR`,
+			Input: `VAR="FOO BAR"`,
 			Word: Assignment{
 				ident: "VAR",
-				word:  makeList(kindSimple, Literal("FOO"), Literal("BAR")),
+				word:  Literal("FOO BAR"),
 			},
 		},
 		{
 			Input: `VAR=`,
 			Word: Assignment{
 				ident: "VAR",
-			},
-		},
-		{
-			Input: `VAR="foo bar"`,
-			Word: Assignment{
-				ident: "VAR",
-				word:  makeList(kindSimple, Literal("foo bar")),
 			},
 		},
 		{
@@ -257,25 +337,51 @@ func testParseAssignments(t *testing.T) {
 			},
 		},
 		{
-			Input: `VAR=$((1+1)) {foo,bar}`,
+			Input: `VAR="$((1+1)) {foo,bar}"`,
 			Word: Assignment{
 				ident: "VAR",
-				word: makeList(kindSimple,
+				word: makeList(kindWord,
 					makeExpr(makeEval(plus, Number(1), Number(1))),
-					Brace{word: makeList(kindBraces, Literal("foo"), Literal("bar"))},
+					Literal(" {foo,bar}"),
 				),
 			},
 		},
 		{
-			Input: `VAR=$FOO $(echo foobar) $((1+1))`,
+			Input: `VAR="$FOO $(echo foobar) $((1+1))"`,
 			Word: Assignment{
 				ident: "VAR",
-				word: makeList(kindSimple,
-					Variable{ident: "FOO"},
-					makeList(kindSub, makeList(kindSimple, Literal("echo"), Literal("foobar"))),
+				word: makeList(kindWord,
+					Variable{ident: "FOO", quoted: true, apply: Identity()},
+					Literal(" "),
+					makeList(kindSub|kindQuoted,
+						makeList(kindSimple, Literal("echo"), Literal("foobar")),
+					),
+					Literal(" "),
 					makeExpr(makeEval(plus, Number(1), Number(1))),
 				),
 			},
+		},
+		{
+			Input: `FOO=FOO BAR=BAR echo $FOO $BAR`,
+			Word: makeList(kindSimple,
+				Assignment{ident: "FOO", word: Literal("FOO")},
+				Assignment{ident: "BAR", word: Literal("BAR")},
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "FOO", quoted: false, apply: Identity()},
+					Variable{ident: "BAR", quoted: false, apply: Identity()},
+				),
+			),
+		},
+		{
+			Input: `FOO=foobar; echo $FOO`,
+			Word: makeList(kindSeq,
+				Assignment{ident: "FOO", word: Literal("foobar")},
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "FOO", quoted: false, apply: Identity()},
+				),
+			),
 		},
 	}
 	runParseCase(t, data)
@@ -435,7 +541,10 @@ func testParseSubstitution(t *testing.T) {
 			Word: makeList(kindSimple,
 				Literal("echo"),
 				makeList(kindSub,
-					makeList(kindPipe, Literal("cat"), Literal("wc")),
+					makeList(kindPipe,
+						Pipe{Word: Literal("cat"), kind: kindPipe},
+						Literal("wc"),
+					),
 				),
 			),
 		},
@@ -443,9 +552,9 @@ func testParseSubstitution(t *testing.T) {
 			Input: `echo "sum = $(cat ; wc)"`,
 			Word: makeList(kindSimple,
 				Literal("echo"),
-				makeList(kindSimple,
+				makeList(kindWord,
 					Literal("sum = "),
-					makeList(kindSub,
+					makeList(kindSub|kindQuoted,
 						makeList(kindSeq, Literal("cat"), Literal("wc")),
 					),
 				),
@@ -490,11 +599,72 @@ func testParseSubstitution(t *testing.T) {
 	runParseCase(t, data)
 }
 
+func testParsePipes(t *testing.T) {
+	data := []ParseCase{
+		{
+			Input: "echo foo | echo",
+			Word: makeList(kindPipe,
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipe,
+				},
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "echo foo |& echo",
+			Word: makeList(kindPipe,
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipeBoth,
+				},
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "echo foo |& echo | echo", // (echo foo |& echo) | echo
+			Word: makeList(kindPipe,
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipeBoth,
+				},
+				Pipe{
+					Word: Literal("echo"),
+					kind: kindPipe,
+				},
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "echo foo | echo |& echo", // (echo | foo) |& echo
+			Word: makeList(kindPipe,
+				Pipe{
+					Word: makeList(kindSimple, Literal("echo"), Literal("foo")),
+					kind: kindPipe,
+				},
+				Pipe{
+					Word: Literal("echo"),
+					kind: kindPipeBoth,
+				},
+				Literal("echo"),
+			),
+		},
+		{
+			Input: "find | cat | grep",
+			Word: makeList(kindPipe,
+				Pipe{Word: Literal("find"), kind: kindPipe},
+				Pipe{Word: Literal("cat"), kind: kindPipe},
+				Literal("grep")),
+		},
+	}
+	runParseCase(t, data)
+}
+
 func testParseSimple(t *testing.T) {
 	data := []ParseCase{
 		{
 			Input: "echo",
-			Word:  makeList(kindSimple, Literal("echo")),
+			Word:  Literal("echo"),
 		},
 		{
 			Input: "echo foobar",
@@ -507,6 +677,20 @@ func testParseSimple(t *testing.T) {
 		{
 			Input: "echo $FOO",
 			Word:  makeList(kindSimple, Literal("echo"), Variable{ident: "FOO"}),
+		},
+		{
+			Input: "echo foobar pre-\" <$HOME> \"-post",
+			Word: makeList(kindSimple,
+				Literal("echo"),
+				Literal("foobar"),
+				makeList(kindWord,
+					Literal("pre-"),
+					Literal(" <"),
+					Variable{ident: "HOME", quoted: true, apply: Identity()},
+					Literal("> "),
+					Literal("-post"),
+				),
+			),
 		},
 		{
 			Input: "echo; cat; wc; grep",
@@ -525,20 +709,12 @@ func testParseSimple(t *testing.T) {
 			),
 		},
 		{
-			Input: "echo foo | echo",
-			Word: makeList(kindPipe,
-				makeList(kindSimple, Literal("echo"), Literal("foo")),
-				makeList(kindSimple, Literal("echo")),
-			),
-		},
-		{
-			Input: "find | cat | grep",
-			Word:  makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
-		},
-		{
 			Input: "find | cat | grep; wc",
 			Word: makeList(kindSeq,
-				makeList(kindPipe, Literal("find"), Literal("cat"), Literal("grep")),
+				makeList(kindPipe,
+					Pipe{Word: Literal("find"), kind: kindPipe},
+					Pipe{Word: Literal("cat"), kind: kindPipe},
+					Literal("grep")),
 				makeList(kindSimple, Literal("wc")),
 			),
 		},
@@ -561,8 +737,8 @@ func testParseSimple(t *testing.T) {
 			Word: makeList(kindSeq,
 				makeList(kindSimple, Literal("echo")),
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 			),
 		},
@@ -580,8 +756,8 @@ func testParseSimple(t *testing.T) {
 			Input: "echo | cat; echo",
 			Word: makeList(kindSeq,
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 				makeList(kindSimple, Literal("echo")),
 			),
@@ -590,8 +766,8 @@ func testParseSimple(t *testing.T) {
 			Input: "echo | cat && echo", // as (echo foo | echo) && echo bar
 			Word: makeList(kindAnd,
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 				makeList(kindSimple, Literal("echo")),
 			),
@@ -599,10 +775,10 @@ func testParseSimple(t *testing.T) {
 		{
 			Input: "echo || echo | cat", // as echo foo || (echo bar | cat)
 			Word: makeList(kindOr,
-				makeList(kindSimple, Literal("echo")),
+				Literal("echo"),
 				makeList(kindPipe,
-					makeList(kindSimple, Literal("echo")),
-					makeList(kindSimple, Literal("cat")),
+					Pipe{Word: Literal("echo"), kind: kindPipe},
+					Literal("cat"),
 				),
 			),
 		},
@@ -663,6 +839,28 @@ func testParseSimple(t *testing.T) {
 				makeList(kindSimple, Literal("sort")),
 			),
 		},
+		{
+			Input: `local FOO=FOO BAR=BAR; echo $FOO $BAR`,
+			Word: makeList(kindSeq,
+				makeList(kindSimple,
+					Literal("local"),
+					makeList(kindWord, Literal("FOO"), Literal("="), Literal("FOO")),
+					makeList(kindWord, Literal("BAR"), Literal("="), Literal("BAR")),
+				),
+				makeList(kindSimple,
+					Literal("echo"),
+					Variable{ident: "FOO", quoted: false, apply: Identity()},
+					Variable{ident: "BAR", quoted: false, apply: Identity()},
+				),
+			),
+		},
+		{
+			Input: "echo;\necho;\n",
+			Word: makeList(kindSeq,
+				Literal("echo"),
+				Literal("echo"),
+			),
+		},
 	}
 	runParseCase(t, data)
 }
@@ -694,15 +892,13 @@ func makeEval(op rune, left, right Evaluator) Evaluator {
 }
 
 func makeExpr(e Evaluator) Word {
-	return makeList(kindExpr, Expr{expr: e})
+	return makeList(kindExpr|kindQuoted, Expr{expr: e})
 }
 
 func makeList(kind Kind, ws ...Word) Word {
-	if len(ws) == 1 && !(kind == kindSub || kind == kindExpr) {
-		return ws[0]
-	}
-	return List{
+	w := List{
 		words: ws,
 		kind:  kind,
 	}
+	return w.asWord()
 }

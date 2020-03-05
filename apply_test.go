@@ -26,7 +26,7 @@ func testApplyReplace(t *testing.T) {
 		str   = "FOOBAR"
 		env   = NewEnvironment()
 	)
-	env.Set(ident, []string{str})
+	env.Define(ident, []string{str})
 
 	data := []ApplyCase{
 		{
@@ -75,8 +75,8 @@ func testApplyCase(t *testing.T) {
 		lower = "LOWER"
 		env   = NewEnvironment()
 	)
-	env.Set(upper, []string{"FOO BAR"})
-	env.Set(lower, []string{"foo bar"})
+	env.Define(upper, []string{"FOO BAR"})
+	env.Define(lower, []string{"foo bar"})
 
 	data := []ApplyCase{
 		{Ident: lower, Want: "FOO BAR", Apply: Upper(true)},
@@ -95,7 +95,7 @@ func testApplyGetOrSet(t *testing.T) {
 		env   = NewEnvironment()
 	)
 
-	env.Set(ident, []string{str})
+	env.Define(ident, []string{str})
 
 	data := []ApplyCase{
 		{
@@ -117,10 +117,10 @@ func testApplyGetOrSet(t *testing.T) {
 
 	runApplyTest(t, env, data...)
 
-	if _, err := env.Get("FOO"); err != nil {
+	if _, err := env.Resolve("FOO"); err != nil {
 		t.Errorf("var 'FOO' should be set!")
 	}
-	if _, err := env.Get("BAR"); err == nil {
+	if _, err := env.Resolve("BAR"); err == nil {
 		t.Errorf("var 'BAR' should not be set!")
 	}
 }
@@ -133,7 +133,7 @@ func testApplyTrim(t *testing.T) {
 		ident  = "STR"
 		env    = NewEnvironment()
 	)
-	env.Set(ident, []string{str})
+	env.Define(ident, []string{str})
 
 	data := []ApplyCase{
 		{
@@ -178,8 +178,8 @@ func testApplyTrim(t *testing.T) {
 		},
 	}
 
-	env.Set("FOO", []string{"FOOFOOBAR"})
-	env.Set("BAR", []string{"FOOBARBAR"})
+	env.Define("FOO", []string{"FOOFOOBAR"})
+	env.Define("BAR", []string{"FOOBARBAR"})
 	runApplyTest(t, env, data...)
 }
 
@@ -188,8 +188,8 @@ func testApplyLength(t *testing.T) {
 		n   = Length()
 		env = NewEnvironment()
 	)
-	env.Set("FOO", []string{"FOO"})
-	env.Set("BAR", []string{"BAR"})
+	env.Define("FOO", []string{"FOO"})
+	env.Define("BAR", []string{"BAR"})
 
 	data := []ApplyCase{
 		{Ident: "FOO", Want: "3", Apply: n},
@@ -207,7 +207,7 @@ func testApplyIdentity(t *testing.T) {
 	}
 
 	env := NewEnvironment()
-	env.Set(a.Ident, []string{a.Want})
+	env.Define(a.Ident, []string{a.Want})
 
 	runApplyTest(t, env, a)
 }
@@ -218,7 +218,7 @@ func testApplySubstring(t *testing.T) {
 		str   = "0123456789ABCDEF"
 		env   = NewEnvironment()
 	)
-	env.Set(ident, []string{str})
+	env.Define(ident, []string{str})
 
 	data := []ApplyCase{
 		{
@@ -275,8 +275,9 @@ func runApplyTest(t *testing.T, env *Env, data ...ApplyCase) {
 
 	for i, d := range data {
 		v := Variable{
-			ident: d.Ident,
-			apply: d.Apply,
+			ident:  d.Ident,
+			apply:  d.Apply,
+			quoted: true,
 		}
 		vs, err := v.Expand(env)
 		if err != nil {

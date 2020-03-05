@@ -6,34 +6,41 @@ import (
 	"strings"
 )
 
-type Kind int
+type Kind uint32
 
 const (
-	kindSimple Kind = iota
+	kindQuoted Kind = 1 << (iota + 1)
+	kindSimple
 	kindSeq
 	kindPipe
+	kindPipeBoth
 	kindAnd
 	kindOr
-	kindList
 	kindSub
 	kindExpr
 	kindBraces
+	kindWord
+	kindShell
 )
 
 func (k Kind) String() string {
-	switch k {
+	switch k &^ kindQuoted {
+	case kindShell:
+		return "subshell"
+	case kindWord:
+		return "word"
 	case kindSimple:
 		return "simple"
 	case kindSeq:
 		return "sequence"
 	case kindPipe:
-		return "pipeline"
+		return "pipe1"
+	case kindPipeBoth:
+		return "pipe2"
 	case kindAnd:
 		return "and"
 	case kindOr:
 		return "or"
-	case kindList:
-		return "list"
 	case kindSub:
 		return "substitution"
 	case kindExpr:
@@ -45,12 +52,44 @@ func (k Kind) String() string {
 	}
 }
 
+func (k Kind) Kind() Kind {
+	return k &^ kindQuoted
+}
+
+func (k Kind) IsQuoted() bool {
+	return k&kindQuoted != 0
+}
+
 type Word interface {
-	Expand(*Env) ([]string, error)
+	Expand(Environment) ([]string, error)
 	Equal(Word) bool
 	fmt.Stringer
 
 	asWord() Word
+}
+
+type Pipe struct {
+	Word
+	kind Kind
+}
+
+func (p Pipe) Equal(w Word) bool {
+	other, ok := w.(Pipe)
+	if !ok {
+		return ok
+	}
+	return p.Word.Equal(other.Word)
+}
+
+func (p Pipe) String() string {
+	var pipe string
+	switch p.kind {
+	case kindPipe, kindPipeBoth:
+		pipe = p.kind.String()
+	default:
+		pipe = "pipeline"
+	}
+	return fmt.Sprintf("%s(%s)", pipe, p.Word)
 }
 
 type List struct {
@@ -58,7 +97,7 @@ type List struct {
 	kind  Kind
 }
 
-func (i List) Expand(e *Env) ([]string, error) {
+func (i List) Expand(e Environment) ([]string, error) {
 	ws := make([]string, 0, len(i.words)*4)
 	for _, w := range i.words {
 		xs, err := w.Expand(e)
@@ -66,6 +105,9 @@ func (i List) Expand(e *Env) ([]string, error) {
 			return nil, err
 		}
 		ws = append(ws, xs...)
+	}
+	if i.kind == kindWord {
+		ws = []string{strings.Join(ws, "")}
 	}
 	return ws, nil
 }
@@ -98,11 +140,16 @@ func (i List) Equal(w Word) bool {
 }
 
 func (i List) asWord() Word {
-	if i.kind == kindSub || i.kind == kindExpr || len(i.words) != 1 {
-		return i
+	if len(i.words) == 1 {
+		switch i.kind &^ kindQuoted {
+		case kindSub:
+		case kindExpr:
+		case kindShell:
+		default:
+			return i.words[0].asWord()
+		}
 	}
-	return i.words[0].asWord()
-	// return i.words[0] //.asWord()
+	return i
 }
 
 const (
@@ -121,6 +168,13 @@ type Redirect struct {
 	file int
 	mode int
 	Word
+}
+
+func (r Redirect) Expand(e Environment) ([]string, error) {
+	if r.Word == nil {
+		return nil, nil
+	}
+	return r.Word.Expand(e)
 }
 
 func (r Redirect) Equal(w Word) bool {
@@ -171,7 +225,7 @@ type Brace struct {
 	word   Word
 }
 
-func (b Brace) Expand(e *Env) ([]string, error) {
+func (b Brace) Expand(e Environment) ([]string, error) {
 	if b.word == nil {
 		return nil, nil
 	}
@@ -229,11 +283,25 @@ type Variable struct {
 	apply  Apply
 }
 
-func (v Variable) Expand(e *Env) ([]string, error) {
+func (v Variable) Expand(e Environment) ([]string, error) {
+	var (
+		vs  []string
+		err error
+	)
 	if v.apply == nil {
-		return e.Get(v.ident)
+		vs, err = e.Resolve(v.ident)
+	} else {
+		vs, err = v.apply.Apply(v.ident, e)
 	}
-	return v.apply.Apply(v.ident, e)
+	if err != nil || v.quoted {
+		return vs, err
+	}
+	xs := make([]string, 0, len(vs)*5)
+	for _, v := range vs {
+		str := Split(v)
+		xs = append(xs, str...)
+	}
+	return xs, nil
 }
 
 func (v Variable) String() string {
@@ -248,8 +316,8 @@ func (v Variable) Equal(w Word) bool {
 	return other.ident == v.ident && other.quoted == v.quoted // && other.apply.Equal(v.apply)
 }
 
-func (v Variable) Eval(e *Env) (Number, error) {
-	vs, err := e.Get(v.ident)
+func (v Variable) Eval(e Environment) (Number, error) {
+	vs, err := e.Resolve(v.ident)
 	if err != nil {
 		return 0, err
 	}
@@ -266,7 +334,7 @@ func (v Variable) asWord() Word {
 
 type Literal string
 
-func (i Literal) Expand(_ *Env) ([]string, error) {
+func (i Literal) Expand(_ Environment) ([]string, error) {
 	return []string{string(i)}, nil
 }
 
@@ -288,11 +356,11 @@ func (i Literal) asWord() Word {
 
 type Number int64
 
-func (n Number) Eval(_ *Env) (Number, error) {
+func (n Number) Eval(_ Environment) (Number, error) {
 	return n, nil
 }
 
-func (n Number) Expand(_ *Env) ([]string, error) {
+func (n Number) Expand(_ Environment) ([]string, error) {
 	x := strconv.FormatInt(int64(n), 10)
 	return []string{x}, nil
 }
@@ -318,20 +386,15 @@ type Assignment struct {
 	word  Word
 }
 
-func (a Assignment) Expand(e *Env) ([]string, error) {
-	vs, err := a.word.Expand(e)
-	if err != nil {
-		return nil, err
-	}
-	e.Set(a.ident, vs)
-	return nil, nil
+func (a Assignment) Expand(e Environment) ([]string, error) {
+	return a.word.Expand(e)
 }
 
 func (a Assignment) String() string {
 	if a.word == nil {
 		return fmt.Sprintf("assignment(%s)", a.ident)
 	}
-	return fmt.Sprintf("assigment(%s=%s)", a.ident, a.word.String())
+	return fmt.Sprintf("assignment(%s=%s)", a.ident, a.word.String())
 }
 
 func (a Assignment) Equal(w Word) bool {
@@ -371,3 +434,90 @@ func combineWords(ws, ps []string, prefix bool) []string {
 	}
 	return words
 }
+
+// type If struct {
+// 	expr Expr
+// 	csq  Word
+// 	alt  Word
+// }
+//
+// func (i If) Expand(e Environment) ([]string, error) {
+// 	return nil, nil
+// }
+//
+// func (i If) Equal(w Word) bool {
+// 	other, ok := w.(If)
+// 	if !ok {
+// 		return ok
+// 	}
+// 	return i.expr.Equal(other.expr) && i.csq.Equal(other.csq) && i.alt.Equal(other.alt)
+// }
+//
+// func (i If) String() string {
+// 	return "if"
+// }
+//
+// func (i If) asWord() Word {
+// 	return i
+// }
+//
+// type For struct {
+// 	expr Expr
+// 	word Word
+// }
+//
+// func (f For) Expand(e Environment) ([]string, error) {
+// 	return nil, nil
+// }
+//
+// func (f For) Equal(w Word) bool {
+// 	other, ok := w.(For)
+// 	if !ok {
+// 		return ok
+// 	}
+// 	return f.expr.Equal(other.expr) && f.word.Equal(other.expr)
+// }
+//
+// func (f For) asWord() Word {
+// 	return f
+// }
+//
+// func (f For) String() string {
+// 	return "for"
+// }
+//
+// type Match struct {
+// 	expr  Expr
+// 	words []Word
+// }
+//
+// func (m Match) Expand(e Environment) ([]string, error) {
+// 	return nil, nil
+// }
+//
+// func (m Match) Equal(w Word) bool {
+// 	other, ok := w.(Match)
+// 	if !ok {
+// 		return ok
+// 	}
+// 	if !m.expr.Equal(other.expr) {
+// 		return false
+// 	}
+// 	if len(m.words) != len(other.words) {
+// 		return false
+// 	}
+// 	for i, w := range m.words {
+// 		if !w.Equal(other.words[i]) {
+// 			return false
+// 		}
+// 	}
+// 	return true
+// }
+//
+// func (m Match) String() string {
+// 	return "match"
+// }
+//
+// func (m Match) asWord() Word {
+// 	return m
+// }
