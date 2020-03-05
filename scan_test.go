@@ -1259,6 +1259,19 @@ func testScanArithmetic(t *testing.T) {
 				{Type: tokEndArith},
 			},
 		},
+		{
+			Input: `echo $((2<<-1))`,
+			Words: []Token{
+				{Literal: "echo", Type: tokWord},
+				blank,
+				{Type: tokBeginArith},
+				{Literal: "2", Type: tokInt},
+				{Type: tokLeftShift},
+				{Type: minus},
+				{Literal: "1", Type: tokInt},
+				{Type: tokEndArith},
+			},
+		},
 	}
 	testValidTokens(t, data)
 }

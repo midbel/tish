@@ -990,7 +990,9 @@ func isAlpha(r rune) bool {
 }
 
 func isOperator(r rune) bool {
-	return r == plus || r == div || r == minus || r == mul || r == modulo || r == pipe || r == ampersand
+	return r == plus || r == div || r == minus || r == mul ||
+		r == modulo || r == pipe || r == ampersand ||
+		r == langle || r == rangle
 }
 
 func isInternal(r rune) bool {

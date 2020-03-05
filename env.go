@@ -67,6 +67,7 @@ func (e *Env) SetReadOnly(ident string, ro bool) {
 	ev, ok := e.locals[ident]
 	if !ok && e.parent != nil {
 		e.parent.SetReadOnly(ident, ro)
+		return
 	}
 	ev.ReadOnly = ro
 	e.locals[ident] = ev
