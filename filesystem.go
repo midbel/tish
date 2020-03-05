@@ -69,10 +69,11 @@ func (f *Filesystem) Chdir(dir string) error {
 }
 
 func (f *Filesystem) Chroot(root string) (*Filesystem, error) {
-	if err := f.Chdir(root); err != nil {
+	dir, err := f.normalize(root)
+	if err != nil {
 		return nil, err
 	}
-	fs, err := RootedFS(f.cwd())
+	fs, err := RootedFS(dir)
 	if err != nil {
 		return nil, err
 	}

@@ -142,7 +142,7 @@ func (s *Shell) executeLiteral(i Literal) error {
 
 func (s *Shell) executeList(i List) error {
 	var execute func([]Word) error
-	switch i.kind {
+	switch i.kind.Kind() {
 	case kindSeq:
 		execute = s.executeSequence
 	case kindSimple:
@@ -158,7 +158,7 @@ func (s *Shell) executeList(i List) error {
 	case kindSub:
 		execute = s.executeSubstitution
 	default:
-		return fmt.Errorf("tish: %s can not be executed", i.kind)
+		return fmt.Errorf("tish: %s can not be executed", i.kind.Kind())
 	}
 	return execute(i.words)
 }
@@ -226,7 +226,7 @@ func (s *Shell) executePipeline(ws []Word) error {
 		}
 		r, w := io.Pipe()
 
-		switch p.kind {
+		switch p.kind.Kind() {
 		case kindPipe:
 			err = s.stderr
 		case kindPipeBoth:
@@ -339,7 +339,7 @@ func (s *Shell) buildCommand(ws []Word) (Command, error) {
 		)
 		switch w := w.(type) {
 		case List:
-			if w.kind == kindSub {
+			if w.kind.Kind() == kindSub {
 				xs, err = s.expandSubstitution(w.words)
 			} else {
 				xs, err = w.Expand(s)

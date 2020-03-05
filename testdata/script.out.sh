@@ -86,3 +86,7 @@ NOT AVAILABLE # echo ${SUB:-NOT AVAILABLE}
 # builtin(s)
 foobar # builtin echo foobar
 source # echo $SOURCE
+
+# chroot
+/
+/testdata

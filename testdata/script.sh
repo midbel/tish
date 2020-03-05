@@ -43,6 +43,12 @@ echo $((-2+2))
 echo $((1 << 2))
 echo $((8 >> 2))
 
+# arithmetic errors - errors should be printed on stderr!!! currently they are not!!!
+echo $((2/0))
+echo $((2%0))
+echo $((1<<-2))
+echo $((1>>-2))
+
 :'the quick brown fox
 jumps over
 the lazy dog
@@ -108,6 +114,15 @@ echo ${SUB:-NOT AVAILABLE}
 builtin echo foobar
 source testdata/source.sh
 echo $SOURCE
+
+# chroot
+cd /
+chroot testdata
+pwd
+cd testdata
+chroot -
+cd testdata
+pwd
 
 set -f -b -w
 unset -f -b -w

@@ -53,6 +53,10 @@ func (k Kind) String() string {
 	}
 }
 
+func (k Kind) Kind() Kind {
+	return k&^kindQuoted
+}
+
 func (k Kind) IsQuoted() bool {
 	return k&kindQuoted != 0
 }
