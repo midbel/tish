@@ -580,12 +580,7 @@ func PushDir(b Builtin) ErrCode {
 		return ExitHelp
 	}
 
-	if set.NArg() == 0 {
-		b.SwitchHead()
-		return ExitOk
-	}
-
-	if step, errc := strconv.ParseInt(set.Arg(0), 10, 64); errc == nil {
+	if step, errc := strconv.ParseInt(set.Arg(0), 10, 64); errc == nil || set.Arg(0) == "" {
 		b.PushDir(step)
 	} else {
 		var (
@@ -620,13 +615,8 @@ func PopDir(b Builtin) ErrCode {
 		return ExitHelp
 	}
 
-	if set.NArg() == 0 {
-		b.PopHead()
-		return ExitOk
-	}
-
 	step, err := strconv.ParseInt(set.Arg(0), 10, 64)
-	if err != nil {
+	if err != nil && set.NArg() > 0 {
 		fmt.Fprintln(b.Stderr, err)
 		return ExitBadUsage
 	}

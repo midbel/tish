@@ -100,31 +100,20 @@ func (f *Filesystem) Dirs() []string {
 	return dirs
 }
 
-func (f *Filesystem) SwitchHead() {
-	n := len(f.dirs)
-	if n < 2 {
-		return
-	}
-	n--
-	f.dirs[n-1], f.dirs[n] = f.dirs[n], f.dirs[n-1]
-}
-
-func (f *Filesystem) PopHead() {
-	n := len(f.dirs)
-	if n == 0 {
-		return
-	}
-	f.dirs = f.dirs[:n-1]
-}
-
 func (f *Filesystem) PushDir(step int64) {
+
 	n := len(f.dirs)
 	if step > 0 {
 		step = int64(n) - (step + 1)
 	} else if step < 0 {
 		step = -step
 	} else {
-		return // do nothing for now
+		if n < 2 {
+			return
+		}
+		n--
+		f.dirs[n-1], f.dirs[n] = f.dirs[n], f.dirs[n-1]
+		return
 	}
 	if step < 0 || n < int(step) {
 		return
@@ -140,7 +129,11 @@ func (f *Filesystem) PopDir(step int64) {
 	} else if step < 0 {
 		step = -step
 	} else {
-		return // do nothing for now
+		n--
+		if n >= 0 {
+			f.dirs = f.dirs[:n-1]
+		}
+		return
 	}
 	if step < 0 || n < int(step) {
 		return
