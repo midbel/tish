@@ -22,6 +22,8 @@ const (
 	rparen     = ')'
 	lcurly     = '{'
 	rcurly     = '}'
+	lsquare    = '['
+	rqsquare   = ']'
 	underscore = '_'
 	pound      = '#'
 	plus       = '+'
@@ -41,11 +43,12 @@ const (
 )
 
 var keywords = map[string]rune{
-	"if": tokKeyword,
+	"if":   tokKeyword,
 	"else": tokKeyword,
 	"elif": tokKeyword,
-	"fi": tokKeyword,
-	"for": tokKeyword,
+	"fi":   tokKeyword,
+	"then": tokKeyword,
+	"for":  tokKeyword,
 }
 
 const (
@@ -70,6 +73,8 @@ const (
 	tokEndList
 	tokBeginParam
 	tokEndParam
+	tokBeginTest
+	tokEndTest
 	tokSequence
 	tokVarLength
 	tokTrimSuffix
@@ -89,6 +94,13 @@ const (
 	tokLowerAll
 	tokUpper
 	tokUpperAll
+	tokEqual
+	tokNotEqual
+	tokGreat
+	tokLess
+	tokGreatEq
+	tokLessEq
+	tokOp
 	tokAnd
 	tokOr
 	tokBackground

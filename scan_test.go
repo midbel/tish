@@ -51,6 +51,91 @@ func TestScannerScan(t *testing.T) {
 	t.Run("lines", testScanLines)
 	t.Run("redirections", testScanRedirections)
 	t.Run("parameters", testScanParameters)
+	t.Run("conditionals", testScanConditionals)
+}
+
+func testScanConditionals(t *testing.T) {
+	data := []ScanCase{
+		{
+			Input: `if cd; then ok; else ko; fi`,
+			Words: []Token{
+				{Literal: "if", Type: tokKeyword},
+				{Literal: "cd", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "then", Type: tokKeyword},
+				{Literal: "ok", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "else", Type: tokKeyword},
+				{Literal: "ko", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "fi", Type: tokKeyword},
+			},
+		},
+		{
+			Input: `if echo | grep; then ok; else ko; fi`,
+			Words: []Token{
+				{Literal: "if", Type: tokKeyword},
+				{Literal: "echo", Type: tokWord},
+				{Type: tokPipe},
+				{Literal: "grep", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "then", Type: tokKeyword},
+				{Literal: "ok", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "else", Type: tokKeyword},
+				{Literal: "ko", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "fi", Type: tokKeyword},
+			},
+		},
+		{
+			Input: `if echo; grep; then ok; else ko; fi`,
+			Words: []Token{
+				{Literal: "if", Type: tokKeyword},
+				{Literal: "echo", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "grep", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "then", Type: tokKeyword},
+				{Literal: "ok", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "else", Type: tokKeyword},
+				{Literal: "ko", Type: tokWord},
+				{Type: semicolon},
+				{Literal: "fi", Type: tokKeyword},
+			},
+		},
+		{
+			Input: `if [[-x echo]]; then ok; fi`,
+			Words: []Token{
+				{Literal: "if", Type: tokKeyword},
+				{Type: tokBeginTest},
+				{Literal: "x", Type: tokOp},
+				{Literal: "echo", Type: tokWord},
+				{Type: tokEndTest},
+				{Type: semicolon},
+				{Literal: "then", Type: tokKeyword},
+				{Literal: "ok", Type: tokWord},
+				{Type: semicolon},
+			},
+		},
+		{
+			Input: `if [[echo==$VAR]]; then ok; fi`,
+			Words: []Token{
+				{Literal: "if", Type: tokKeyword},
+				{Type: tokBeginTest},
+				{Literal: "echo", Type: tokWord},
+				{Type: tokEqual},
+				{Literal: "VAR", Type: tokVar},
+				{Type: tokEndTest},
+				{Type: semicolon},
+				{Literal: "then", Type: tokKeyword},
+				{Literal: "ok", Type: tokWord},
+				{Type: semicolon},
+			},
+		},
+	}
+	testValidTokens(t, data)
 }
 
 func testScanParameters(t *testing.T) {

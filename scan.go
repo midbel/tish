@@ -81,8 +81,9 @@ func (s *Scanner) emit(str string, typof rune) {
 		Type:    typof,
 		Quoted:  s.isQuoted(),
 	}
-	if _, ok := keywords[tok.Literal] && !tok.Quoted {
+	if _, ok := keywords[tok.Literal]; ok && !tok.Quoted {
 		tok.Type = tokKeyword
+		s.skip(isBlank)
 	}
 	s.queue <- tok
 }
@@ -253,6 +254,10 @@ func scanDefault(s *Scanner) ScanFunc {
 		return nil
 	}
 	return scanBlanks
+}
+
+func scanTest(s *Scanner) {
+
 }
 
 func scanRedirections(s *Scanner) {
