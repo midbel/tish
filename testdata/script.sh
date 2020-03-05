@@ -102,3 +102,12 @@ cd /
 (SUB=SUBSHELL; cd testdata; pwd; echo $SUB)
 pwd
 echo ${SUB:-NOT AVAILABLE}
+
+
+# builtin(s)
+builtin echo foobar
+source testdata/source.sh
+echo $SOURCE
+
+set -f -b -w
+unset -f -b -w

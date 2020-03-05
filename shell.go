@@ -101,6 +101,14 @@ func NewShell(fs *Filesystem, in io.Reader, out, err io.Writer) *Shell {
 	return &s
 }
 
+func (s *Shell) SetOption(o Option) {
+	s.options |= o
+}
+
+func (s *Shell) UnsetOption(o Option) {
+	s.options = s.options &^ o
+}
+
 func (s *Shell) Execute(r io.Reader) error {
 	w, err := Parse(r)
 	if err != nil {

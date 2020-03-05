@@ -319,10 +319,29 @@ func init() {
 }
 
 func SetOption(b Builtin) ErrCode {
+	options := []struct{
+		Label string
+		Short  string
+		Flag bool
+		Option
+	} {
+		{Label: "f", Short: "no file expansion", Option: NoFileExpansion},
+		{Label: "b", Short: "no brace expansion", Option: NoBraceExpansion},
+		{Label: "w", Short: "no word splitting", Option: NoWordSplitting},
+		{Label: "r", Short: "no overwriting files", Option: NoOverwriteFiles},
+		{Label: "e", Short: "exit on error", Option: ExitOnError},
+		{Label: "v", Short: "no local variables", Option: NoLocalVariables},
+		{Label: "u", Short: "allow undefined variables", Option: AllowUndefinedVariables},
+		{Label: "n", Short: "null glob", Option: NullGlob},
+		{Label: "i", Short: "no case glob", Option: NoCaseGlob},
+	}
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
+	for _, o := range options {
+		set.BoolVar(&o.Flag, o.Label, o.Flag, o.Short)
+	}
 	set.Usage = func() {
 		fmt.Fprintln(b.Stderr, b.Help())
 	}
@@ -334,14 +353,40 @@ func SetOption(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
+	var opt Option
+	for _, i := range options {
+		if i.Flag {
+			opt |= i.Option
+		}
+	}
+	b.SetOption(opt)
 	return ExitOk
 }
 
 func UnsetOption(b Builtin) ErrCode {
+	options := []struct{
+		Label string
+		Short  string
+		Flag bool
+		Option
+	} {
+		{Label: "f", Short: "no file expansion", Option: NoFileExpansion},
+		{Label: "b", Short: "no brace expansion", Option: NoBraceExpansion},
+		{Label: "w", Short: "no word splitting", Option: NoWordSplitting},
+		{Label: "r", Short: "no overwriting files", Option: NoOverwriteFiles},
+		{Label: "e", Short: "exit on error", Option: ExitOnError},
+		{Label: "v", Short: "no local variables", Option: NoLocalVariables},
+		{Label: "u", Short: "allow undefined variables", Option: AllowUndefinedVariables},
+		{Label: "n", Short: "null glob", Option: NullGlob},
+		{Label: "i", Short: "no case glob", Option: NoCaseGlob},
+	}
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
+	for _, o := range options {
+		set.BoolVar(&o.Flag, o.Label, o.Flag, o.Short)
+	}
 	set.Usage = func() {
 		fmt.Fprintln(b.Stderr, b.Help())
 	}
@@ -353,6 +398,13 @@ func UnsetOption(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
+	var opt Option
+	for _, i := range options {
+		if i.Flag {
+			opt |= i.Option
+		}
+	}
+	b.UnsetOption(opt)
 	return ExitOk
 }
 
@@ -402,7 +454,23 @@ func ExecBuiltin(b Builtin) ErrCode {
 		set.Usage()
 		return ExitHelp
 	}
-	return ExitOk
+
+	bb, ok := builtins[set.Arg(0)]
+	if !ok {
+		fmt.Fprintf(b.Stderr, "%s: builtin not found", set.Arg(0))
+		return ExitBadUsage
+	}
+
+	for i := 1; i < set.NArg(); i++ {
+		bb.Args = append(bb.Args, set.Arg(i))
+	}
+
+	bb.Shell = b.Shell
+	bb.Stdin = b.Stdin
+	bb.Stdout = b.Stdout
+	bb.Stderr = b.Stderr
+
+	return bb.Run()
 }
 
 func ExecCommand(b Builtin) ErrCode {

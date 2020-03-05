@@ -82,3 +82,7 @@ foobar # $(echo echo foobar)
 SUBSHELL # (SUB=SUBSHELL; cd testdata; pwd; echo $SUB)
 / # pwd
 NOT AVAILABLE # echo ${SUB:-NOT AVAILABLE}
+
+# builtin(s)
+foobar # builtin echo foobar
+source # echo $SOURCE
