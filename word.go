@@ -2,7 +2,6 @@ package tish
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -176,29 +175,6 @@ func (r Redirect) Expand(e Environment) ([]string, error) {
 		return nil, nil
 	}
 	return r.Word.Expand(e)
-}
-
-func (r Redirect) Open(e Environment) (*os.File, error) {
-	args, err := r.Expand(e)
-	if err != nil {
-		return nil, err
-	}
-	if len(args) == 0 {
-		return nil, fmt.Errorf("no words expanded")
-	}
-	var flag int
-	switch r.mode {
-	case modRead:
-		flag = os.O_RDONLY
-	case modWrite:
-		flag = os.O_CREATE | os.O_TRUNC | os.O_WRONLY
-	case modAppend:
-		flag = os.O_CREATE | os.O_APPEND | os.O_WRONLY
-	case modRelink:
-	default:
-		return nil, fmt.Errorf("unsupported mode")
-	}
-	return os.OpenFile(args[0], flag, 0644)
 }
 
 func (r Redirect) Equal(w Word) bool {
