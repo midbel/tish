@@ -89,10 +89,7 @@ func (s *Scanner) emit(str string, typof rune) {
 }
 
 func (s *Scanner) emitError(str string) {
-	s.queue <- Token{
-		Literal: str,
-		Type:    tokError,
-	}
+	s.emit(str, tokError)
 }
 
 func (s *Scanner) emitTypeOf(typof rune) {
@@ -226,7 +223,7 @@ func scanDefault(s *Scanner) ScanFunc {
 			if s.char == squote {
 				return scanComment
 			}
-			s.emit("invalid syntax: missing single quote after colon", tokError)
+			s.emitError("invalid syntax: missing single quote after colon")
 			return nil
 		case space, tab:
 			return scanBlanks
@@ -317,7 +314,7 @@ func scanTest(s *Scanner) bool {
 			if s.char == equal {
 				s.emitTypeOf(tokEqual)
 			} else {
-				s.emit(fmt.Sprintf("unexpected char in test expression %c", s.char), tokError)
+				s.emitError(fmt.Sprintf("unexpected char in test expression %c", s.char))
 				return false
 			}
 			s.readRune()
@@ -326,7 +323,7 @@ func scanTest(s *Scanner) bool {
 			if s.char == equal {
 				s.emitTypeOf(tokNotEqual)
 			} else {
-				s.emit(fmt.Sprintf("unexpected char in test expression %c", s.char), tokError)
+				s.emitError(fmt.Sprintf("unexpected char in test expression %c", s.char))
 				return false
 			}
 			s.readRune()
@@ -347,7 +344,7 @@ func scanTest(s *Scanner) bool {
 				s.emitTypeOf(tokGreat)
 			}
 		default:
-			s.emit(fmt.Sprintf("unexpected char in test expression %c", s.char), tokError)
+			s.emitError(fmt.Sprintf("unexpected char in test expression %c", s.char))
 			return false
 		}
 		if s.char == dollar {
@@ -361,17 +358,17 @@ func scanTest(s *Scanner) bool {
 	s.skip(isBlank)
 	s.unreadRune()
 	if !isBlank(s.char) {
-		s.emit("unterminated test expression", tokError)
+		s.emitError("unterminated test expression")
 	}
 
 	s.readRune()
 	if s.char != rsquare {
-		s.emit("unterminated test expression", tokError)
+		s.emitError("unterminated test expression")
 		return false
 	}
 	s.readRune()
 	if s.char != rsquare {
-		s.emit("unterminated test expression", tokError)
+		s.emitError("unterminated test expression")
 		return false
 	}
 	s.emitTypeOf(tokEndTest)
@@ -458,10 +455,10 @@ func scanSubshell(s *Scanner) ScanFunc {
 	for s.char != rparen {
 		switch s.char {
 		case tokEOF:
-			s.emit("unterminated list", tokError)
+			s.emitError("unterminated list")
 			return nil
 		case pound:
-			s.emit("unterminated list", tokError)
+			s.emitError("unterminated list")
 			return nil
 		case space, tab:
 			scanBlanks(s)
@@ -510,7 +507,7 @@ func scanBraces(s *Scanner) ScanFunc {
 	for s.char != rcurly {
 		switch {
 		case s.char == tokEOF || s.char == semicolon || s.char == newline:
-			s.emit("unterminated braces expression", tokError)
+			s.emitError("unterminated braces expression")
 			return nil
 		case s.char == space || s.char == tab:
 			s.skip(isBlank)
@@ -527,7 +524,7 @@ func scanBraces(s *Scanner) ScanFunc {
 		s.readRune()
 	}
 	if s.char != rcurly {
-		s.emit("unterminated braces expansion", tokError)
+		s.emitError("unterminated braces expansion")
 		return nil
 	}
 	s.readRune()
@@ -595,7 +592,7 @@ func scanParameter(s *Scanner) ScanFunc {
 
 		scanVariable(s)
 		if s.char != rcurly {
-			s.emit("unterminated parameter expansion", tokError)
+			s.emitError("unterminated parameter expansion")
 			return nil
 		}
 		s.readRune()
@@ -667,7 +664,7 @@ func scanParameter(s *Scanner) ScanFunc {
 			scanWord(s, func(r rune) bool { return r == slash })
 		}
 		if s.char != slash {
-			s.emit(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char), tokError)
+			s.emitError(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char))
 			return nil
 		}
 		s.readRune()
@@ -726,11 +723,11 @@ func scanParameter(s *Scanner) ScanFunc {
 		}
 	case rcurly:
 	default:
-		s.emit(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char), tokError)
+		s.emitError(fmt.Sprintf("invalid char in parameter expansion: '%c'", s.char))
 		return nil
 	}
 	if s.char != rcurly {
-		s.emit("unterminated parameter expansion", tokError)
+		s.emitError("unterminated parameter expansion")
 		return nil
 	}
 	s.readRune()
@@ -759,7 +756,7 @@ func scanSlice(s *Scanner) {
 			if s.char == rparen {
 				s.readRune()
 			} else {
-				s.emit("unterminated parenthese in slice", tokError)
+				s.emitError("unterminated parenthese in slice")
 				return false
 			}
 		}
@@ -774,7 +771,7 @@ func scanSlice(s *Scanner) {
 	case s.char == colon:
 		s.emit("0", tokInt)
 	default:
-		s.emit(fmt.Sprintf("invalid char in slice: '%c'", s.char), tokError)
+		s.emitError(fmt.Sprintf("invalid char in slice: '%c'", s.char))
 		return
 	}
 	if s.char == colon {
@@ -789,7 +786,7 @@ func scanSlice(s *Scanner) {
 			return
 		}
 	default:
-		s.emit(fmt.Sprintf("invalid char in slice: '%c'", s.char), tokError)
+		s.emitError(fmt.Sprintf("invalid char in slice: '%c'", s.char))
 	}
 }
 
@@ -799,18 +796,18 @@ func scanArithmetic(s *Scanner) ScanFunc {
 	for {
 		switch {
 		case s.char == tokEOF:
-			s.emit("unterminated arithmetic expression", tokError)
+			s.emitError("unterminated arithmetic expression")
 			return nil
 		case s.char == langle:
 			s.readRune()
 			if s.char != langle {
-				s.emit("invalid operator", tokError)
+				s.emitError("invalid operator")
 			}
 			s.emitTypeOf(tokLeftShift)
 		case s.char == rangle:
 			s.readRune()
 			if s.char != rangle {
-				s.emit("invalid operator", tokError)
+				s.emitError("invalid operator")
 			}
 			s.emitTypeOf(tokRightShift)
 		case isOperator(s.char):
@@ -825,7 +822,7 @@ func scanArithmetic(s *Scanner) ScanFunc {
 				s.emitTypeOf(tokEndArith)
 				return scanDefault
 			}
-			s.emit("unterminated arithmetic expression", tokError)
+			s.emitError("unterminated arithmetic expression")
 			return nil
 		case s.char == lparen:
 			scanGroup(s)
@@ -871,7 +868,7 @@ func scanGroup(s *Scanner) {
 func scanNumber(s *Scanner) {
 	var buf bytes.Buffer
 	if s.char != minus && !isDigit(s.char) {
-		s.emit(fmt.Sprintf("number: invalid char: '%c'", s.char), tokError)
+		s.emitError(fmt.Sprintf("number: invalid char: '%c'", s.char))
 		return
 	}
 	if s.char == minus {
@@ -894,7 +891,7 @@ func scanNumber(s *Scanner) {
 	case isOperator(s.char) || isBlank(s.char) || s.char == rparen || s.char == rcurly || s.char == colon:
 		s.emit(buf.String(), tokInt)
 	default:
-		s.emit(fmt.Sprintf("number: invalid char: '%c'", s.char), tokError)
+		s.emitError(fmt.Sprintf("number: invalid char: '%c'", s.char))
 	}
 }
 
@@ -902,7 +899,7 @@ func scanWord(s *Scanner, fn func(r rune) bool) {
 	var buf bytes.Buffer
 	for !fn(s.char) {
 		if s.char == tokEOF {
-			s.emit(fmt.Sprintf("unexpected end of string: %s", buf.String()), tokError)
+			s.emitError(fmt.Sprintf("unexpected end of string: %s", buf.String()))
 		}
 		if s.char == backslash {
 			s.readRune()
@@ -923,7 +920,7 @@ func scanSubstitution(s *Scanner) ScanFunc {
 	for s.char != rparen {
 		switch s.char {
 		case tokEOF:
-			s.emit("unterminated command subsitution", tokError)
+			s.emitError("unterminated command subsitution")
 			return nil
 		case space, tab:
 			scanBlanks(s)
@@ -969,7 +966,7 @@ func scanQuotedWeak(s *Scanner) ScanFunc {
 	s.readRune()
 	for s.char != dquote {
 		if s.char == tokEOF {
-			s.emit(fmt.Sprintf("unterminated quoted string: %s", buf.String()), tokError)
+			s.emitError(fmt.Sprintf("unterminated quoted string: %s", buf.String()))
 			return nil
 		}
 		switch s.char {
@@ -1010,7 +1007,7 @@ func scanQuotedStrong(s *Scanner) {
 	s.readRune()
 	for s.char != squote {
 		if s.char == tokEOF {
-			s.emit(fmt.Sprintf("unterminated quoted string: %s", buf.String()), tokError)
+			s.emitError(fmt.Sprintf("unterminated quoted string: %s", buf.String()))
 			return
 		}
 		buf.WriteRune(s.char)
@@ -1046,7 +1043,7 @@ func scanVariable(s *Scanner) ScanFunc {
 		return scanDefault
 	}
 	if isDigit(s.char) {
-		s.emit(fmt.Sprintf("invalid char in variable name: %c", s.char), tokError)
+		s.emitError(fmt.Sprintf("invalid char in variable name: %c", s.char))
 	}
 
 	var buf bytes.Buffer
