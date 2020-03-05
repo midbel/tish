@@ -101,7 +101,6 @@ func (f *Filesystem) Dirs() []string {
 }
 
 func (f *Filesystem) PushDir(step int64) {
-
 	n := len(f.dirs)
 	if step > 0 {
 		step = int64(n) - (step + 1)
