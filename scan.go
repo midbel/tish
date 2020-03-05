@@ -88,6 +88,13 @@ func (s *Scanner) emit(str string, typof rune) {
 	s.queue <- tok
 }
 
+func (s *Scanner) emitError(str string) {
+	s.queue <- Token{
+		Literal: str,
+		Type:    tokError,
+	}
+}
+
 func (s *Scanner) emitTypeOf(typof rune) {
 	s.queue <- Token{
 		Type:   typof,
