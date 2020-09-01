@@ -137,7 +137,7 @@ func (s *Scanner) scanBlank(t *Token) {
 
 func (s *Scanner) scanLiteral(t *Token) {
 	isDelimited := func() bool {
-		return s.isDone() || isBlank(s.char) || s.char == pound || s.char == semicolon
+		return s.isDone() || isBlank(s.char) || isComment(s.char) || isQuote(s.char) || s.char == semicolon
 	}
 
 	var buf bytes.Buffer
@@ -158,13 +158,10 @@ func (s *Scanner) scanLiteral(t *Token) {
 
 func (s *Scanner) scanVariable(t *Token) {
 	isDelimited := func() bool {
-		return s.isDone() || isBlank(s.char) || s.char == pound || s.char == semicolon
+		return s.isDone() || isBlank(s.char) || isComment(s.char) || s.char == semicolon
 	}
 
 	s.readRune()
-	if isDigit(s.char) {
-		t.Type = TokInvalid
-	}
 	var buf bytes.Buffer
 	for {
 		if !isAlpha(s.char) {
@@ -283,4 +280,12 @@ func isSpace(r rune) bool {
 
 func isBlank(r rune) bool {
 	return isSpace(r) || r == newline
+}
+
+func isQuote(r rune) bool {
+  return r == dquote || r == squote
+}
+
+func isComment(r rune) bool {
+  return r == pound
 }
