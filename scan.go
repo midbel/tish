@@ -12,7 +12,9 @@ type Kind rune
 
 const (
 	TokEOF Kind = -(iota + 1)
+	TokBlank
 	TokLiteral
+	TokVariable
 	TokQuoted
 	TokComment
 	TokInvalid
@@ -24,8 +26,12 @@ func (k Kind) String() string {
 	switch k {
 	case TokEOF:
 		str = "eof"
+	case TokBlank:
+		str = "blank"
 	case TokLiteral:
 		str = "literal"
+	case TokVariable:
+		str = "variable"
 	case TokQuoted:
 		str = "quoted"
 	case TokComment:
@@ -51,7 +57,7 @@ func (t Token) Equal(other Token) bool {
 
 func (t Token) String() string {
 	switch t.Type {
-	case TokLiteral, TokQuoted, TokComment, TokInvalid:
+	case TokLiteral, TokQuoted, TokComment, TokInvalid, TokVariable:
 		return fmt.Sprintf("<%s(%s)>", t.Type, t.Literal)
 	default:
 		return fmt.Sprintf("<%s>", t.Type)
@@ -59,15 +65,17 @@ func (t Token) String() string {
 }
 
 const (
-	space     = ' '
-	tab       = '\t'
-	squote    = '\''
-	dquote    = '"'
-	newline   = '\n'
-	carriage  = '\r'
-	backslash = '\\'
-	semicolon = ';'
-	pound     = '#'
+	space      = ' '
+	tab        = '\t'
+	squote     = '\''
+	dquote     = '"'
+	newline    = '\n'
+	carriage   = '\r'
+	backslash  = '\\'
+	semicolon  = ';'
+	pound      = '#'
+	dollar     = '$'
+	underscore = '_'
 )
 
 type Scanner struct {
@@ -86,6 +94,7 @@ func NewScanner(r io.Reader) (*Scanner, error) {
 	s.buffer = bytes.ReplaceAll(buf, []byte{carriage, newline}, []byte{newline})
 
 	s.readRune()
+	s.skip(isSpace)
 	return &s, nil
 }
 
@@ -95,19 +104,35 @@ func (s *Scanner) Next() Token {
 		t.Type = TokEOF
 		return t
 	}
-	s.skip(isSpace)
 	switch s.char {
 	case squote, dquote:
 		s.scanQuoted(&t)
+	case dollar:
+		s.scanVariable(&t)
 	case pound:
 		s.scanComment(&t)
 	case newline, semicolon:
-		t.Type = TokSemicolon
+		s.readRune()
+		s.skip(isSpace)
+
+    t.Type = TokSemicolon
+	case space, tab:
+		s.scanBlank(&t)
+		if t.Type != TokBlank {
+			return s.Next()
+		}
 	default:
 		s.scanLiteral(&t)
 	}
-	s.readRune()
 	return t
+}
+
+func (s *Scanner) scanBlank(t *Token) {
+	s.skip(isSpace)
+	if s.isDone() || s.char == semicolon || s.char == newline || s.char == pound {
+		return
+	}
+	t.Type = TokBlank
 }
 
 func (s *Scanner) scanLiteral(t *Token) {
@@ -129,17 +154,40 @@ func (s *Scanner) scanLiteral(t *Token) {
 	}
 	t.Literal = buf.String()
 	t.Type = TokLiteral
+}
 
-	if s.char == newline || s.char == semicolon {
-		s.unreadRune()
+func (s *Scanner) scanVariable(t *Token) {
+	isDelimited := func() bool {
+		return s.isDone() || isBlank(s.char) || s.char == pound || s.char == semicolon
 	}
+
+	s.readRune()
+	if isDigit(s.char) {
+		t.Type = TokInvalid
+	}
+	var buf bytes.Buffer
+	for {
+		if !isAlpha(s.char) {
+			t.Type = TokInvalid
+			break
+		}
+		buf.WriteRune(s.char)
+		s.readRune()
+		if isDelimited() {
+			break
+		}
+	}
+
+	if t.Type != TokInvalid {
+		t.Type = TokVariable
+	}
+	t.Literal = buf.String()
 }
 
 func (s *Scanner) scanQuoted(t *Token) {
 	var (
-		quote  = s.char
-		escape = quote == dquote
-		buf    bytes.Buffer
+		quote = s.char
+		buf   bytes.Buffer
 	)
 
 	s.readRune()
@@ -149,7 +197,7 @@ func (s *Scanner) scanQuoted(t *Token) {
 			t.Type = TokInvalid
 			break
 		}
-		if escape && s.char == backslash {
+		if quote == dquote && s.char == backslash {
 			s.readRune()
 		}
 		buf.WriteRune(s.char)
@@ -162,6 +210,7 @@ func (s *Scanner) scanQuoted(t *Token) {
 		}
 	}
 	t.Literal = buf.String()
+	s.readRune()
 }
 
 func (s *Scanner) scanComment(t *Token) {
@@ -197,33 +246,36 @@ func (s *Scanner) readRune() {
 	s.char, s.curr, s.next = c, s.next, s.next+z
 }
 
-func (s *Scanner) peekRune() rune {
-	c, _ := utf8.DecodeRune(s.buffer[s.next:])
-	return c
-}
-
-func (s *Scanner) unreadRune() {
-	s.next = s.curr
-	if s.curr != 0 {
-		s.curr -= utf8.RuneLen(s.char)
-	}
-}
+// func (s *Scanner) peekRune() rune {
+// 	r, _ := utf8.DecodeRune(s.buffer[s.next:])
+// 	return r
+// }
+//
+// func (s *Scanner) unreadRune() {
+// 	if s.next <= 0 {
+// 		return
+// 	}
+// 	s.next = s.curr
+// 	if s.curr != 0 {
+// 		s.curr -= utf8.RuneLen(s.char)
+// 	}
+// }
 
 func (s *Scanner) isDone() bool {
 	return s.curr >= len(s.buffer)
 }
 
-// func isAlpha(r rune) bool {
-// 	return isLetter(r) || isDigit(r)
-// }
-//
-// func isLetter(r rune) bool {
-// 	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
-// }
-//
-// func isDigit(r rune) bool {
-// 	return r >= '0' && r <= '9'
-// }
+func isAlpha(r rune) bool {
+	return isLetter(r) || isDigit(r) || r == underscore
+}
+
+func isLetter(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+
+func isDigit(r rune) bool {
+	return r >= '0' && r <= '9'
+}
 
 func isSpace(r rune) bool {
 	return r == space || r == tab
