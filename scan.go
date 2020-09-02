@@ -15,7 +15,6 @@ const (
 	TokBlank
 	TokLiteral
 	TokVariable
-	TokQuoted
 	TokComment
 	TokInvalid
 	TokSemicolon
@@ -32,8 +31,6 @@ func (k Kind) String() string {
 		str = "literal"
 	case TokVariable:
 		str = "variable"
-	case TokQuoted:
-		str = "quoted"
 	case TokComment:
 		str = "comment"
 	case TokInvalid:
@@ -57,7 +54,7 @@ func (t Token) Equal(other Token) bool {
 
 func (t Token) String() string {
 	switch t.Type {
-	case TokLiteral, TokQuoted, TokComment, TokInvalid, TokVariable:
+	case TokLiteral, TokComment, TokInvalid, TokVariable:
 		return fmt.Sprintf("<%s(%s)>", t.Type, t.Literal)
 	default:
 		return fmt.Sprintf("<%s>", t.Type)
@@ -104,9 +101,10 @@ func (s *Scanner) Next() Token {
 		t.Type = TokEOF
 		return t
 	}
+
 	switch s.char {
 	case squote, dquote:
-		s.scanQuoted(&t)
+		s.scanQuote(&t)
 	case dollar:
 		s.scanVariable(&t)
 	case pound:
@@ -115,7 +113,7 @@ func (s *Scanner) Next() Token {
 		s.readRune()
 		s.skip(isSpace)
 
-    t.Type = TokSemicolon
+		t.Type = TokSemicolon
 	case space, tab:
 		s.scanBlank(&t)
 		if t.Type != TokBlank {
@@ -129,7 +127,7 @@ func (s *Scanner) Next() Token {
 
 func (s *Scanner) scanBlank(t *Token) {
 	s.skip(isSpace)
-	if s.isDone() || s.char == semicolon || s.char == newline || s.char == pound {
+	if s.isDone() || s.char == semicolon || s.char == newline || isComment(s.char) {
 		return
 	}
 	t.Type = TokBlank
@@ -181,14 +179,12 @@ func (s *Scanner) scanVariable(t *Token) {
 	t.Literal = buf.String()
 }
 
-func (s *Scanner) scanQuoted(t *Token) {
+func (s *Scanner) scanQuote(t *Token) {
 	var (
-		quote = s.char
 		buf   bytes.Buffer
+		quote = s.char
 	)
-
 	s.readRune()
-
 	for s.char != quote {
 		if s.isDone() || s.char == newline {
 			t.Type = TokInvalid
@@ -202,12 +198,11 @@ func (s *Scanner) scanQuoted(t *Token) {
 	}
 	if t.Type != TokInvalid {
 		t.Type = TokLiteral
-		if quote == dquote {
-			t.Type = TokQuoted
-		}
 	}
 	t.Literal = buf.String()
-	s.readRune()
+	if isQuote(s.char) && s.char == quote {
+		s.readRune()
+	}
 }
 
 func (s *Scanner) scanComment(t *Token) {
@@ -283,9 +278,9 @@ func isBlank(r rune) bool {
 }
 
 func isQuote(r rune) bool {
-  return r == dquote || r == squote
+	return r == dquote || r == squote
 }
 
 func isComment(r rune) bool {
-  return r == pound
+	return r == pound
 }

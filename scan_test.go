@@ -82,7 +82,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "foo bar", Type: TokQuoted},
+				{Literal: "foo bar", Type: TokLiteral},
 			},
 		},
 		{
@@ -90,7 +90,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "\"foo bar\"", Type: TokQuoted},
+				{Literal: "\"foo bar\"", Type: TokLiteral},
 			},
 		},
 		{
@@ -125,30 +125,30 @@ func TestScanner(t *testing.T) {
 				{Literal: "bar", Type: TokLiteral},
 			},
 		},
-    {
-      Input: "echo foo\" <foobar> \"bar",
-      Tokens: []Token{
-        {Literal: "echo", Type: TokLiteral},
-        blank,
-        {Literal: "foo", Type: TokLiteral},
-        {Literal: " <foobar> ", Type: TokQuoted},
-        {Literal: "bar", Type: TokLiteral},
-      },
-    },
-    {
-      Input: "echo foo\" <$FOO> <$BAR> \"bar",
-      Tokens: []Token{
-        {Literal: "echo", Type: TokLiteral},
-        blank,
-        {Literal: "foo", Type: TokLiteral},
-        {Literal: " <", Type: TokQuoted},
-        {Literal: "FOO", Type: TokVariable},
-        {Literal: "> <", Type: TokQuoted},
-        {Literal: "BAR", Type: TokVariable},
-        {Literal: "> ", Type: TokQuoted},
-        {Literal: "bar", Type: TokLiteral},
-      },
-    },
+		{
+			Input: "echo foo\" <foobar> \"bar",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "foo", Type: TokLiteral},
+				{Literal: " <foobar> ", Type: TokLiteral},
+				{Literal: "bar", Type: TokLiteral},
+			},
+		},
+		{
+			Input: "echo foo\" <$FOO> <$BAR> \"bar",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "foo", Type: TokLiteral},
+				{Literal: " <", Type: TokLiteral},
+				{Literal: "FOO", Type: TokVariable},
+				{Literal: "> <", Type: TokLiteral},
+				{Literal: "BAR", Type: TokVariable},
+				{Literal: "> ", Type: TokLiteral},
+				{Literal: "bar", Type: TokLiteral},
+			},
+		},
 	}
 	for _, d := range data {
 		testScanner(t, d)
