@@ -18,6 +18,10 @@ const (
 	TokComment
 	TokInvalid
 	TokSemicolon
+	TokAnd
+	TokOr
+	TokPipe
+	TokBackground
 )
 
 func (k Kind) String() string {
@@ -37,6 +41,14 @@ func (k Kind) String() string {
 		str = "invalid"
 	case TokSemicolon:
 		str = "semicolon"
+	case TokAnd:
+		str = "and"
+	case TokOr:
+		str = "or"
+	case TokPipe:
+		str = "pipe"
+	case TokBackground:
+		str = "background"
 	default:
 		str = "unknown"
 	}
@@ -46,10 +58,11 @@ func (k Kind) String() string {
 type Token struct {
 	Literal string
 	Type    Kind
+	Quoted  bool
 }
 
 func (t Token) Equal(other Token) bool {
-	return t.Type == other.Type && t.Literal == other.Literal
+	return t.Type == other.Type && t.Literal == other.Literal && t.Quoted == other.Quoted
 }
 
 func (t Token) String() string {
@@ -73,9 +86,13 @@ const (
 	pound      = '#'
 	dollar     = '$'
 	underscore = '_'
+	ampersand  = '&'
+	pipe       = '|'
+	plus       = '+'
+	minus      = '-'
+	star       = '*'
+	slash      = '/'
 )
-
-type SplitFunc func(rune) bool
 
 type Scanner struct {
 	buffer []byte
@@ -114,6 +131,22 @@ func (s *Scanner) Next() Token {
 		s.scanVariable(&t)
 	case isComment(s.char):
 		s.scanComment(&t)
+	case s.char == ampersand:
+		t.Type = TokBackground
+		s.readRune()
+		if s.char == ampersand {
+			s.readRune()
+			t.Type = TokAnd
+		}
+		s.skip(isSpace)
+	case s.char == pipe:
+		t.Type = TokPipe
+		s.readRune()
+		if s.char == pipe {
+			s.readRune()
+			t.Type = TokOr
+		}
+		s.skip(isSpace)
 	case s.char == newline || s.char == semicolon:
 		s.readRune()
 		s.skip(isSpace)
@@ -127,13 +160,14 @@ func (s *Scanner) Next() Token {
 	default:
 		s.scanDefault(&t)
 	}
+	// t.Quoted = s.isQuoted()
 	return t
 }
 
 func (s *Scanner) scanDefault(t *Token) {
 	var buf bytes.Buffer
 	for !s.isDone() && !s.split(s.char) {
-		if canEscape(s.quote) && s.char == backslash {
+		if canEscape(s.quote, s.char) {
 			s.readRune()
 		}
 		buf.WriteRune(s.char)
@@ -148,7 +182,7 @@ func (s *Scanner) scanDefault(t *Token) {
 
 func (s *Scanner) scanBlank(t *Token) {
 	s.skip(isSpace)
-	if s.isDone() || s.char == semicolon || s.char == newline || isComment(s.char) {
+	if s.isDone() || s.char == semicolon || s.char == newline || isComment(s.char) || isOperator(s.char) {
 		return
 	}
 	t.Type = TokBlank
@@ -178,12 +212,6 @@ func (s *Scanner) scanComment(t *Token) {
 	t.Literal = buf.String()
 }
 
-func (s *Scanner) skip(fn func(rune) bool) {
-	for fn(s.char) {
-		s.readRune()
-	}
-}
-
 func (s *Scanner) readRune() {
 	c, z := utf8.DecodeRune(s.buffer[s.next:])
 	if c == utf8.RuneError {
@@ -209,6 +237,12 @@ func (s *Scanner) readRune() {
 // 		s.curr -= utf8.RuneLen(s.char)
 // 	}
 // }
+
+func (s *Scanner) skip(fn func(rune) bool) {
+	for fn(s.char) {
+		s.readRune()
+	}
+}
 
 func (s *Scanner) isDone() bool {
 	return s.curr >= len(s.buffer)
@@ -236,12 +270,12 @@ func (s *Scanner) isQuoted() bool {
 	return s.quote == dquote || s.quote == squote
 }
 
-func canEscape(r rune) bool {
-	return r == 0 || r == dquote
+func canEscape(q, r rune) bool {
+	return (q == 0 || q == dquote) && r == backslash
 }
 
 func splitLiteral(r rune) bool {
-	return isBlank(r) || isComment(r) || isQuote(r) || r == semicolon
+	return isBlank(r) || isComment(r) || isQuote(r) || r == semicolon || isOperator(r)
 }
 
 func splitQuotedStrong(r rune) bool {
@@ -282,4 +316,8 @@ func isQuote(r rune) bool {
 
 func isComment(r rune) bool {
 	return r == pound
+}
+
+func isOperator(r rune) bool {
+	return r == pipe || r == ampersand
 }
