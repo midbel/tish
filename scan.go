@@ -75,11 +75,16 @@ const (
 	underscore = '_'
 )
 
+type SplitFunc func(rune) bool
+
 type Scanner struct {
 	buffer []byte
 	char   rune
 	curr   int
 	next   int
+
+	split func(rune) bool
+	quote rune
 }
 
 func NewScanner(r io.Reader) (*Scanner, error) {
@@ -87,8 +92,10 @@ func NewScanner(r io.Reader) (*Scanner, error) {
 	if err != nil {
 		return nil, err
 	}
-	var s Scanner
-	s.buffer = bytes.ReplaceAll(buf, []byte{carriage, newline}, []byte{newline})
+	s := Scanner{
+		buffer: bytes.ReplaceAll(buf, []byte{carriage, newline}, []byte{newline}),
+		split:  splitLiteral,
+	}
 
 	s.readRune()
 	s.skip(isSpace)
@@ -96,33 +103,47 @@ func NewScanner(r io.Reader) (*Scanner, error) {
 }
 
 func (s *Scanner) Next() Token {
+	s.switchSplit()
 	var t Token
 	if s.isDone() {
 		t.Type = TokEOF
 		return t
 	}
-
-	switch s.char {
-	case squote, dquote:
-		s.scanQuote(&t)
-	case dollar:
+	switch {
+	case isVar(s.char):
 		s.scanVariable(&t)
-	case pound:
+	case isComment(s.char):
 		s.scanComment(&t)
-	case newline, semicolon:
+	case s.char == newline || s.char == semicolon:
 		s.readRune()
 		s.skip(isSpace)
 
 		t.Type = TokSemicolon
-	case space, tab:
+	case !s.isQuoted() && isSpace(s.char):
 		s.scanBlank(&t)
 		if t.Type != TokBlank {
 			return s.Next()
 		}
 	default:
-		s.scanLiteral(&t)
+		s.scanDefault(&t)
 	}
 	return t
+}
+
+func (s *Scanner) scanDefault(t *Token) {
+	var buf bytes.Buffer
+	for !s.isDone() && !s.split(s.char) {
+		if canEscape(s.quote) && s.char == backslash {
+			s.readRune()
+		}
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	t.Literal = buf.String()
+	t.Type = TokLiteral
+	if s.isQuoted() && (s.isDone() || s.char == newline) {
+		t.Type = TokInvalid
+	}
 }
 
 func (s *Scanner) scanBlank(t *Token) {
@@ -133,76 +154,15 @@ func (s *Scanner) scanBlank(t *Token) {
 	t.Type = TokBlank
 }
 
-func (s *Scanner) scanLiteral(t *Token) {
-	isDelimited := func() bool {
-		return s.isDone() || isBlank(s.char) || isComment(s.char) || isQuote(s.char) || s.char == semicolon
-	}
-
-	var buf bytes.Buffer
-	for {
-		if s.char == backslash {
-			s.readRune()
-		}
-		buf.WriteRune(s.char)
-
-		s.readRune()
-		if isDelimited() {
-			break
-		}
-	}
-	t.Literal = buf.String()
-	t.Type = TokLiteral
-}
-
 func (s *Scanner) scanVariable(t *Token) {
-	isDelimited := func() bool {
-		return s.isDone() || isBlank(s.char) || isComment(s.char) || s.char == semicolon
-	}
-
 	s.readRune()
 	var buf bytes.Buffer
-	for {
-		if !isAlpha(s.char) {
-			t.Type = TokInvalid
-			break
-		}
-		buf.WriteRune(s.char)
-		s.readRune()
-		if isDelimited() {
-			break
-		}
-	}
-
-	if t.Type != TokInvalid {
-		t.Type = TokVariable
-	}
-	t.Literal = buf.String()
-}
-
-func (s *Scanner) scanQuote(t *Token) {
-	var (
-		buf   bytes.Buffer
-		quote = s.char
-	)
-	s.readRune()
-	for s.char != quote {
-		if s.isDone() || s.char == newline {
-			t.Type = TokInvalid
-			break
-		}
-		if quote == dquote && s.char == backslash {
-			s.readRune()
-		}
+	for !s.isDone() && isAlpha(s.char) {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-	if t.Type != TokInvalid {
-		t.Type = TokLiteral
-	}
 	t.Literal = buf.String()
-	if isQuote(s.char) && s.char == quote {
-		s.readRune()
-	}
+	t.Type = TokVariable
 }
 
 func (s *Scanner) scanComment(t *Token) {
@@ -210,12 +170,9 @@ func (s *Scanner) scanComment(t *Token) {
 	s.skip(isSpace)
 
 	var buf bytes.Buffer
-	for {
+	for !s.isDone() && s.char != newline {
 		buf.WriteRune(s.char)
 		s.readRune()
-		if s.isDone() || s.char == newline || s.char == pound {
-			break
-		}
 	}
 	t.Type = TokComment
 	t.Literal = buf.String()
@@ -257,6 +214,44 @@ func (s *Scanner) isDone() bool {
 	return s.curr >= len(s.buffer)
 }
 
+func (s *Scanner) switchSplit() {
+	if s.isDone() || (s.char != squote && s.char != dquote) {
+		return
+	}
+	defer s.readRune()
+	if s.quote == dquote || s.quote == squote {
+		s.quote = 0
+		s.split = splitLiteral
+		return
+	}
+	s.quote = s.char
+	if s.quote == dquote {
+		s.split = splitQuotedWeak
+	} else {
+		s.split = splitQuotedStrong
+	}
+}
+
+func (s *Scanner) isQuoted() bool {
+	return s.quote == dquote || s.quote == squote
+}
+
+func canEscape(r rune) bool {
+	return r == 0 || r == dquote
+}
+
+func splitLiteral(r rune) bool {
+	return isBlank(r) || isComment(r) || isQuote(r) || r == semicolon
+}
+
+func splitQuotedStrong(r rune) bool {
+	return r == squote
+}
+
+func splitQuotedWeak(r rune) bool {
+	return r == dquote || r == dollar
+}
+
 func isAlpha(r rune) bool {
 	return isLetter(r) || isDigit(r) || r == underscore
 }
@@ -275,6 +270,10 @@ func isSpace(r rune) bool {
 
 func isBlank(r rune) bool {
 	return isSpace(r) || r == newline
+}
+
+func isVar(r rune) bool {
+	return r == dollar
 }
 
 func isQuote(r rune) bool {
