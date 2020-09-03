@@ -5,14 +5,30 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sort"
 	"unicode/utf8"
 )
+
+func init() {
+	sort.Strings(keywords)
+}
+
+var keywords = []string{
+	"for",
+	"break",
+	"continue",
+	"if",
+	"then",
+	"else",
+	"end",
+}
 
 type Kind rune
 
 const (
 	TokEOF Kind = -(iota + 1)
 	TokBlank
+	TokKeyword
 	TokLiteral
 	TokVariable
 	TokComment
@@ -22,6 +38,9 @@ const (
 	TokOr
 	TokPipe
 	TokBackground
+	TokAssign
+	TokEqual
+	TokNotEqual
 )
 
 func (k Kind) String() string {
@@ -33,6 +52,8 @@ func (k Kind) String() string {
 		str = "blank"
 	case TokLiteral:
 		str = "literal"
+	case TokKeyword:
+		str = "keyword"
 	case TokVariable:
 		str = "variable"
 	case TokComment:
@@ -61,13 +82,20 @@ type Token struct {
 	Quoted  bool
 }
 
+func makeLiteral(str string) Token {
+	return Token{
+		Literal: str,
+		Type:    TokLiteral,
+	}
+}
+
 func (t Token) Equal(other Token) bool {
 	return t.Type == other.Type && t.Literal == other.Literal && t.Quoted == other.Quoted
 }
 
 func (t Token) String() string {
 	switch t.Type {
-	case TokLiteral, TokComment, TokInvalid, TokVariable:
+	case TokLiteral, TokComment, TokInvalid, TokVariable, TokKeyword:
 		return fmt.Sprintf("<%s(%s)>", t.Type, t.Literal)
 	default:
 		return fmt.Sprintf("<%s>", t.Type)
@@ -92,6 +120,22 @@ const (
 	minus      = '-'
 	star       = '*'
 	slash      = '/'
+	equal      = '='
+	tilde      = '~'
+	rangle     = '>'
+	langle     = '<'
+	lparen     = '('
+	rparen     = ')'
+	lsquare    = '['
+	rsquare    = ']'
+	lcurly     = '{'
+	rcurly     = '}'
+	arobase    = '@'
+	percent    = '%'
+	colon      = ':'
+	dot        = '.'
+	bang       = '!'
+	question   = '?'
 )
 
 type Scanner struct {
@@ -131,22 +175,8 @@ func (s *Scanner) Next() Token {
 		s.scanVariable(&t)
 	case isComment(s.char):
 		s.scanComment(&t)
-	case s.char == ampersand:
-		t.Type = TokBackground
-		s.readRune()
-		if s.char == ampersand {
-			s.readRune()
-			t.Type = TokAnd
-		}
-		s.skip(isSpace)
-	case s.char == pipe:
-		t.Type = TokPipe
-		s.readRune()
-		if s.char == pipe {
-			s.readRune()
-			t.Type = TokOr
-		}
-		s.skip(isSpace)
+	case isOperator(s.char):
+		s.scanOperator(&t)
 	case s.char == newline || s.char == semicolon:
 		s.readRune()
 		s.skip(isSpace)
@@ -176,6 +206,36 @@ func (s *Scanner) scanDefault(t *Token) {
 	t.Literal = buf.String()
 	t.Type = TokLiteral
 	if s.isQuoted() && (s.isDone() || s.char == newline) {
+		t.Type = TokInvalid
+		return
+	}
+	if !s.isQuoted() {
+		x := sort.SearchStrings(keywords, t.Literal)
+		if x < len(keywords) && keywords[x] == t.Literal {
+			t.Type = TokKeyword
+		}
+	}
+}
+
+func (s *Scanner) scanOperator(t *Token) {
+	switch s.char {
+	case ampersand:
+		t.Type = TokBackground
+		s.readRune()
+		if s.char == ampersand {
+			s.readRune()
+			t.Type = TokAnd
+		}
+		s.skip(isSpace)
+	case pipe:
+		t.Type = TokPipe
+		s.readRune()
+		if s.char == pipe {
+			s.readRune()
+			t.Type = TokOr
+		}
+		s.skip(isSpace)
+	default:
 		t.Type = TokInvalid
 	}
 }

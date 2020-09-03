@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -24,8 +25,33 @@ func Parse(r io.Reader) (*Parser, error) {
 	return &p, nil
 }
 
-func (p *Parser) Parse() error {
-	return nil
+func (p *Parser) Parse() (Command, error) {
+	if p.isDone() {
+		return nil, io.EOF
+	}
+	switch p.curr.Type {
+	case TokKeyword:
+		return nil, nil
+	case TokLiteral:
+		return p.parseCommand()
+	default:
+		return nil, fmt.Errorf("unexpected token: %s", p.curr)
+	}
+}
+
+func (p *Parser) parseCommand() (Command, error) {
+	var s Simple
+	for !p.isDone() && p.curr.Type != TokSemicolon {
+		var w Word
+		for !p.isDone() && p.curr.Type != TokBlank {
+			w.tokens = append(w.tokens, p.curr)
+			p.next()
+		}
+		s.words = append(s.words, w)
+		p.next()
+	}
+	p.next()
+	return s, nil
 }
 
 func (p *Parser) next() {
