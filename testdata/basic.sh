@@ -21,3 +21,9 @@ echo foo | echo bar
 # conditional sequence of command
 echo foo && echo bar
 echo foo || echo bar
+
+if true; then
+  echo foo
+else
+  echo bar
+fi

@@ -72,6 +72,94 @@ func TestParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			Input: "if test; then echo foo; else echo bar; fi",
+			Cmds: []Command{
+				If{
+					cmd: List{
+						cmds: []Command{
+							Simple{
+								words: []Word{
+									{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
+								},
+							},
+						},
+					},
+					csq: List{
+						cmds: []Command{
+							Simple{
+								words: []Word{
+									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+									{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+								},
+							},
+						},
+					},
+					alt: List{
+						cmds: []Command{
+							Simple{
+								words: []Word{
+									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+									{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "until test; do echo foo; done",
+			Cmds: []Command{
+				Until{
+					cmd: List{
+						cmds: []Command{
+							Simple{
+								words: []Word{
+									{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
+								},
+							},
+						},
+					},
+					body: List{
+						cmds: []Command{
+							Simple{
+								words: []Word{
+									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+									{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "while test; do echo foo; done",
+			Cmds: []Command{
+				While{
+					cmd: List{
+						cmds: []Command{
+							Simple{
+								words: []Word{
+									{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
+								},
+							},
+						},
+					},
+					body: List{
+						cmds: []Command{
+							Simple{
+								words: []Word{
+									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+									{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, d := range data {
 		testParser(t, d)

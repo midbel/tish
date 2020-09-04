@@ -13,14 +13,36 @@ func init() {
 	sort.Strings(keywords)
 }
 
+const (
+	kwIf       = "if"
+	kwFi       = "fi"
+	kwFor      = "for"
+	kwUntil    = "until"
+	kwWhile    = "while"
+	kwDo       = "do"
+	kwDone     = "done"
+	kwCase     = "case"
+	kwEsac     = "esac"
+	kwBreak    = "break"
+	kwContinue = "continue"
+	kwThen     = "then"
+	kwElse     = "else"
+)
+
 var keywords = []string{
-	"for",
-	"break",
-	"continue",
-	"if",
-	"then",
-	"else",
-	"end",
+	kwIf,
+	kwFi,
+	kwFor,
+	kwWhile,
+	kwUntil,
+	kwDo,
+	kwDone,
+	kwCase,
+	kwEsac,
+	kwBreak,
+	kwContinue,
+	kwThen,
+	kwElse,
 }
 
 type Kind rune
@@ -44,7 +66,11 @@ const (
 )
 
 func (k Kind) EndOfWord() bool {
-	return k == TokBlank || k == TokAnd || k == TokOr || k == TokSemicolon
+	return k == TokBlank || k == TokAnd || k == TokOr || k == TokSemicolon || k == TokPipe || k == TokBackground
+}
+
+func (k Kind) EndOfCommand() bool {
+	return k == TokSemicolon || k == TokEOF
 }
 
 func (k Kind) String() string {
@@ -210,6 +236,7 @@ func (s *Scanner) scanDefault(t *Token) {
 		x := sort.SearchStrings(keywords, t.Literal)
 		if x < len(keywords) && keywords[x] == t.Literal {
 			t.Type = TokKeyword
+			s.skip(isSpace)
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 type Command interface {
 	Execute() (int, error)
 	Equal(Command) bool
+	fmt.Stringer
 }
 
 type Word struct {
@@ -66,6 +67,42 @@ func (s Simple) String() string {
 	return fmt.Sprintf("simple(%s)", strings.Join(ws, " "))
 }
 
+type List struct {
+	cmds []Command
+}
+
+func (i List) Execute() (int, error) {
+	var (
+		code int
+		err  error
+	)
+	for _, c := range i.cmds {
+		code, err = c.Execute()
+	}
+	return code, err
+}
+
+func (i List) Equal(other Command) bool {
+	s, ok := other.(List)
+	if !ok {
+		return ok
+	}
+	for j, c := range i.cmds {
+		if !c.Equal(s.cmds[j]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (i List) String() string {
+	ws := make([]string, len(i.cmds))
+	for j, c := range i.cmds {
+		ws[j] = c.String()
+	}
+	return fmt.Sprintf("list(%s)", strings.Join(ws, ", "))
+}
+
 type And struct {
 	left  Command
 	right Command
@@ -114,4 +151,95 @@ func (o Or) Equal(other Command) bool {
 
 func (o Or) String() string {
 	return fmt.Sprintf("or(%s, %s)", o.left, o.right)
+}
+
+type If struct {
+	cmd Command
+	csq Command
+	alt Command
+}
+
+func (i If) Execute() (int, error) {
+	e, err := i.cmd.Execute()
+	if e == 0 && err == nil {
+		return i.csq.Execute()
+	}
+	if i.alt != nil {
+		e, err = i.alt.Execute()
+	}
+	return e, err
+}
+
+func (i If) Equal(other Command) bool {
+	j, ok := other.(If)
+	if !ok {
+		return ok
+	}
+	return i.cmd.Equal(j.cmd) && i.csq.Equal(j.csq) && i.alt.Equal(j.alt)
+}
+
+func (i If) String() string {
+	return fmt.Sprintf("if(cmd: %s, csq: %s, alt: %s)", i.cmd, i.csq, i.alt)
+}
+
+type Until struct {
+	cmd  Command
+	body Command
+}
+
+func (u Until) Execute() (int, error) {
+	var (
+		code int
+		err  error
+	)
+	for {
+		if e, err := u.cmd.Execute(); e == 0 && err == nil {
+			break
+		}
+		code, err = u.body.Execute()
+	}
+	return code, err
+}
+
+func (u Until) Equal(other Command) bool {
+	i, ok := other.(Until)
+	if !ok {
+		return ok
+	}
+	return u.cmd.Equal(i.cmd) && u.body.Equal(i.body)
+}
+
+func (u Until) String() string {
+	return fmt.Sprintf("until(cmd: %s, body: %s)", u.cmd, u.body)
+}
+
+type While struct {
+	cmd  Command
+	body Command
+}
+
+func (w While) Execute() (int, error) {
+	var (
+		code int
+		err  error
+	)
+	for {
+		if e, err := w.cmd.Execute(); e != 0 || err != nil {
+			break
+		}
+		code, err = w.body.Execute()
+	}
+	return code, err
+}
+
+func (w While) Equal(other Command) bool {
+	i, ok := other.(While)
+	if !ok {
+		return ok
+	}
+	return w.cmd.Equal(i.cmd) && w.body.Equal(i.body)
+}
+
+func (w While) String() string {
+	return fmt.Sprintf("while(cmd: %s, body: %s)", w.cmd, w.body)
 }
