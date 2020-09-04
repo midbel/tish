@@ -15,60 +15,26 @@ type ParseCase struct {
 func TestParser(t *testing.T) {
 	data := []ParseCase{
 		{
-			Input: "echo foobar",
-			Cmds: []Command{
-				Simple{
-					words: []Word{
-						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-						{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
-					},
-				},
-			},
+			Input: "echo foo",
+			Cmds:  []Command{echoFoo()},
 		},
 		{
-			Input: "echo $FOOBAR",
-			Cmds: []Command{
-				Simple{
-					words: []Word{
-						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-						{tokens: []Token{{Literal: "FOOBAR", Type: TokVariable}}},
-					},
-				},
-			},
+			Input: "echo $VAR",
+			Cmds:  []Command{echoVar()},
 		},
 		{
 			Input: "echo foo; echo bar",
 			Cmds: []Command{
-				Simple{
-					words: []Word{
-						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-						{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
-					},
-				},
-				Simple{
-					words: []Word{
-						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-						{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
-					},
-				},
+				echoFoo(),
+				echoBar(),
 			},
 		},
 		{
 			Input: "echo foo && echo bar",
 			Cmds: []Command{
 				And{
-					left: Simple{
-						words: []Word{
-							{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-							{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
-						},
-					},
-					right: Simple{
-						words: []Word{
-							{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-							{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
-						},
-					},
+					left:  echoFoo(),
+					right: echoBar(),
 				},
 			},
 		},
@@ -76,35 +42,9 @@ func TestParser(t *testing.T) {
 			Input: "if test; then echo foo; else echo bar; fi",
 			Cmds: []Command{
 				If{
-					cmd: List{
-						cmds: []Command{
-							Simple{
-								words: []Word{
-									{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
-								},
-							},
-						},
-					},
-					csq: List{
-						cmds: []Command{
-							Simple{
-								words: []Word{
-									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-									{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
-								},
-							},
-						},
-					},
-					alt: List{
-						cmds: []Command{
-							Simple{
-								words: []Word{
-									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-									{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
-								},
-							},
-						},
-					},
+					cmd: testCmd(),
+					csq: makeList(echoFoo()),
+					alt: makeList(echoBar()),
 				},
 			},
 		},
@@ -112,25 +52,8 @@ func TestParser(t *testing.T) {
 			Input: "until test; do echo foo; done",
 			Cmds: []Command{
 				Until{
-					cmd: List{
-						cmds: []Command{
-							Simple{
-								words: []Word{
-									{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
-								},
-							},
-						},
-					},
-					body: List{
-						cmds: []Command{
-							Simple{
-								words: []Word{
-									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-									{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
-								},
-							},
-						},
-					},
+					cmd:  testCmd(),
+					body: bodyLoop(),
 				},
 			},
 		},
@@ -138,25 +61,8 @@ func TestParser(t *testing.T) {
 			Input: "while test; do echo foo; done",
 			Cmds: []Command{
 				While{
-					cmd: List{
-						cmds: []Command{
-							Simple{
-								words: []Word{
-									{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
-								},
-							},
-						},
-					},
-					body: List{
-						cmds: []Command{
-							Simple{
-								words: []Word{
-									{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-									{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
-								},
-							},
-						},
-					},
+					cmd:  testCmd(),
+					body: bodyLoop(),
 				},
 			},
 		},
@@ -190,4 +96,48 @@ func testParser(t *testing.T, d ParseCase) {
 			return
 		}
 	}
+}
+
+func echoFoo() Command {
+	return Simple{
+		words: []Word{
+			{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+			{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+		},
+	}
+}
+
+func echoBar() Command {
+	return Simple{
+		words: []Word{
+			{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+			{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+		},
+	}
+}
+
+func echoVar() Command {
+	return Simple{
+		words: []Word{
+			{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+			{tokens: []Token{{Literal: "VAR", Type: TokVariable}}},
+		},
+	}
+}
+
+func bodyLoop() Command {
+  return makeList(echoFoo())
+}
+
+func testCmd() Command {
+	s := Simple{
+		words: []Word{
+			{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
+		},
+	}
+	return makeList(s)
+}
+
+func makeList(cs ...Command) Command {
+  return List{cmds: cs}
 }

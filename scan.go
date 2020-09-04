@@ -27,6 +27,7 @@ const (
 	kwContinue = "continue"
 	kwThen     = "then"
 	kwElse     = "else"
+	kwIn       = "in"
 )
 
 var keywords = []string{
@@ -43,6 +44,7 @@ var keywords = []string{
 	kwContinue,
 	kwThen,
 	kwElse,
+	kwIn,
 }
 
 type Kind rune

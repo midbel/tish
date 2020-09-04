@@ -38,6 +38,10 @@ func (p *Parser) Parse() (Command, error) {
 	if p.isDone() {
 		return nil, io.EOF
 	}
+	return p.parse()
+}
+
+func (p *Parser) parse() (Command, error) {
 	switch p.curr.Type {
 	case TokKeyword:
 		parse, ok := p.kws[p.curr.Literal]
