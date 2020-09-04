@@ -19,29 +19,59 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						{tokens: []Token{makeLiteral("echo")}},
-						{tokens: []Token{makeLiteral("foobar")}},
+						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
 					},
 				},
 			},
 		},
-    {
-      Input: "echo foo; echo bar",
-      Cmds: []Command{
-        Simple{
-          words: []Word{
-            {tokens: []Token{makeLiteral("echo")}},
-						{tokens: []Token{makeLiteral("foo")}},
-          },
-        },
-        Simple{
-          words: []Word{
-            {tokens: []Token{makeLiteral("echo")}},
-						{tokens: []Token{makeLiteral("bar")}},
-          },
-        },
-      },
-    },
+		{
+			Input: "echo $FOOBAR",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						{tokens: []Token{{Literal: "FOOBAR", Type: TokVariable}}},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo foo; echo bar",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+					},
+				},
+				Simple{
+					words: []Word{
+						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo foo && echo bar",
+			Cmds: []Command{
+				And{
+					left: Simple{
+						words: []Word{
+							{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+							{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+						},
+					},
+					right: Simple{
+						words: []Word{
+							{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+							{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, d := range data {
 		testParser(t, d)
@@ -60,15 +90,15 @@ func testParser(t *testing.T, d ParseCase) {
 			break
 		}
 		if err != nil {
-			t.Errorf("fail to parse command: %v", err)
+			t.Errorf("%s: fail to parse command: %v", d.Input, err)
 			return
 		}
-    if i >= len(d.Cmds) {
-      t.Errorf("too many command created! want %d, got %d", len(d.Cmds), i+1)
-      return
-    }
+		if i >= len(d.Cmds) {
+			t.Errorf("%s: too many command created! want %d, got %d", d.Input, len(d.Cmds), i+1)
+			return
+		}
 		if !last.Equal(d.Cmds[i]) {
-			t.Errorf("cmd mismatched! want %s, got %s", "", "")
+			t.Errorf("%s: cmd mismatched! want %s, got %s", d.Input, d.Cmds[i], last)
 			return
 		}
 	}

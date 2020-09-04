@@ -32,26 +32,59 @@ func (p *Parser) Parse() (Command, error) {
 	switch p.curr.Type {
 	case TokKeyword:
 		return nil, nil
-	case TokLiteral:
-		return p.parseCommand()
+	case TokLiteral, TokVariable:
+		return p.parseSimple()
 	default:
 		return nil, fmt.Errorf("unexpected token: %s", p.curr)
 	}
 }
 
-func (p *Parser) parseCommand() (Command, error) {
+func (p *Parser) parseSimple() (Command, error) {
 	var s Simple
 	for !p.isDone() && p.curr.Type != TokSemicolon {
 		var w Word
-		for !p.isDone() && p.curr.Type != TokBlank {
+		for !p.isDone() && !p.curr.Type.EndOfWord() {
 			w.tokens = append(w.tokens, p.curr)
 			p.next()
 		}
 		s.words = append(s.words, w)
-		p.next()
+		switch p.curr.Type {
+		case TokAnd:
+			return p.parseAnd(s)
+		case TokOr:
+			return p.parseOr(s)
+		case TokBlank:
+			p.next()
+		}
 	}
 	p.next()
 	return s, nil
+}
+
+func (p *Parser) parseAnd(left Command) (Command, error) {
+	p.next()
+	right, err := p.parseSimple()
+	if err == nil {
+		a := And{
+			left:  left,
+			right: right,
+		}
+		return a, nil
+	}
+	return nil, err
+}
+
+func (p *Parser) parseOr(left Command) (Command, error) {
+	p.next()
+	right, err := p.parseSimple()
+	if err == nil {
+		o := Or{
+			left:  left,
+			right: right,
+		}
+		return o, nil
+	}
+	return nil, err
 }
 
 func (p *Parser) next() {

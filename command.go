@@ -1,5 +1,10 @@
 package tish
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Command interface {
 	Execute() (int, error)
 	Equal(Command) bool
@@ -7,6 +12,14 @@ type Command interface {
 
 type Word struct {
 	tokens []Token
+}
+
+func (w Word) String() string {
+	ws := make([]string, len(w.tokens))
+	for i := range w.tokens {
+		ws[i] = w.tokens[i].Literal
+	}
+	return strings.Join(ws, "")
 }
 
 func (w Word) Equal(other Word) bool {
@@ -45,6 +58,14 @@ func (s Simple) Equal(other Command) bool {
 	return true
 }
 
+func (s Simple) String() string {
+	ws := make([]string, len(s.words))
+	for i := range s.words {
+		ws[i] = s.words[i].String()
+	}
+	return fmt.Sprintf("simple(%s)", strings.Join(ws, " "))
+}
+
 type And struct {
 	left  Command
 	right Command
@@ -58,6 +79,18 @@ func (a And) Execute() (int, error) {
 	return e, err
 }
 
+func (a And) Equal(other Command) bool {
+	i, ok := other.(And)
+	if !ok {
+		return ok
+	}
+	return a.left.Equal(i.left) && a.right.Equal(i.right)
+}
+
+func (a And) String() string {
+	return fmt.Sprintf("and(%s, %s)", a.left, a.right)
+}
+
 type Or struct {
 	left  Command
 	right Command
@@ -69,4 +102,16 @@ func (o Or) Execute() (int, error) {
 		return e, err
 	}
 	return o.right.Execute()
+}
+
+func (o Or) Equal(other Command) bool {
+	i, ok := other.(Or)
+	if !ok {
+		return ok
+	}
+	return o.left.Equal(i.left) && o.right.Equal(i.right)
+}
+
+func (o Or) String() string {
+	return fmt.Sprintf("or(%s, %s)", o.left, o.right)
 }

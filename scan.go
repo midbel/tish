@@ -43,6 +43,10 @@ const (
 	TokNotEqual
 )
 
+func (k Kind) EndOfWord() bool {
+	return k == TokBlank || k == TokAnd || k == TokOr || k == TokSemicolon
+}
+
 func (k Kind) String() string {
 	var str string
 	switch k {
@@ -80,13 +84,6 @@ type Token struct {
 	Literal string
 	Type    Kind
 	Quoted  bool
-}
-
-func makeLiteral(str string) Token {
-	return Token{
-		Literal: str,
-		Type:    TokLiteral,
-	}
 }
 
 func (t Token) Equal(other Token) bool {
