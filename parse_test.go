@@ -49,6 +49,41 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
+			Input: "if test || test\nthen\necho foo\necho bar\nfi",
+			Cmds: []Command{
+				If{
+					cmd: makeList(Or{left: testSimple(), right: testSimple()}),
+					csq: makeList(echoFoo(), echoBar()),
+				},
+			},
+		},
+		{
+			Input: "if test; then echo foo\nelse if test; then echo bar\nfi",
+			Cmds: []Command{
+				If{
+					cmd: testCmd(),
+					csq: makeList(echoFoo()),
+					alt: If{
+						cmd: testCmd(),
+						csq: makeList(echoBar()),
+					},
+				},
+			},
+		},
+		{
+			Input: "for VAR in foo bar; do echo foo; done",
+			Cmds: []Command{
+				For{
+					name: Token{Literal: "VAR", Type: TokLiteral},
+					words: []Word{
+						{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+						{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+					},
+					body: bodyLoop(),
+				},
+			},
+		},
+		{
 			Input: "until test; do echo foo; done",
 			Cmds: []Command{
 				Until{
@@ -63,6 +98,48 @@ func TestParser(t *testing.T) {
 				While{
 					cmd:  testCmd(),
 					body: bodyLoop(),
+				},
+			},
+		},
+		{
+			Input: "while test; do break; done",
+			Cmds: []Command{
+				While{
+					cmd:  testCmd(),
+					body: breakLoop(),
+				},
+			},
+		},
+		{
+			Input: "while test; do continue; done",
+			Cmds: []Command{
+				While{
+					cmd:  testCmd(),
+					body: continueLoop(),
+				},
+			},
+		},
+		{
+			Input: "until test; do echo foo; if test; then echo bar; fi done",
+			Cmds: []Command{
+				Until{
+					cmd: testCmd(),
+					body: makeList(
+						echoFoo(),
+						If{cmd: testCmd(), csq: makeList(echoBar())},
+					),
+				},
+			},
+		},
+		{
+			Input: "if test; then echo foo; while test; do echo bar; done fi",
+			Cmds: []Command{
+				If{
+					cmd: testCmd(),
+					csq: makeList(
+						echoFoo(),
+						While{cmd: testCmd(), body: makeList(echoBar())},
+					),
 				},
 			},
 		},
@@ -92,7 +169,9 @@ func testParser(t *testing.T, d ParseCase) {
 			return
 		}
 		if !last.Equal(d.Cmds[i]) {
-			t.Errorf("%s: cmd mismatched! want %s, got %s", d.Input, d.Cmds[i], last)
+			t.Errorf("%s: cmd mismatched!", d.Input)
+			t.Errorf("- want: %s", d.Cmds[i])
+			t.Errorf("- got : %s", last)
 			return
 		}
 	}
@@ -126,18 +205,29 @@ func echoVar() Command {
 }
 
 func bodyLoop() Command {
-  return makeList(echoFoo())
+	return makeList(echoFoo())
+}
+
+func breakLoop() Command {
+	return makeList(Break{})
+}
+
+func continueLoop() Command {
+	return makeList(Continue{})
 }
 
 func testCmd() Command {
-	s := Simple{
+	return makeList(testSimple())
+}
+
+func testSimple() Command {
+	return Simple{
 		words: []Word{
 			{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
 		},
 	}
-	return makeList(s)
 }
 
 func makeList(cs ...Command) Command {
-  return List{cmds: cs}
+	return List{cmds: cs}
 }

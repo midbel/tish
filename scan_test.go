@@ -181,6 +181,22 @@ func TestScanner(t *testing.T) {
 				{Literal: "bar", Type: TokLiteral},
 			},
 		},
+		{
+			Input: "echo \"=foo=bar=\"",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "=foo=bar=", Type: TokLiteral},
+			},
+		},
+		{
+			Input: "foo=\"bar\"",
+			Tokens: []Token{
+				{Literal: "foo", Type: TokLiteral},
+				{Type: TokAssign},
+				{Literal: "bar", Type: TokLiteral},
+			},
+		},
 	}
 	for _, d := range data {
 		testScanner(t, d)

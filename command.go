@@ -1,8 +1,14 @@
 package tish
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+var (
+	ErrBreak    = errors.New(kwBreak)
+	ErrContinue = errors.New(kwContinue)
 )
 
 type Command interface {
@@ -86,6 +92,9 @@ func (i List) Equal(other Command) bool {
 	s, ok := other.(List)
 	if !ok {
 		return ok
+	}
+	if len(i.cmds) != len(s.cmds) {
+		return false
 	}
 	for j, c := range i.cmds {
 		if !c.Equal(s.cmds[j]) {
@@ -175,11 +184,18 @@ func (i If) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	return i.cmd.Equal(j.cmd) && i.csq.Equal(j.csq) && i.alt.Equal(j.alt)
+	ok = i.cmd.Equal(j.cmd) && i.csq.Equal(j.csq)
+	if i.alt != nil && j.alt != nil {
+		ok = ok && i.alt.Equal(j.alt)
+	}
+	return ok
 }
 
 func (i If) String() string {
-	return fmt.Sprintf("if(cmd: %s, csq: %s, alt: %s)", i.cmd, i.csq, i.alt)
+	if i.alt != nil {
+		return fmt.Sprintf("if(cmd: %s, csq: %s, alt: %s)", i.cmd, i.csq, i.alt)
+	}
+	return fmt.Sprintf("if(cmd: %s, csq: %s)", i.cmd, i.csq)
 }
 
 type Until struct {
@@ -206,7 +222,11 @@ func (u Until) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	return u.cmd.Equal(i.cmd) && u.body.Equal(i.body)
+	ok = u.cmd.Equal(i.cmd)
+	if u.body != nil && i.body != nil {
+		return ok && u.body.Equal(i.body)
+	}
+	return false
 }
 
 func (u Until) String() string {
@@ -237,9 +257,87 @@ func (w While) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	return w.cmd.Equal(i.cmd) && w.body.Equal(i.body)
+	ok = w.cmd.Equal(i.cmd)
+	if w.body != nil && i.body != nil {
+		return ok && w.body.Equal(i.body)
+	}
+	return false
 }
 
 func (w While) String() string {
 	return fmt.Sprintf("while(cmd: %s, body: %s)", w.cmd, w.body)
+}
+
+type For struct {
+	name  Token
+	words []Word
+	body  Command
+}
+
+func (f For) Execute() (int, error) {
+	var (
+		code int
+		err  error
+	)
+	for i := range f.words {
+		_ = i
+		code, err = f.body.Execute()
+	}
+	return code, err
+}
+
+func (f For) Equal(other Command) bool {
+	i, ok := other.(For)
+	if !ok {
+		return ok
+	}
+	if !f.name.Equal(i.name) {
+		return false
+	}
+	if len(f.words) != len(i.words) {
+		return false
+	}
+	for j, w := range f.words {
+		if !w.Equal(i.words[j]) {
+			return false
+		}
+	}
+	if f.body != nil && i.body != nil {
+		return f.body.Equal(i.body)
+	}
+	return false
+}
+
+func (f For) String() string {
+	return fmt.Sprintf("for(words: %s, body: %s)", "", f.body.String())
+}
+
+type Break struct{}
+
+func (_ Break) Execute() (int, error) {
+	return 0, ErrBreak
+}
+
+func (_ Break) Equal(other Command) bool {
+	_, ok := other.(Break)
+	return ok
+}
+
+func (_ Break) String() string {
+	return "break()"
+}
+
+type Continue struct{}
+
+func (_ Continue) Execute() (int, error) {
+	return 0, ErrContinue
+}
+
+func (_ Continue) Equal(other Command) bool {
+	_, ok := other.(Continue)
+	return ok
+}
+
+func (_ Continue) String() string {
+	return "continue()"
 }

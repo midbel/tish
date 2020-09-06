@@ -27,6 +27,7 @@ const (
 	kwContinue = "continue"
 	kwThen     = "then"
 	kwElse     = "else"
+	kwElif     = "elif"
 	kwIn       = "in"
 )
 
@@ -44,6 +45,7 @@ var keywords = []string{
 	kwContinue,
 	kwThen,
 	kwElse,
+	kwElif,
 	kwIn,
 }
 
@@ -102,6 +104,8 @@ func (k Kind) String() string {
 		str = "pipe"
 	case TokBackground:
 		str = "background"
+	case TokAssign:
+		str = "assign"
 	default:
 		str = "unknown"
 	}
@@ -200,7 +204,7 @@ func (s *Scanner) Next() Token {
 		s.scanVariable(&t)
 	case isComment(s.char):
 		s.scanComment(&t)
-	case isOperator(s.char):
+	case !s.isQuoted() && isOperator(s.char):
 		s.scanOperator(&t)
 	case s.char == newline || s.char == semicolon:
 		s.readRune()
@@ -238,7 +242,7 @@ func (s *Scanner) scanDefault(t *Token) {
 		x := sort.SearchStrings(keywords, t.Literal)
 		if x < len(keywords) && keywords[x] == t.Literal {
 			t.Type = TokKeyword
-			s.skip(isSpace)
+			s.skip(isBlank)
 		}
 	}
 }
@@ -261,6 +265,9 @@ func (s *Scanner) scanOperator(t *Token) {
 			t.Type = TokOr
 		}
 		s.skip(isSpace)
+	case equal:
+		t.Type = TokAssign
+		s.readRune()
 	default:
 		t.Type = TokInvalid
 	}
@@ -405,5 +412,5 @@ func isComment(r rune) bool {
 }
 
 func isOperator(r rune) bool {
-	return r == pipe || r == ampersand
+	return r == pipe || r == ampersand || r == equal
 }
