@@ -2,7 +2,6 @@ package tish
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -47,97 +46,6 @@ var keywords = []string{
 	kwElse,
 	kwElif,
 	kwIn,
-}
-
-type Kind rune
-
-const (
-	TokEOF Kind = -(iota + 1)
-	TokBlank
-	TokKeyword
-	TokLiteral
-	TokVariable
-	TokComment
-	TokInvalid
-	TokSemicolon
-	TokAnd
-	TokOr
-	TokPipe
-	TokBackground
-	TokAssign
-	TokEqual
-	TokNotEqual
-	TokBreak
-	TokContinue
-	TokFallthrough
-)
-
-func (k Kind) EndOfWord() bool {
-	return k == TokBlank || k == TokAnd || k == TokOr || k == TokSemicolon || k == TokPipe || k == TokBackground
-}
-
-func (k Kind) EndOfCommand() bool {
-	return k == TokSemicolon || k == TokEOF
-}
-
-func (k Kind) String() string {
-	var str string
-	switch k {
-	case TokEOF:
-		str = "eof"
-	case TokBlank:
-		str = "blank"
-	case TokLiteral:
-		str = "literal"
-	case TokKeyword:
-		str = "keyword"
-	case TokVariable:
-		str = "variable"
-	case TokComment:
-		str = "comment"
-	case TokInvalid:
-		str = "invalid"
-	case TokSemicolon:
-		str = "semicolon"
-	case TokAnd:
-		str = "and"
-	case TokOr:
-		str = "or"
-	case TokPipe:
-		str = "pipe"
-	case TokBackground:
-		str = "background"
-	case TokAssign:
-		str = "assign"
-	case TokBreak:
-		str = "break"
-	case TokContinue:
-		str = "continue"
-	case TokFallthrough:
-		str = "fallthrough"
-	default:
-		str = "unknown"
-	}
-	return str
-}
-
-type Token struct {
-	Literal string
-	Type    Kind
-	Quoted  bool
-}
-
-func (t Token) Equal(other Token) bool {
-	return t.Type == other.Type && t.Literal == other.Literal && t.Quoted == other.Quoted
-}
-
-func (t Token) String() string {
-	switch t.Type {
-	case TokLiteral, TokComment, TokInvalid, TokVariable, TokKeyword:
-		return fmt.Sprintf("<%s(%s)>", t.Type, t.Literal)
-	default:
-		return fmt.Sprintf("<%s>", t.Type)
-	}
 }
 
 const (
@@ -216,21 +124,9 @@ func (s *Scanner) Next() Token {
 	case !s.isQuoted() && isOperator(s.char):
 		s.scanOperator(&t)
 	case s.char == newline || s.char == semicolon:
-		s.readRune()
-		if s.char == semicolon {
-			s.readRune()
-			t.Type = TokBreak
-			if s.char == ampersand {
-				s.readRune()
-				t.Type = TokFallthrough
-			}
-		} else if s.char == ampersand {
-			s.readRune()
-			t.Type = TokContinue
-		} else {
-			t.Type = TokSemicolon
-		}
-		s.skip(isBlank)
+		s.scanSemicolon(&t)
+	case !s.isQuoted() && isMeta(s.char):
+		s.scanMeta(&t)
 	case !s.isQuoted() && isSpace(s.char):
 		s.scanBlank(&t)
 		if t.Type != TokBlank {
@@ -265,6 +161,37 @@ func (s *Scanner) scanDefault(t *Token) {
 			s.skip(isBlank)
 		}
 	}
+}
+
+func (s *Scanner) scanMeta(t *Token) {
+	switch s.char {
+	case lparen:
+		t.Type = TokBegGroup
+	case rparen:
+		t.Type = TokEndGroup
+	default:
+		t.Type = TokInvalid
+	}
+	s.readRune()
+}
+
+func (s *Scanner) scanSemicolon(t *Token) {
+	s.readRune()
+	switch s.char {
+	case semicolon:
+		s.readRune()
+		t.Type = TokBreak
+		if s.char == ampersand {
+			s.readRune()
+			t.Type = TokFallthrough
+		}
+	case ampersand:
+		s.readRune()
+		t.Type = TokContinue
+	default:
+		t.Type = TokSemicolon
+	}
+	s.skip(isBlank)
 }
 
 func (s *Scanner) scanOperator(t *Token) {
@@ -336,21 +263,6 @@ func (s *Scanner) readRune() {
 	s.char, s.curr, s.next = c, s.next, s.next+z
 }
 
-// func (s *Scanner) peekRune() rune {
-// 	r, _ := utf8.DecodeRune(s.buffer[s.next:])
-// 	return r
-// }
-//
-// func (s *Scanner) unreadRune() {
-// 	if s.next <= 0 {
-// 		return
-// 	}
-// 	s.next = s.curr
-// 	if s.curr != 0 {
-// 		s.curr -= utf8.RuneLen(s.char)
-// 	}
-// }
-
 func (s *Scanner) skip(fn func(rune) bool) {
 	for fn(s.char) {
 		s.readRune()
@@ -388,7 +300,7 @@ func canEscape(q, r rune) bool {
 }
 
 func splitLiteral(r rune) bool {
-	return isBlank(r) || isComment(r) || isQuote(r) || r == semicolon || isOperator(r)
+	return isBlank(r) || isComment(r) || isQuote(r) || isMeta(r) || isOperator(r)
 }
 
 func splitQuotedStrong(r rune) bool {
@@ -433,4 +345,8 @@ func isComment(r rune) bool {
 
 func isOperator(r rune) bool {
 	return r == pipe || r == ampersand || r == equal
+}
+
+func isMeta(r rune) bool {
+	return r == lparen || r == rparen || r == semicolon
 }

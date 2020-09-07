@@ -208,6 +208,31 @@ func TestParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			Input: "case $VAR in\n\tfoo | bar)\n\techo foo\n\t;;\n\tfoobar)\n\techo bar\n\t;;\n\tesac",
+			Cmds: []Command{
+				Case{
+					word: Word{
+						tokens: []Token{{Literal: "VAR", Type: TokVariable}},
+					},
+					clauses: []Command{
+						Clause{
+							pattern: []Word{
+								{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+								{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+							},
+							body: makeList(echoFoo()),
+						},
+						Clause{
+							pattern: []Word{
+								{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
+							},
+							body: makeList(echoBar()),
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, d := range data {
 		testParser(t, d)

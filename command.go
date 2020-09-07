@@ -26,7 +26,7 @@ func (w Word) String() string {
 	for i := range w.tokens {
 		ws[i] = w.tokens[i].Literal
 	}
-	return strings.Join(ws, "")
+	return fmt.Sprintf("word(%s)", strings.Join(ws, ""))
 }
 
 func (w Word) Equal(other Word) bool {
@@ -169,6 +169,75 @@ func (o Or) Equal(other Command) bool {
 
 func (o Or) String() string {
 	return fmt.Sprintf("or(%s, %s)", o.left, o.right)
+}
+
+type Case struct {
+	word    Word
+	clauses []Command
+}
+
+func (c Case) Execute() (int, error) {
+	return 0, nil
+}
+
+func (c Case) Equal(other Command) bool {
+	i, ok := other.(Case)
+	if !ok {
+		return ok
+	}
+	if len(c.clauses) != len(i.clauses) {
+		return false
+	}
+	for j, c := range c.clauses {
+		if !c.Equal(i.clauses[j]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (c Case) String() string {
+	ws := make([]string, len(c.clauses))
+	for i, c := range c.clauses {
+		ws[i] = c.String()
+	}
+	return fmt.Sprintf("case(word: %s, body: %s)", c.word, ws)
+}
+
+type Clause struct {
+	pattern []Word
+	body    Command
+}
+
+func (c Clause) Execute() (int, error) {
+	return 0, nil
+}
+
+func (c Clause) Equal(other Command) bool {
+	i, ok := other.(Clause)
+	if !ok {
+		return ok
+	}
+	if len(c.pattern) != len(i.pattern) {
+		return false
+	}
+	for j, w := range c.pattern {
+		if !w.Equal(i.pattern[j]) {
+			return false
+		}
+	}
+	if c.body != nil && i.body != nil {
+		return c.body.Equal(i.body)
+	}
+	return false
+}
+
+func (c Clause) String() string {
+	ws := make([]string, len(c.pattern))
+	for i, w := range c.pattern {
+		ws[i] = w.String()
+	}
+	return fmt.Sprintf("clause(pattern: %s, body: %s)", strings.Join(ws, ", "), c.body)
 }
 
 type If struct {

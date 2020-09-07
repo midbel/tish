@@ -50,13 +50,13 @@ func (p *Parser) parse() (Command, error) {
 	case TokKeyword:
 		parse, ok := p.kws[p.curr.Literal]
 		if !ok {
-			return nil, fmt.Errorf("parser: unexpected keyword %s", p.curr)
+			return nil, fmt.Errorf("parse: unexpected keyword %s", p.curr)
 		}
 		return parse()
 	case TokLiteral, TokVariable:
 		return p.parseSimple()
 	default:
-		return nil, fmt.Errorf("parser: unexpected token: %s", p.curr)
+		return nil, fmt.Errorf("parse: unexpected token: %s", p.curr)
 	}
 }
 
@@ -77,7 +77,7 @@ func (p *Parser) parseSimple() (Command, error) {
 		case TokBlank:
 			cmd.env = append(cmd.env, a)
 		default:
-			return nil, fmt.Errorf("parser: unexpected token %s, want 'literal/semicolon'", p.curr)
+			return nil, fmt.Errorf("simple: unexpected token %s, want 'literal/semicolon'", p.curr)
 		}
 		p.next()
 	}
@@ -113,7 +113,7 @@ func (p *Parser) parseWord() (Word, error) {
 	var w Word
 	for !p.isDone() && !p.curr.Type.EndOfWord() {
 		if !p.curr.Quoted && p.curr.Type == TokKeyword {
-			return w, fmt.Errorf("parser: unexpected keyword %s", p.curr)
+			return w, fmt.Errorf("word: unexpected keyword %s", p.curr)
 		}
 		w.tokens = append(w.tokens, p.curr)
 		p.next()
@@ -181,7 +181,7 @@ func (p *Parser) parseIf() (Command, error) {
 		return nil, err
 	}
 	if p.curr.Type != TokKeyword && p.curr.Literal != kwThen {
-		return nil, fmt.Errorf("parser: unexpected token %s, want 'then'", p.curr)
+		return nil, fmt.Errorf("if: unexpected token %s, want 'then'", p.curr)
 	}
 	p.next()
 
@@ -192,14 +192,14 @@ func (p *Parser) parseIf() (Command, error) {
 		return nil, err
 	}
 	if p.curr.Type != TokKeyword {
-		return nil, fmt.Errorf("parser: unexpected token %s, want 'fi/else'", p.curr)
+		return nil, fmt.Errorf("if: unexpected token %s, want 'fi/else'", p.curr)
 	}
 	if p.curr.Literal == kwFi {
 		p.next()
 		return cmd, nil
 	}
 	if p.curr.Literal != kwElse {
-		return nil, fmt.Errorf("parser: unexpected token %s, want 'else'", p.curr)
+		return nil, fmt.Errorf("if: unexpected token %s, want 'else'", p.curr)
 	}
 	p.next()
 
@@ -208,7 +208,7 @@ func (p *Parser) parseIf() (Command, error) {
 	} else {
 		cmd.alt, err = p.parseList(stop)
 		if p.curr.Type != TokKeyword && p.curr.Literal != kwFi {
-			return nil, fmt.Errorf("parser: unexpected token %s, want 'fi'", p.curr)
+			return nil, fmt.Errorf("if: unexpected token %s, want 'fi'", p.curr)
 		}
 	}
 	p.next()
@@ -218,12 +218,81 @@ func (p *Parser) parseIf() (Command, error) {
 
 func (p *Parser) parseCase() (Command, error) {
 	p.next()
-	return nil, nil
+	var (
+		cmd Case
+		err error
+	)
+	cmd.word, err = p.parseWord()
+	if err != nil {
+		return nil, err
+	}
+	for p.curr.Type == TokBlank {
+		p.next()
+	}
+
+	if p.curr.Type != TokKeyword && p.curr.Literal != kwIn {
+		return nil, fmt.Errorf("case: unexpected token %s, want 'in'", p.curr)
+	}
+	p.next()
+	for !p.isDone() {
+		c, err := p.parseClause()
+		if err != nil {
+			return nil, err
+		}
+		cmd.clauses = append(cmd.clauses, c)
+		p.next()
+		if p.curr.Type == TokKeyword && p.curr.Literal == kwEsac {
+			break
+		}
+	}
+	if p.isDone() {
+		return nil, io.ErrUnexpectedEOF
+	}
+	p.next()
+	return cmd, err
+}
+
+func (p *Parser) parseClause() (Command, error) {
+	var (
+		cmd Clause
+		err error
+	)
+	for !p.isDone() {
+		if p.curr.Type == TokEndGroup {
+			break
+		}
+		w, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
+		cmd.pattern = append(cmd.pattern, w)
+		switch p.curr.Type {
+		case TokPipe:
+			p.next()
+		case TokEndGroup:
+		default:
+			return nil, fmt.Errorf("clause: unexpected token %s, want 'pipe/rparen'", p.curr)
+		}
+	}
+	if p.isDone() {
+		return nil, io.ErrUnexpectedEOF
+	}
+	p.next()
+	if p.curr.Type == TokSemicolon {
+		p.next()
+	}
+	cmd.body, err = p.parseList(func(tok Token) bool {
+		return tok.Type == TokBreak || tok.Type == TokContinue || tok.Type == TokFallthrough
+	})
+	if err != nil {
+		return nil, err
+	}
+	return cmd, nil
 }
 
 func (p *Parser) parseBC() (Command, error) {
 	if !p.inLoop() {
-		return nil, fmt.Errorf("parser: 'break/continue' not in a loop")
+		return nil, fmt.Errorf("bc: 'break/continue' not in a loop")
 	}
 	var cmd Command
 	switch p.curr.Literal {
@@ -234,7 +303,7 @@ func (p *Parser) parseBC() (Command, error) {
 	}
 	p.next()
 	if p.curr.Type != TokSemicolon {
-		return nil, fmt.Errorf("parser: unexpected token %s, want 'newline/semicolon'", p.curr)
+		return nil, fmt.Errorf("bc: unexpected token %s, want 'newline/semicolon'", p.curr)
 	}
 	p.next()
 	return cmd, nil
@@ -253,7 +322,7 @@ func (p *Parser) parseFor() (Command, error) {
 	}
 
 	if p.curr.Type != TokKeyword && p.curr.Literal != kwIn {
-		return nil, fmt.Errorf("parser: unexpected token %s, want 'in'", p.curr)
+		return nil, fmt.Errorf("for: unexpected token %s, want 'in'", p.curr)
 	}
 	p.next()
 
@@ -271,7 +340,7 @@ func (p *Parser) parseFor() (Command, error) {
 	p.next()
 
 	if p.curr.Type != TokKeyword && p.curr.Literal != kwDo {
-		return nil, fmt.Errorf("parser: unexpected token %s, want 'do'", p.curr)
+		return nil, fmt.Errorf("for: unexpected token %s, want 'do'", p.curr)
 	}
 	p.next()
 
@@ -285,7 +354,7 @@ func (p *Parser) parseFor() (Command, error) {
 		return nil, err
 	}
 	if p.curr.Type != TokKeyword && p.curr.Literal != kwDone {
-		return nil, fmt.Errorf("parser: unexpected token %s, want 'done'", p.curr)
+		return nil, fmt.Errorf("for: unexpected token %s, want 'done'", p.curr)
 	}
 	p.next()
 
@@ -331,7 +400,7 @@ func (p *Parser) parseLoop() (Command, Command, error) {
 		return nil, nil, err
 	}
 	if p.curr.Type != TokKeyword && p.curr.Literal != kwDo {
-		return nil, nil, fmt.Errorf("parser: unexpected token %s, want 'do'", p.curr)
+		return nil, nil, fmt.Errorf("loop: unexpected token %s, want 'do'", p.curr)
 	}
 	p.next()
 
@@ -342,7 +411,7 @@ func (p *Parser) parseLoop() (Command, Command, error) {
 		return nil, nil, err
 	}
 	if p.curr.Type != TokKeyword && p.curr.Literal != kwDone {
-		return nil, nil, fmt.Errorf("parser: unexpected token %s, want 'done'", p.curr)
+		return nil, nil, fmt.Errorf("loop: unexpected token %s, want 'done'", p.curr)
 	}
 	p.next()
 	return cmd, body, nil

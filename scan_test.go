@@ -217,6 +217,15 @@ func TestScanner(t *testing.T) {
 				{Type: TokContinue},
 			},
 		},
+		{
+			Input: "foo | bar)",
+			Tokens: []Token{
+				{Literal: "foo", Type: TokLiteral},
+				{Type: TokPipe},
+				{Literal: "bar", Type: TokLiteral},
+				{Type: TokEndGroup},
+			},
+		},
 	}
 	for _, d := range data {
 		testScanner(t, d)
