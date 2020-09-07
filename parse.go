@@ -61,24 +61,52 @@ func (p *Parser) parse() (Command, error) {
 }
 
 func (p *Parser) parseSimple() (Command, error) {
-	var s Simple
+	var cmd Simple
+	for p.peek.Type == TokAssign {
+		curr := p.curr
+		p.next()
+		p.next()
+		a, err := p.parseAssign(curr)
+		if err != nil {
+			return nil, err
+		}
+		switch p.curr.Type {
+		case TokSemicolon, TokEOF:
+			p.next()
+			return a, nil
+		case TokBlank:
+			cmd.env = append(cmd.env, a)
+		default:
+			return nil, fmt.Errorf("parser: unexpected token %s, want 'literal/semicolon'", p.curr)
+		}
+		p.next()
+	}
 	for !p.curr.Type.EndOfCommand() {
 		w, err := p.parseWord()
 		if err != nil {
 			return nil, err
 		}
-		s.words = append(s.words, w)
+		cmd.words = append(cmd.words, w)
 		switch p.curr.Type {
 		case TokAnd:
-			return p.parseAnd(s)
+			return p.parseAnd(cmd)
 		case TokOr:
-			return p.parseOr(s)
+			return p.parseOr(cmd)
 		case TokBlank:
 			p.next()
 		}
 	}
 	p.next()
-	return s, nil
+	return cmd, nil
+}
+
+func (p *Parser) parseAssign(name Token) (Assign, error) {
+	a := Assign{name: name}
+	w, err := p.parseWord()
+	if err == nil {
+		a.word = w
+	}
+	return a, err
 }
 
 func (p *Parser) parseWord() (Word, error) {

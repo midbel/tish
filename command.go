@@ -42,6 +42,7 @@ func (w Word) Equal(other Word) bool {
 }
 
 type Simple struct {
+	env   []Assign
 	words []Word
 }
 
@@ -53,6 +54,14 @@ func (s Simple) Equal(other Command) bool {
 	i, ok := other.(Simple)
 	if !ok {
 		return false
+	}
+	if len(s.env) != len(i.env) {
+		return false
+	}
+	for j, a := range s.env {
+		if !a.Equal(i.env[j]) {
+			return false
+		}
 	}
 	if len(s.words) != len(i.words) {
 		return false
@@ -340,4 +349,25 @@ func (_ Continue) Equal(other Command) bool {
 
 func (_ Continue) String() string {
 	return "continue()"
+}
+
+type Assign struct {
+	name Token
+	word Word
+}
+
+func (a Assign) Execute() (int, error) {
+	return 0, nil
+}
+
+func (a Assign) Equal(other Command) bool {
+	i, ok := other.(Assign)
+	if !ok {
+		return ok
+	}
+	return a.name.Equal(i.name) && a.word.Equal(i.word)
+}
+
+func (a Assign) String() string {
+	return fmt.Sprintf("assign(name: %s, word: %s)", a.name, a.word)
 }
