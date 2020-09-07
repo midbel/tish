@@ -15,11 +15,11 @@ type ParseCase struct {
 func TestParser(t *testing.T) {
 	data := []ParseCase{
 		{
-			Input: "echo foo",
+			Input: "echo foo # a comment",
 			Cmds:  []Command{echoFoo()},
 		},
 		{
-			Input: "echo $VAR",
+			Input: "# a comment\necho $VAR",
 			Cmds:  []Command{echoVar()},
 		},
 		{

@@ -432,6 +432,12 @@ func (p *Parser) inLoop() bool {
 func (p *Parser) next() {
 	p.curr = p.peek
 	p.peek = p.scan.Next()
+	for p.curr.Type == TokComment {
+		p.next()
+		if p.curr.Type != TokComment {
+			p.next()
+		}
+	}
 }
 
 func (p *Parser) isDone() bool {
