@@ -67,6 +67,9 @@ const (
 	TokAssign
 	TokEqual
 	TokNotEqual
+	TokBreak
+	TokContinue
+	TokFallthrough
 )
 
 func (k Kind) EndOfWord() bool {
@@ -106,6 +109,12 @@ func (k Kind) String() string {
 		str = "background"
 	case TokAssign:
 		str = "assign"
+	case TokBreak:
+		str = "break"
+	case TokContinue:
+		str = "continue"
+	case TokFallthrough:
+		str = "fallthrough"
 	default:
 		str = "unknown"
 	}
@@ -208,9 +217,20 @@ func (s *Scanner) Next() Token {
 		s.scanOperator(&t)
 	case s.char == newline || s.char == semicolon:
 		s.readRune()
-		s.skip(isSpace)
-
-		t.Type = TokSemicolon
+		if s.char == semicolon {
+			s.readRune()
+			t.Type = TokBreak
+			if s.char == ampersand {
+				s.readRune()
+				t.Type = TokFallthrough
+			}
+		} else if s.char == ampersand {
+			s.readRune()
+			t.Type = TokContinue
+		} else {
+			t.Type = TokSemicolon
+		}
+		s.skip(isBlank)
 	case !s.isQuoted() && isSpace(s.char):
 		s.scanBlank(&t)
 		if t.Type != TokBlank {

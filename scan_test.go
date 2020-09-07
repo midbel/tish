@@ -197,6 +197,26 @@ func TestScanner(t *testing.T) {
 				{Literal: "bar", Type: TokLiteral},
 			},
 		},
+		{
+			Input: "\techo foo\n\t;;\techo bar\n\t;;&\techo $VAR\n\t;&",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "foo", Type: TokLiteral},
+				{Type: TokSemicolon},
+				{Type: TokBreak},
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "bar", Type: TokLiteral},
+				{Type: TokSemicolon},
+				{Type: TokFallthrough},
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "VAR", Type: TokVariable},
+				{Type: TokSemicolon},
+				{Type: TokContinue},
+			},
+		},
 	}
 	for _, d := range data {
 		testScanner(t, d)
