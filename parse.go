@@ -12,7 +12,8 @@ type Parser struct {
 
 	kws map[string]func() (Command, error)
 
-	loop int
+	loop        int
+	keepComment bool
 }
 
 func Parse(r io.Reader) (*Parser, error) {
@@ -23,6 +24,7 @@ func Parse(r io.Reader) (*Parser, error) {
 
 	var p Parser
 	p.scan = s
+	p.keepComment = false
 	p.kws = map[string]func() (Command, error){
 		kwIf:       p.parseIf,
 		kwCase:     p.parseCase,
@@ -180,40 +182,32 @@ func (p *Parser) parseIf() (Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	if p.curr.Type != TokKeyword && p.curr.Literal != kwThen {
-		return nil, fmt.Errorf("if: unexpected token %s, want 'then'", p.curr)
+	if err := p.parseKeyword(kwThen, true); err != nil {
+		return nil, err
 	}
-	p.next()
 
 	stop := func(tok Token) bool {
-		return tok.Type == TokKeyword && (tok.Literal == kwFi || tok.Literal == kwElse)
+		return tok.Type == TokKeyword && (tok.Literal == kwFi || tok.Literal == kwElse || tok.Literal == kwElif)
 	}
 	if cmd.csq, err = p.parseList(stop); err != nil {
 		return nil, err
 	}
-	if p.curr.Type != TokKeyword {
-		return nil, fmt.Errorf("if: unexpected token %s, want 'fi/else'", p.curr)
-	}
-	if p.curr.Literal == kwFi {
-		p.next()
+	if err := p.parseKeyword(kwFi, true); err == nil {
 		return cmd, nil
-	}
-	if p.curr.Literal != kwElse {
-		return nil, fmt.Errorf("if: unexpected token %s, want 'else'", p.curr)
-	}
-	p.next()
-
-	if p.curr.Type == TokKeyword && p.curr.Literal == kwIf {
+	} else if err = p.parseKeyword(kwElif, false); err == nil {
 		cmd.alt, err = p.parseIf()
+		return cmd, nil
+	} else if err = p.parseKeyword(kwElse, true); err == nil {
+		cmd.alt, err = p.parseList(func(tok Token) bool {
+			return tok.Type == TokKeyword && tok.Literal == kwFi
+		})
 	} else {
-		cmd.alt, err = p.parseList(stop)
-		if p.curr.Type != TokKeyword && p.curr.Literal != kwFi {
-			return nil, fmt.Errorf("if: unexpected token %s, want 'fi'", p.curr)
-		}
+		return nil, fmt.Errorf("if: unexpected token %s, want 'fi/elif/else'", p.curr)
 	}
-	p.next()
-
-	return cmd, err
+	if err != nil {
+		return nil, err
+	}
+	return cmd, p.parseKeyword(kwFi, true)
 }
 
 func (p *Parser) parseCase() (Command, error) {
@@ -226,14 +220,11 @@ func (p *Parser) parseCase() (Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	for p.curr.Type == TokBlank {
-		p.next()
-	}
+	p.skipBlanks()
 
-	if p.curr.Type != TokKeyword && p.curr.Literal != kwIn {
-		return nil, fmt.Errorf("case: unexpected token %s, want 'in'", p.curr)
+	if err := p.parseKeyword(kwIn, true); err != nil {
+		return nil, err
 	}
-	p.next()
 	for !p.isDone() {
 		c, err := p.parseClause()
 		if err != nil {
@@ -282,7 +273,7 @@ func (p *Parser) parseClause() (Command, error) {
 		p.next()
 	}
 	cmd.body, err = p.parseList(func(tok Token) bool {
-		return tok.Type == TokBreak || tok.Type == TokContinue || tok.Type == TokFallthrough
+		return tok.Type.IsBreak()
 	})
 	if err != nil {
 		return nil, err
@@ -321,10 +312,9 @@ func (p *Parser) parseFor() (Command, error) {
 		p.next()
 	}
 
-	if p.curr.Type != TokKeyword && p.curr.Literal != kwIn {
-		return nil, fmt.Errorf("for: unexpected token %s, want 'in'", p.curr)
+	if err := p.parseKeyword(kwIn, true); err != nil {
+		return nil, err
 	}
-	p.next()
 
 	for {
 		w, err := p.parseWord()
@@ -338,11 +328,9 @@ func (p *Parser) parseFor() (Command, error) {
 		p.next()
 	}
 	p.next()
-
-	if p.curr.Type != TokKeyword && p.curr.Literal != kwDo {
-		return nil, fmt.Errorf("for: unexpected token %s, want 'do'", p.curr)
+	if err := p.parseKeyword(kwDo, true); err != nil {
+		return nil, err
 	}
-	p.next()
 
 	p.enterLoop()
 	defer p.leaveLoop()
@@ -353,11 +341,9 @@ func (p *Parser) parseFor() (Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	if p.curr.Type != TokKeyword && p.curr.Literal != kwDone {
-		return nil, fmt.Errorf("for: unexpected token %s, want 'done'", p.curr)
+	if err := p.parseKeyword(kwDone, true); err != nil {
+		return nil, err
 	}
-	p.next()
-
 	return cmd, nil
 }
 
@@ -399,10 +385,9 @@ func (p *Parser) parseLoop() (Command, Command, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if p.curr.Type != TokKeyword && p.curr.Literal != kwDo {
-		return nil, nil, fmt.Errorf("loop: unexpected token %s, want 'do'", p.curr)
+	if err := p.parseKeyword(kwDo, true); err != nil {
+		return nil, nil, err
 	}
-	p.next()
 
 	body, err = p.parseList(func(tok Token) bool {
 		return tok.Type == TokKeyword && tok.Literal == kwDone
@@ -410,11 +395,23 @@ func (p *Parser) parseLoop() (Command, Command, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if p.curr.Type != TokKeyword && p.curr.Literal != kwDone {
-		return nil, nil, fmt.Errorf("loop: unexpected token %s, want 'done'", p.curr)
+	return cmd, body, p.parseKeyword(kwDone, true)
+}
+
+func (p *Parser) parseKeyword(which string, next bool) error {
+	tok := Token{
+		Literal: which,
+		Type:    TokKeyword,
 	}
-	p.next()
-	return cmd, body, nil
+	var err error
+	if !p.curr.Equal(tok) {
+		err = fmt.Errorf("keyword: unexpected token %s, want %s", p.curr, tok)
+	} else {
+		if next {
+			p.next()
+		}
+	}
+	return err
 }
 
 func (p *Parser) enterLoop() {
@@ -429,9 +426,18 @@ func (p *Parser) inLoop() bool {
 	return p.loop > 0
 }
 
+func (p *Parser) skipBlanks() {
+	for p.curr.Type == TokBlank {
+		p.next()
+	}
+}
+
 func (p *Parser) next() {
 	p.curr = p.peek
 	p.peek = p.scan.Next()
+	if p.keepComment {
+		return
+	}
 	for p.curr.Type == TokComment {
 		p.next()
 		if p.curr.Type != TokComment {

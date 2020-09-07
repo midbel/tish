@@ -28,6 +28,7 @@ const (
 	kwElse     = "else"
 	kwElif     = "elif"
 	kwIn       = "in"
+	kwReturn   = "return"
 )
 
 var keywords = []string{
@@ -46,6 +47,7 @@ var keywords = []string{
 	kwElse,
 	kwElif,
 	kwIn,
+	kwReturn,
 }
 
 const (

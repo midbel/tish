@@ -58,7 +58,7 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
-			Input: "if test; then echo foo\nelse if test; then echo bar\nfi",
+			Input: "if test; then echo foo\nelif test\nthen echo bar\nfi",
 			Cmds: []Command{
 				If{
 					cmd: testCmd(),

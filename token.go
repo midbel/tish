@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-type Kind rune
+type Kind int
 
 const (
 	TokEOF Kind = -(iota + 1)
@@ -28,6 +28,10 @@ const (
 	TokBegGroup
 	TokEndGroup
 )
+
+func (k Kind) IsBreak() bool {
+	return k == TokBreak || k == TokContinue || k == TokFallthrough
+}
 
 func (k Kind) EndOfWord() bool {
 	return k == TokBlank || k == TokAnd ||
