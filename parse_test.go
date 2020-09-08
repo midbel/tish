@@ -222,12 +222,14 @@ func TestParser(t *testing.T) {
 								{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
 							},
 							body: makeList(echoFoo()),
+							op: Token{Type: TokBreak},
 						},
 						Clause{
 							pattern: []Word{
 								{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
 							},
 							body: makeList(echoBar()),
+							op: Token{Type: TokBreak},
 						},
 					},
 				},
@@ -240,7 +242,7 @@ func TestParser(t *testing.T) {
 }
 
 func testParser(t *testing.T, d ParseCase) {
-	p, err := Parse(strings.NewReader(d.Input))
+	p, err := NewParser(strings.NewReader(d.Input))
 	if err != nil {
 		t.Errorf("fail to create parser: %v", err)
 		return

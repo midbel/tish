@@ -301,6 +301,7 @@ func (p *Parser) parseClause() (Command, error) {
 	cmd.body, err = p.parseList(func(tok Token) bool {
 		return tok.Type.IsBreak()
 	})
+	cmd.op = p.curr
 	if err != nil {
 		return nil, err
 	}

@@ -205,12 +205,13 @@ func (c Case) String() string {
 }
 
 type Clause struct {
-	pattern []Word
-	body    Command
+	pattern  []Word
+	body     Command
+	op Token
 }
 
 func (c Clause) Execute() (int, error) {
-	return 0, nil
+	return c.body.Execute()
 }
 
 func (c Clause) Equal(other Command) bool {
@@ -227,7 +228,7 @@ func (c Clause) Equal(other Command) bool {
 		}
 	}
 	if c.body != nil && i.body != nil {
-		return c.body.Equal(i.body)
+		return c.body.Equal(i.body) && c.op.Equal(i.op)
 	}
 	return false
 }
