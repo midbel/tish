@@ -27,6 +27,7 @@ const (
 	TokFallthrough
 	TokBegGroup
 	TokEndGroup
+	TokShebang
 )
 
 func (k Kind) IsBreak() bool {
