@@ -122,6 +122,12 @@ func (s *Scanner) Next() Token {
 	case isVar(s.char):
 		s.scanVariable(&t)
 	case isComment(s.char):
+		s.readRune()
+		if s.char == bang {
+			t.Type = TokShebang
+			s.readRune()
+			break
+		}
 		s.scanComment(&t)
 	case !s.isQuoted() && isOperator(s.char):
 		s.scanOperator(&t)
@@ -242,7 +248,6 @@ func (s *Scanner) scanVariable(t *Token) {
 }
 
 func (s *Scanner) scanComment(t *Token) {
-	s.readRune()
 	s.skip(isSpace)
 
 	var buf bytes.Buffer

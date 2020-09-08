@@ -22,9 +22,11 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
-			Input: "echo foobar # a comment",
+			Input: "echo -e foobar # a comment",
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "-e", Type: TokLiteral},
 				blank,
 				{Literal: "foobar", Type: TokLiteral},
 				{Literal: "a comment", Type: TokComment},
