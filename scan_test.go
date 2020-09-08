@@ -16,6 +16,20 @@ func TestScanner(t *testing.T) {
 
 	data := []ScanCase{
 		{
+			Input: "#! /bin/tish",
+			Tokens: []Token{
+				{Type: TokShebang},
+				{Literal: "/bin/tish", Type: TokLiteral},
+			},
+		},
+		{
+			Input: "#!/bin/tish",
+			Tokens: []Token{
+				{Type: TokShebang},
+				{Literal: "/bin/tish", Type: TokLiteral},
+			},
+		},
+		{
 			Input: "# a comment",
 			Tokens: []Token{
 				{Literal: "a comment", Type: TokComment},

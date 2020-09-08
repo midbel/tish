@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -16,7 +17,29 @@ type Parser struct {
 	keepComment bool
 }
 
-func Parse(r io.Reader) (*Parser, error) {
+func Parse(r io.Reader) (Command, error) {
+	p, err := NewParser(r)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		list List
+		cmd  Command
+	)
+	for {
+		cmd, err = p.Parse()
+		if err != nil {
+			break
+		}
+		list.cmds = append(list.cmds, cmd)
+	}
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	return list, nil
+}
+
+func NewParser(r io.Reader) (*Parser, error) {
 	s, err := NewScanner(r)
 	if err != nil {
 		return nil, err
@@ -187,7 +210,10 @@ func (p *Parser) parseIf() (Command, error) {
 	}
 
 	stop := func(tok Token) bool {
-		return tok.Type == TokKeyword && (tok.Literal == kwFi || tok.Literal == kwElse || tok.Literal == kwElif)
+		if tok.Type != TokKeyword {
+			return false
+		}
+		return tok.Literal == kwFi || tok.Literal == kwElse || tok.Literal == kwElif
 	}
 	if cmd.csq, err = p.parseList(stop); err != nil {
 		return nil, err

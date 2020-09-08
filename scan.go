@@ -122,13 +122,7 @@ func (s *Scanner) Next() Token {
 	case isVar(s.char):
 		s.scanVariable(&t)
 	case isComment(s.char):
-		s.readRune()
-		if s.char == bang {
-			t.Type = TokShebang
-			s.readRune()
-			break
-		}
-		s.scanComment(&t)
+		s.scanPound(&t)
 	case !s.isQuoted() && isOperator(s.char):
 		s.scanOperator(&t)
 	case s.char == newline || s.char == semicolon:
@@ -169,6 +163,17 @@ func (s *Scanner) scanDefault(t *Token) {
 			s.skip(isBlank)
 		}
 	}
+}
+
+func (s *Scanner) scanPound(t *Token) {
+	s.readRune()
+	if s.char == bang {
+		s.readRune()
+		t.Type = TokShebang
+		s.skip(isSpace)
+		return
+	}
+	s.scanComment(t)
 }
 
 func (s *Scanner) scanMeta(t *Token) {
