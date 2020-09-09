@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"reflect"
 )
 
 type ParseCase struct {
@@ -155,6 +156,14 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
+			Input: "FOO=",
+			Cmds: []Command{
+				Assign{
+					name: Token{Literal: "FOO", Type: TokLiteral},
+				},
+			},
+		},
+		{
 			Input: "FOO=foo; BAR=bar",
 			Cmds: []Command{
 				Assign{
@@ -222,14 +231,14 @@ func TestParser(t *testing.T) {
 								{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
 							},
 							body: makeList(echoFoo()),
-							op: Token{Type: TokBreak},
+							op:   Token{Type: TokBreak},
 						},
 						Clause{
 							pattern: []Word{
 								{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
 							},
 							body: makeList(echoBar()),
-							op: Token{Type: TokBreak},
+							op:   Token{Type: TokBreak},
 						},
 					},
 				},
@@ -260,7 +269,8 @@ func testParser(t *testing.T, d ParseCase) {
 			t.Errorf("%s: too many command created! want %d, got %d", d.Input, len(d.Cmds), i+1)
 			return
 		}
-		if !last.Equal(d.Cmds[i]) {
+		// if !last.Equal(d.Cmds[i]) {
+		if !reflect.DeepEqual(last, d.Cmds[i]) {
 			t.Errorf("%s: cmd mismatched!", d.Input)
 			t.Errorf("- want: %s", d.Cmds[i])
 			t.Errorf("- got : %s", last)

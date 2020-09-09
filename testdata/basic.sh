@@ -4,8 +4,8 @@ echo $FOO
 echo dollar \$ pound \# quote \"
 
 # strong quoted string
-echo 'foo bar'
-echo '"foo bar"'
+echo -e 'foo bar'
+echo -e '"foo bar"'
 
 # weak quoted string
 echo "foo bar"

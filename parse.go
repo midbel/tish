@@ -127,6 +127,10 @@ func (p *Parser) parseSimple() (Command, error) {
 
 func (p *Parser) parseAssign(name Token) (Assign, error) {
 	a := Assign{name: name}
+	if p.curr.Type == TokBlank {
+		p.next()
+		return a, nil
+	}
 	w, err := p.parseWord()
 	if err == nil {
 		a.word = w
@@ -257,7 +261,6 @@ func (p *Parser) parseCase() (Command, error) {
 			return nil, err
 		}
 		cmd.clauses = append(cmd.clauses, c)
-		p.next()
 		if p.curr.Type == TokKeyword && p.curr.Literal == kwEsac {
 			break
 		}
@@ -301,12 +304,15 @@ func (p *Parser) parseClause() (Command, error) {
 	cmd.body, err = p.parseList(func(tok Token) bool {
 		return tok.Type.IsBreak()
 	})
-	cmd.op = p.curr
 	if err != nil {
 		return nil, err
 	}
+	cmd.op = p.curr
+	p.next()
 	return cmd, nil
 }
+
+//069/256211
 
 func (p *Parser) parseBC() (Command, error) {
 	if !p.inLoop() {
