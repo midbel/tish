@@ -3,9 +3,9 @@ package tish
 import (
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
-	"reflect"
 )
 
 type ParseCase struct {
@@ -75,7 +75,7 @@ func TestParser(t *testing.T) {
 			Input: "for VAR in foo bar; do echo foo; done",
 			Cmds: []Command{
 				For{
-					name: Token{Literal: "VAR", Type: TokLiteral},
+					ident: Token{Literal: "VAR", Type: TokLiteral},
 					words: []Word{
 						{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
 						{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
@@ -148,7 +148,7 @@ func TestParser(t *testing.T) {
 			Input: "FOO=foo",
 			Cmds: []Command{
 				Assign{
-					name: Token{Literal: "FOO", Type: TokLiteral},
+					ident: Token{Literal: "FOO", Type: TokLiteral},
 					word: Word{
 						tokens: []Token{{Literal: "foo", Type: TokLiteral}},
 					},
@@ -159,7 +159,7 @@ func TestParser(t *testing.T) {
 			Input: "FOO=",
 			Cmds: []Command{
 				Assign{
-					name: Token{Literal: "FOO", Type: TokLiteral},
+					ident: Token{Literal: "FOO", Type: TokLiteral},
 				},
 			},
 		},
@@ -167,13 +167,13 @@ func TestParser(t *testing.T) {
 			Input: "FOO=foo; BAR=bar",
 			Cmds: []Command{
 				Assign{
-					name: Token{Literal: "FOO", Type: TokLiteral},
+					ident: Token{Literal: "FOO", Type: TokLiteral},
 					word: Word{
 						tokens: []Token{{Literal: "foo", Type: TokLiteral}},
 					},
 				},
 				Assign{
-					name: Token{Literal: "BAR", Type: TokLiteral},
+					ident: Token{Literal: "BAR", Type: TokLiteral},
 					word: Word{
 						tokens: []Token{{Literal: "bar", Type: TokLiteral}},
 					},
@@ -184,7 +184,7 @@ func TestParser(t *testing.T) {
 			Input: "VAR=$FOOBAR",
 			Cmds: []Command{
 				Assign{
-					name: Token{Literal: "VAR", Type: TokLiteral},
+					ident: Token{Literal: "VAR", Type: TokLiteral},
 					word: Word{
 						tokens: []Token{{Literal: "FOOBAR", Type: TokVariable}},
 					},
@@ -197,13 +197,13 @@ func TestParser(t *testing.T) {
 				Simple{
 					env: []Assign{
 						{
-							name: Token{Literal: "FOO", Type: TokLiteral},
+							ident: Token{Literal: "FOO", Type: TokLiteral},
 							word: Word{
 								tokens: []Token{{Literal: "foo", Type: TokLiteral}},
 							},
 						},
 						{
-							name: Token{Literal: "BAR", Type: TokLiteral},
+							ident: Token{Literal: "BAR", Type: TokLiteral},
 							word: Word{
 								tokens: []Token{{Literal: "bar", Type: TokLiteral}},
 							},

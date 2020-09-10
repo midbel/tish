@@ -15,6 +15,7 @@ type Parser struct {
 
 	loop        int
 	keepComment bool
+	// allow func(Token) bool
 }
 
 func Parse(r io.Reader) (Command, error) {
@@ -126,7 +127,7 @@ func (p *Parser) parseSimple() (Command, error) {
 }
 
 func (p *Parser) parseAssign(name Token) (Assign, error) {
-	a := Assign{name: name}
+	a := Assign{ident: name}
 	if p.curr.Type == TokBlank {
 		p.next()
 		return a, nil
@@ -339,7 +340,7 @@ func (p *Parser) parseFor() (Command, error) {
 		cmd For
 		err error
 	)
-	cmd.name = p.curr
+	cmd.ident = p.curr
 	p.next()
 	for p.curr.Type == TokBlank {
 		p.next()
