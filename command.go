@@ -90,7 +90,7 @@ func (o Or) String() string {
 
 type Case struct {
 	word    Word
-	clauses []Command
+	clauses []Clause
 }
 
 func (c Case) String() string {
@@ -105,6 +105,15 @@ type Clause struct {
 	pattern []Word
 	body    Command
 	op      Token
+}
+
+func (c Clause) Match(str string, env *Env) bool {
+	for _, w := range c.pattern {
+		if str == w.Expand(env) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c Clause) String() string {

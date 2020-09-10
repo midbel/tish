@@ -224,8 +224,8 @@ func TestParser(t *testing.T) {
 					word: Word{
 						tokens: []Token{{Literal: "VAR", Type: TokVariable}},
 					},
-					clauses: []Command{
-						Clause{
+					clauses: []Clause{
+						{
 							pattern: []Word{
 								{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
 								{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
@@ -233,7 +233,7 @@ func TestParser(t *testing.T) {
 							body: makeList(echoFoo()),
 							op:   Token{Type: TokBreak},
 						},
-						Clause{
+						{
 							pattern: []Word{
 								{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
 							},

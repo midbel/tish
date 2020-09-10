@@ -273,7 +273,7 @@ func (p *Parser) parseCase() (Command, error) {
 	return cmd, err
 }
 
-func (p *Parser) parseClause() (Command, error) {
+func (p *Parser) parseClause() (Clause, error) {
 	var (
 		cmd Clause
 		err error
@@ -284,7 +284,7 @@ func (p *Parser) parseClause() (Command, error) {
 		}
 		w, err := p.parseWord()
 		if err != nil {
-			return nil, err
+			return cmd, err
 		}
 		cmd.pattern = append(cmd.pattern, w)
 		switch p.curr.Type {
@@ -292,11 +292,11 @@ func (p *Parser) parseClause() (Command, error) {
 			p.next()
 		case TokEndGroup:
 		default:
-			return nil, fmt.Errorf("clause: unexpected token %s, want 'pipe/rparen'", p.curr)
+			return cmd, fmt.Errorf("clause: unexpected token %s, want 'pipe/rparen'", p.curr)
 		}
 	}
 	if p.isDone() {
-		return nil, io.ErrUnexpectedEOF
+		return cmd, io.ErrUnexpectedEOF
 	}
 	p.next()
 	if p.curr.Type == TokSemicolon {
@@ -306,14 +306,12 @@ func (p *Parser) parseClause() (Command, error) {
 		return tok.Type.IsBreak()
 	})
 	if err != nil {
-		return nil, err
+		return cmd, err
 	}
 	cmd.op = p.curr
 	p.next()
 	return cmd, nil
 }
-
-//069/256211
 
 func (p *Parser) parseBC() (Command, error) {
 	if !p.inLoop() {
