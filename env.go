@@ -26,6 +26,16 @@ func EnclosedEnv(env *Env) *Env {
 	return &e
 }
 
+func MergeEnv(es ...*Env) *Env {
+	if len(es) == 0 {
+		return EmptyEnv()
+	}
+	for i := len(es) - 2; i >= 0; i-- {
+		es[i].merge(es[i+1])
+	}
+	return es[0]
+}
+
 func (e *Env) Define(id string, value Word) {
 	v, ok := e.vars[id]
 	if ok && v.ro {
@@ -66,4 +76,30 @@ func (e *Env) Environ() []string {
 		ws = append(ws, ps...)
 	}
 	return ws
+}
+
+func (e *Env) Unwrap() *Env {
+	if e.parent != nil {
+		return e.parent
+	}
+	return e
+}
+
+func (e *Env) Copy() *Env {
+  env := EmptyEnv()
+  for k, v := range e.vars {
+    env.vars[k] = v
+  }
+  if e.parent != nil {
+    env.parent = e.parent.Copy()
+  }
+  return env
+}
+
+func (e *Env) merge(env *Env) {
+	if e.parent != nil {
+		e.parent.merge(env)
+		return
+	}
+	e.parent = env
 }
