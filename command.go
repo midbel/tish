@@ -1,14 +1,8 @@
 package tish
 
 import (
-	"errors"
 	"fmt"
 	"strings"
-)
-
-var (
-	ErrBreak    = errors.New(kwBreak)
-	ErrContinue = errors.New(kwContinue)
 )
 
 type Command interface {
@@ -17,6 +11,26 @@ type Command interface {
 
 type Word struct {
 	tokens []Token
+}
+
+func (w Word) Expand(env *Env) string {
+	ws := make([]string, 0, len(w.tokens))
+	for _, tok := range w.tokens {
+		var str string
+		switch tok.Type {
+		case TokLiteral:
+			str = tok.Literal
+		case TokVariable:
+			word := env.Resolve(tok.Literal)
+			if !word.IsZero() {
+				str = word.Expand(env)
+			}
+		default:
+			continue
+		}
+		ws = append(ws, str)
+	}
+	return strings.Join(ws, "")
 }
 
 func (w Word) String() string {
@@ -32,8 +46,8 @@ func (w Word) IsZero() bool {
 }
 
 type Simple struct {
-	env      []Assign
-	words    []Word
+	env   []Assign
+	words []Word
 }
 
 func (s Simple) String() string {
@@ -133,7 +147,7 @@ func (w While) String() string {
 }
 
 type For struct {
-	name  Token
+	ident Token
 	words []Word
 	body  Command
 }
@@ -155,10 +169,10 @@ func (_ Continue) String() string {
 }
 
 type Assign struct {
-	name Token
-	word Word
+	ident Token
+	word  Word
 }
 
 func (a Assign) String() string {
-	return fmt.Sprintf("assign(name: %s, word: %s)", a.name, a.word)
+	return fmt.Sprintf("assign(ident: %s, word: %s)", a.ident, a.word)
 }
