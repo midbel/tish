@@ -254,13 +254,9 @@ func (s *Shell) run(ident string, args []string) {
 		return
 	}
 	var exe Process
-	if b, ok := builtins[ident]; ok {
+	if b, ok := builtins[ident]; ok && b.Runnable() {
 		b.Args = args
 		b.Shell = s
-
-		b.Stdin, _ = NewReader(s.stdin)
-		b.Stdout, _ = NewWriter(s.stdout)
-		b.Stderr, _ = NewWriter(s.stderr)
 
 		exe = &b
 	} else {
@@ -319,7 +315,7 @@ func (s *Shell) attachOut(exe Process) error {
 }
 
 func (s *Shell) attachErr(exe Process) error {
-	out, err := NewWriter(s.stdout)
+	out, err := NewWriter(s.stderr)
 	if err != nil {
 		return err
 	}
@@ -379,7 +375,8 @@ func (c *Cmd) Close() error {
 }
 
 type reader struct {
-	inner *os.File
+	inner  io.ReadCloser
+	writer io.Closer
 }
 
 func NewReader(r io.Reader) (io.ReadCloser, error) {
@@ -387,8 +384,12 @@ func NewReader(r io.Reader) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	i := reader{
+		inner:  rs,
+		writer: ws,
+	}
 	go io.Copy(ws, r)
-	return &reader{inner: rs}, nil
+	return &i, nil
 }
 
 func (r *reader) Read(bs []byte) (int, error) {
@@ -396,11 +397,13 @@ func (r *reader) Read(bs []byte) (int, error) {
 }
 
 func (r *reader) Close() error {
-	return r.inner.Close()
+	r.inner.Close()
+	return r.writer.Close()
 }
 
 type writer struct {
-	inner *os.File
+	inner  io.WriteCloser
+	reader io.Closer
 }
 
 func NewWriter(w io.Writer) (io.WriteCloser, error) {
@@ -408,8 +411,12 @@ func NewWriter(w io.Writer) (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	i := writer{
+		inner:  ws,
+		reader: rs,
+	}
 	go io.Copy(w, rs)
-	return &writer{inner: ws}, nil
+	return &i, nil
 }
 
 func (w *writer) Write(bs []byte) (int, error) {
@@ -417,5 +424,6 @@ func (w *writer) Write(bs []byte) (int, error) {
 }
 
 func (w *writer) Close() error {
-	return w.inner.Close()
+	w.inner.Close()
+	return w.reader.Close()
 }

@@ -13,16 +13,6 @@ func TestBuiltins(t *testing.T) {
 }
 
 func testEcho(t *testing.T) {
-	var (
-		stdin  = bytes.NewReader(nil)
-		stdout bytes.Buffer
-		stderr bytes.Buffer
-	)
-	options := []Option{
-		WithStdin(stdin),
-		WithStdout(&stdout),
-		WithStderr(&stderr),
-	}
 	data := []struct {
 		Input string
 		Want  string
@@ -44,6 +34,18 @@ func testEcho(t *testing.T) {
 		// 	Want:  "foo\n",
 		// },
 	}
+
+	var (
+		stdin  = bytes.NewReader(nil)
+    stdout bytes.Buffer
+    stderr bytes.Buffer
+	)
+	options := []Option{
+		WithStdin(stdin),
+		WithStdout(&stdout),
+		WithStderr(&stderr),
+	}
+
 	for _, d := range data {
 		stdout.Reset()
 		stderr.Reset()
@@ -62,7 +64,7 @@ func testEcho(t *testing.T) {
 			continue
 		}
 		if got := stdout.String(); got != d.Want {
-			t.Errorf("%[1]s: want %[2]s %[2]x, got %[3]s %[3]x", d.Input, d.Want, got)
+			t.Errorf("%s: want %x, got %x", d.Input, d.Want, got)
 		}
 	}
 }
