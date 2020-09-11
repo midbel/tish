@@ -86,14 +86,14 @@ func (e *Env) Unwrap() *Env {
 }
 
 func (e *Env) Copy() *Env {
-  env := EmptyEnv()
-  for k, v := range e.vars {
-    env.vars[k] = v
-  }
-  if e.parent != nil {
-    env.parent = e.parent.Copy()
-  }
-  return env
+	env := EmptyEnv()
+	for k, v := range e.vars {
+		env.vars[k] = v
+	}
+	if e.parent != nil {
+		env.parent = e.parent.Copy()
+	}
+	return env
 }
 
 func (e *Env) merge(env *Env) {
