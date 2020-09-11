@@ -28,7 +28,9 @@ type Option func(*Shell) error
 
 func WithArgs(args []string) Option {
 	return func(s *Shell) error {
-		s.args = append(s.args[:0], args...)
+		if len(args) > 0 {
+			s.args = append(s.args[:0], args...)
+		}
 		return nil
 	}
 }
@@ -79,16 +81,6 @@ type Shell struct {
 	alias map[string]string
 }
 
-func DefaultShell(r io.Reader, args []string) (*Shell, error) {
-	opts := []Option{
-		WithArgs(args),
-		WithStdin(os.Stdin),
-		WithStdout(os.Stdout),
-		WithStderr(os.Stderr),
-	}
-	return NewShell(r, opts...)
-}
-
 func NewShell(r io.Reader, options ...Option) (*Shell, error) {
 	psr, err := NewParser(r)
 	if err != nil {
@@ -122,10 +114,11 @@ func (s *Shell) Execute() (int, error) {
 	for err == nil {
 		cmd, err = s.psr.Parse()
 		if err == io.EOF {
+			err = nil
 			break
 		}
 		if err != nil {
-			return 1, err
+			return ExitKo, err
 		}
 		err = s.execute(cmd)
 	}
