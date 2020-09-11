@@ -8,11 +8,64 @@ import (
 	"time"
 )
 
+const (
+	ExitOk int = iota
+	ExitKo
+	ExitHelp
+	ExitUsage
+	ExitExec
+	ExitNotExec
+)
+
+type Process interface {
+	Run() error
+	Start() error
+	Wait() error
+	Close() error
+}
+
+type Option func(*Shell) error
+
+func WithArgs(args []string) Option {
+	return func(s *Shell) error {
+		s.args = append(s.args[:0], args...)
+		return nil
+	}
+}
+
+func WithStdin(r io.Reader) Option {
+	return func(s *Shell) error {
+		s.stdin = r
+		return nil
+	}
+}
+
+func WithStdout(w io.Writer) Option {
+	return func(s *Shell) error {
+		s.stdout = w
+		return nil
+	}
+}
+
+func WithStderr(w io.Writer) Option {
+	return func(s *Shell) error {
+		s.stderr = w
+		return nil
+	}
+}
+
 type Shell struct {
 	psr *Parser
 
-	env  *Env
-	vars *Env
+	args  []string
+	depth int
+	now   time.Time
+	env   *Env
+	vars  *Env
+
+	stdout io.Writer
+	stderr io.Writer
+	stdin  io.Reader
 
 	proc struct {
 		exit int
@@ -22,19 +75,43 @@ type Shell struct {
 		sys  time.Duration
 		user time.Duration
 	}
+
+	alias map[string]string
 }
 
-func NewShell(r io.Reader) (*Shell, error) {
-	p, err := NewParser(r)
+func DefaultShell(r io.Reader, args []string) (*Shell, error) {
+	opts := []Option{
+		WithArgs(args),
+		WithStdin(os.Stdin),
+		WithStdout(os.Stdout),
+		WithStderr(os.Stderr),
+	}
+	return NewShell(r, opts...)
+}
+
+func NewShell(r io.Reader, options ...Option) (*Shell, error) {
+	psr, err := NewParser(r)
 	if err != nil {
 		return nil, err
 	}
-	var s Shell
-	s.psr = p
-	s.env = EmptyEnv()
-	s.vars = EmptyEnv()
+	s := Shell{
+		psr:   psr,
+		env:   EmptyEnv(),
+		vars:  EmptyEnv(),
+		now:   time.Now(),
+		alias: make(map[string]string),
+	}
+	for _, o := range options {
+		if err := o(&s); err != nil {
+			return nil, err
+		}
+	}
 
 	return &s, nil
+}
+
+func (s *Shell) Uptime() time.Duration {
+	return time.Since(s.now)
 }
 
 func (s *Shell) Execute() (int, error) {
@@ -56,6 +133,9 @@ func (s *Shell) Execute() (int, error) {
 }
 
 func (s *Shell) execute(cmd Command) error {
+	if cmd == nil {
+		return nil
+	}
 	switch cmd := cmd.(type) {
 	case List:
 		s.executeList(cmd)
@@ -68,46 +148,81 @@ func (s *Shell) execute(cmd Command) error {
 	case Assign:
 		s.executeAssign(cmd)
 	case For:
+		s.executeFor(cmd)
 	case Until:
+		s.executeUntil(cmd)
 	case While:
+		s.executeWhile(cmd)
 	case Case:
+		s.executeCase(cmd)
 	case If:
+		s.executeIf(cmd)
+	case Break:
+	case Continue:
 	default:
 		return fmt.Errorf("unsupported command type %T", cmd)
 	}
 	return nil
 }
 
+func (s *Shell) executeFor(cmd For) {
+	s.vars = EnclosedEnv(s.vars)
+	for _, w := range cmd.words {
+		s.vars.Define(cmd.ident.Literal, w)
+		s.execute(cmd.body)
+	}
+	s.vars = s.vars.Unwrap()
+}
+
+func (s *Shell) executeWhile(cmd While) {
+	for {
+		s.execute(cmd.cmd)
+		if s.proc.exit != 0 {
+			break
+		}
+		s.execute(cmd.body)
+	}
+}
+
+func (s *Shell) executeUntil(cmd Until) {
+	for {
+		s.execute(cmd.cmd)
+		if s.proc.exit == 0 {
+			break
+		}
+		s.execute(cmd.body)
+	}
+}
+
+func (s *Shell) executeIf(cmd If) {
+	var next Command
+
+	s.execute(cmd.cmd)
+	if s.proc.exit == 0 {
+		next = cmd.csq
+	} else {
+		next = cmd.alt
+	}
+	s.execute(next)
+}
+
+func (s *Shell) executeCase(cmd Case) {
+	var (
+		env = MergeEnv(s.vars, s.env)
+		str = cmd.word.Expand(env)
+	)
+	for _, c := range cmd.clauses {
+		if c.Match(str, env) {
+			s.execute(c.body)
+			break
+		}
+	}
+}
+
 func (s *Shell) executeList(cmd List) {
 	for i := range cmd.cmds {
 		s.execute(cmd.cmds[i])
 	}
-}
-
-func (s *Shell) executeSimple(cmd Simple) {
-	env := EnclosedEnv(s.env)
-	for _, a := range cmd.env {
-		executeAssignWithEnv(a, env)
-	}
-
-	name, args := prepare(cmd.words, env)
-	if name == "" {
-		return
-	}
-	exe := exec.Command(name, args...)
-	exe.Env = env.Environ()
-	exe.Stdin = os.Stdin
-	exe.Stdout = os.Stdout
-	exe.Stderr = os.Stderr
-
-	exe.Run()
-
-	s.proc.cmd = name
-	s.proc.args = args
-	s.proc.exit = exe.ProcessState.ExitCode()
-	s.proc.pid = exe.ProcessState.Pid()
-	s.proc.sys = exe.ProcessState.SystemTime()
-	s.proc.user = exe.ProcessState.UserTime()
 }
 
 func (s *Shell) executeAnd(cmd And) {
@@ -130,15 +245,114 @@ func (s *Shell) executeAssign(cmd Assign) {
 	executeAssignWithEnv(cmd, s.vars)
 }
 
-func prepare(words []Word, env *Env) (string, []string) {
+func (s *Shell) executeSimple(cmd Simple) {
+	s.env = EnclosedEnv(s.env)
+	for _, a := range cmd.env {
+		executeAssignWithEnv(a, s.env)
+	}
+
+	ident, args := s.prepare(cmd.words)
+	s.run(ident, args)
+	s.env = s.env.Unwrap()
+}
+
+func (s *Shell) run(ident string, args []string) {
+	if ident == "" {
+		return
+	}
+	var exe Process
+	if b, ok := builtins[ident]; ok {
+		b.Args = args
+		b.Shell = s
+
+		b.Stdin, _ = NewReader(s.stdin)
+		b.Stdout, _ = NewWriter(s.stdout)
+		b.Stderr, _ = NewWriter(s.stderr)
+
+		exe = &b
+	} else {
+		cmd := exec.Command(ident, args...)
+		cmd.Env = s.env.Environ()
+		exe = wrapCmd(cmd)
+	}
+
+	s.attachIn(exe)
+	s.attachOut(exe)
+	s.attachErr(exe)
+	defer exe.Close()
+
+	exe.Run()
+
+	s.proc.cmd = ident
+	s.proc.args = args
+	if exe, ok := exe.(*Cmd); ok {
+		s.proc.exit = exe.Cmd.ProcessState.ExitCode()
+		s.proc.pid = exe.Cmd.ProcessState.Pid()
+		s.proc.sys = exe.Cmd.ProcessState.SystemTime()
+		s.proc.user = exe.Cmd.ProcessState.UserTime()
+	}
+}
+
+func (s *Shell) attachIn(exe Process) error {
+	in, err := NewReader(s.stdin)
+	if err != nil {
+		return err
+	}
+	switch e := exe.(type) {
+	case *Cmd:
+		e.Cmd.Stdin = in
+	case *Builtin:
+		e.Stdin = in
+	default:
+		err = fmt.Errorf("unsupported process type %T", e)
+	}
+	return err
+}
+
+func (s *Shell) attachOut(exe Process) error {
+	out, err := NewWriter(s.stdout)
+	if err != nil {
+		return err
+	}
+	switch e := exe.(type) {
+	case *Cmd:
+		e.Cmd.Stdout = out
+	case *Builtin:
+		e.Stdout = out
+	default:
+		err = fmt.Errorf("unsupported process type %T", e)
+	}
+	return err
+}
+
+func (s *Shell) attachErr(exe Process) error {
+	out, err := NewWriter(s.stdout)
+	if err != nil {
+		return err
+	}
+	switch e := exe.(type) {
+	case *Cmd:
+		e.Cmd.Stderr = out
+	case *Builtin:
+		e.Stderr = out
+	default:
+		err = fmt.Errorf("unsupported process type %T", e)
+	}
+	return err
+}
+
+func (s *Shell) prepare(words []Word) (string, []string) {
 	var ws []string
 	for _, w := range words {
-		ws = append(ws, w.Expand(env))
+		ws = append(ws, w.Expand(s.env))
 	}
 	if len(ws) == 0 {
 		return "", nil
 	}
 	name := ws[0]
+	if n, ok := s.alias[name]; ok {
+		name = n
+	}
 	if len(ws) > 1 {
 		return name, ws[1:]
 	}
@@ -147,4 +361,68 @@ func prepare(words []Word, env *Env) (string, []string) {
 
 func executeAssignWithEnv(cmd Assign, env *Env) {
 	env.Define(cmd.ident.Literal, cmd.word)
+}
+
+type Cmd struct {
+	*exec.Cmd
+}
+
+func wrapCmd(c *exec.Cmd) Process {
+	cmd := Cmd{Cmd: c}
+	return &cmd
+}
+
+func (c *Cmd) Close() error {
+	if c, ok := c.Cmd.Stdin.(io.Closer); ok {
+		c.Close()
+	}
+	if c, ok := c.Cmd.Stdout.(io.Closer); ok {
+		c.Close()
+	}
+	if c, ok := c.Cmd.Stderr.(io.Closer); ok {
+		c.Close()
+	}
+	return nil
+}
+
+type reader struct {
+	inner *os.File
+}
+
+func NewReader(r io.Reader) (io.ReadCloser, error) {
+	rs, ws, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	go io.Copy(ws, r)
+	return &reader{inner: rs}, nil
+}
+
+func (r *reader) Read(bs []byte) (int, error) {
+	return r.inner.Read(bs)
+}
+
+func (r *reader) Close() error {
+	return r.inner.Close()
+}
+
+type writer struct {
+	inner *os.File
+}
+
+func NewWriter(w io.Writer) (io.WriteCloser, error) {
+	rs, ws, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	go io.Copy(w, rs)
+	return &writer{inner: ws}, nil
+}
+
+func (w *writer) Write(bs []byte) (int, error) {
+	return w.inner.Write(bs)
+}
+
+func (w *writer) Close() error {
+	return w.inner.Close()
 }

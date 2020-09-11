@@ -1,7 +1,7 @@
 package tish
 
 import (
-  "flag"
+	"flag"
 	"fmt"
 	"io"
 	"strings"
@@ -12,45 +12,93 @@ type Builtin struct {
 	Short string
 	Desc  string
 
+	*Shell
+
 	Args []string
 	Exec func(Builtin) int
+
+	done     chan int
+	finished bool
 
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
 }
 
-func (b Builtin) String() string {
-  return ""
+func (b *Builtin) String() string {
+	if i := strings.Index(b.Usage, " "); i > 0 {
+		return b.Usage[:i]
+	}
+	return b.Usage
 }
 
-func (b Builtin) Runnable() bool {
+func (b *Builtin) Help() string {
+	return ""
+}
+
+func (b *Builtin) Runnable() bool {
 	return b.Exec != nil
 }
 
-func (b Builtin) Start() error {
+func (b *Builtin) Start() error {
+	if !b.Runnable() {
+		return nil
+	}
+	b.done = make(chan int, 1)
+	go func() {
+		b.done <- b.Exec(*b)
+	}()
 	return nil
 }
 
-func (b Builtin) Wait() error {
+func (b *Builtin) Wait() error {
+	if !b.Runnable() {
+		return nil
+	}
+	if b.finished {
+		return nil
+	}
+	exit := <-b.done
+
+	b.finished = true
+	close(b.done)
+	if exit != ExitOk {
+		return fmt.Errorf("")
+	}
 	return nil
 }
 
-func (b Builtin) Run() error {
+func (b *Builtin) Run() error {
+	if err := b.Start(); err != nil {
+		return err
+	}
+	return b.Wait()
+}
+
+func (b *Builtin) Close() error {
+	if c, ok := b.Stdin.(io.Closer); ok {
+		c.Close()
+	}
+	if c, ok := b.Stdout.(io.Closer); ok {
+		c.Close()
+	}
+	if c, ok := b.Stderr.(io.Closer); ok {
+		c.Close()
+	}
 	return nil
 }
 
-var builtins = map[string]*Builtin{
+var builtins = map[string]Builtin{
 	"echo": {
 		Usage: "echo [string...]",
 		Short: "echo the given string(s) to stdout",
 		Exec:  Echo,
 	},
-  "exit": {
-    Usage: "exit [code]",
-    Short: "exit causes to exit the shell with the given code",
-    Exec:  Exit,
-  },
+	"exit": {
+		Usage: "exit [code]",
+		Short: "exit causes to exit the shell with the given code",
+		Exec:  Exit,
+	},
 	"export": {
 		Usage: "export ident[[=value]]",
 		Short: "export the given value in the environment",
@@ -69,49 +117,49 @@ var builtins = map[string]*Builtin{
 }
 
 func Echo(b Builtin) int {
-  if exit := ParseArgs(b, nil); exit != 0 {
-    return exit
-  }
+	if exit := ParseArgs(b, nil); exit != 0 {
+		return exit
+	}
 	fmt.Fprintln(b.Stdout, strings.Join(b.Args, " "))
 	return ExitOk
 }
 
 func Exit(b Builtin) int {
-  if exit := ParseArgs(b, nil); exit != 0 {
-    return exit
-  }
+	if exit := ParseArgs(b, nil); exit != 0 {
+		return exit
+	}
 	return ExitOk
 }
 
 func Export(b Builtin) int {
-  if exit := ParseArgs(b, nil); exit != 0 {
-    return exit
-  }
+	if exit := ParseArgs(b, nil); exit != 0 {
+		return exit
+	}
 	return ExitOk
 }
 
 func True(b Builtin) int {
-  if exit := ParseArgs(b, nil); exit != 0 {
-    return exit
-  }
+	if exit := ParseArgs(b, nil); exit != 0 {
+		return exit
+	}
 	return ExitOk
 }
 
 func False(b Builtin) int {
-  if exit := ParseArgs(b, nil); exit != 0 {
-    return exit
-  }
+	if exit := ParseArgs(b, nil); exit != 0 {
+		return exit
+	}
 	return ExitKo
 }
 
 func ParseArgs(b Builtin, fn func(set *flag.FlagSet)) int {
-  var (
+	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
-  if fn != nil {
-    fn(set)
-  }
+	if fn != nil {
+		fn(set)
+	}
 	if err := set.Parse(b.Args); err != nil {
 		fmt.Fprintln(b.Stderr, err)
 		return ExitUsage
@@ -120,5 +168,5 @@ func ParseArgs(b Builtin, fn func(set *flag.FlagSet)) int {
 		set.Usage()
 		return ExitHelp
 	}
-  return ExitOk
+	return ExitOk
 }
