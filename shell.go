@@ -61,9 +61,13 @@ type Shell struct {
 
 	args  []string
 	depth int
-	now   time.Time
-	env   *Env
-	vars  *Env
+
+	now time.Time
+	pid int
+	uid int
+
+	env  *Env
+	vars *Env
 
 	stdout io.Writer
 	stderr io.Writer
@@ -274,11 +278,15 @@ func (s *Shell) run(ident string, args []string) {
 
 	s.proc.cmd = ident
 	s.proc.args = args
-	if exe, ok := exe.(*Cmd); ok {
+	switch exe := exe.(type) {
+	case *Cmd:
 		s.proc.exit = exe.Cmd.ProcessState.ExitCode()
 		s.proc.pid = exe.Cmd.ProcessState.Pid()
 		s.proc.sys = exe.Cmd.ProcessState.SystemTime()
 		s.proc.user = exe.Cmd.ProcessState.UserTime()
+	case *Builtin:
+		s.proc.exit = exe.Exit
+		s.proc.pid = s.pid
 	}
 }
 

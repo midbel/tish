@@ -12,6 +12,7 @@ type Builtin struct {
 	Short string
 	Desc  string
 
+	Exit int
 	*Shell
 
 	Args []string
@@ -58,12 +59,12 @@ func (b *Builtin) Wait() error {
 	if b.finished {
 		return nil
 	}
-	exit := <-b.done
+	b.Exit = <-b.done
 
 	b.finished = true
 	close(b.done)
-	if exit != ExitOk {
-		return fmt.Errorf("")
+	if b.Exit != ExitOk {
+		return fmt.Errorf("%s: fail to execute properly", b.String())
 	}
 	return nil
 }

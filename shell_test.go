@@ -29,16 +29,16 @@ func testEcho(t *testing.T) {
 			Input: "true && echo bar",
 			Want:  "bar\n",
 		},
-		// {
-		// 	Input: "false || echo foo",
-		// 	Want:  "foo\n",
-		// },
+		{
+			Input: "false || echo foo",
+			Want:  "foo\n",
+		},
 	}
 
 	var (
 		stdin  = bytes.NewReader(nil)
-    stdout bytes.Buffer
-    stderr bytes.Buffer
+		stdout bytes.Buffer
+		stderr bytes.Buffer
 	)
 	options := []Option{
 		WithStdin(stdin),
