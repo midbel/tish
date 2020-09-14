@@ -11,6 +11,24 @@ type OutputCase struct {
 	Want  string
 }
 
+func TestAssign(t *testing.T) {
+	data := []OutputCase{
+		{
+			Input: "FOO=foo; echo $FOO",
+			Want:  "foo\n",
+		},
+		{
+			Input: "FOO=foo; BAR=bar; echo \"$FOO $BAR\"",
+			Want:  "foo bar\n",
+		},
+		{
+			Input: "FOO=foo; BAR=bar; echo '$FOO $BAR'",
+			Want:  "$FOO $BAR\n",
+		},
+	}
+	testOutputCase(t, data, true)
+}
+
 func TestLoop(t *testing.T) {
 	t.Run("for", testFor)
 	// t.Run("while", testWhile)
@@ -210,7 +228,8 @@ func testOutputCase(t *testing.T, data []OutputCase, chexit bool) {
 			continue
 		}
 		if got := stdout.String(); got != d.Want {
-			t.Errorf("%s: want %x, got %x", d.Input, d.Want, got)
+			g, w := strings.TrimSpace(got), strings.TrimSpace(d.Want)
+			t.Errorf("%s: want %s, got %s", d.Input, w, g)
 		}
 	}
 }

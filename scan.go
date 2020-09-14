@@ -119,7 +119,7 @@ func (s *Scanner) Next() Token {
 		return t
 	}
 	switch {
-	case isVar(s.char):
+	case !s.quotedStrong() && isVar(s.char):
 		s.scanVariable(&t)
 	case isComment(s.char):
 		s.scanPound(&t)
@@ -304,7 +304,15 @@ func (s *Scanner) switchSplit() {
 }
 
 func (s *Scanner) isQuoted() bool {
-	return s.quote == dquote || s.quote == squote
+	return s.quotedWeak() || s.quotedStrong()
+}
+
+func (s *Scanner) quotedWeak() bool {
+	return s.quote == dquote
+}
+
+func (s *Scanner) quotedStrong() bool {
+	return s.quote == squote
 }
 
 func canEscape(q, r rune) bool {
