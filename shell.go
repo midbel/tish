@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -8,13 +9,19 @@ import (
 	"time"
 )
 
+var ErrQuit = errors.New("exit")
+
+const baseExit = 255
+
 const (
+	// ExitOk int = -(iota + baseExit)
 	ExitOk int = iota
 	ExitKo
 	ExitHelp
 	ExitUsage
 	ExitExec
 	ExitNotExec
+	ExitQuit
 )
 
 type Process interface {
@@ -95,6 +102,8 @@ func NewShell(r io.Reader, options ...Option) (*Shell, error) {
 		env:   EmptyEnv(),
 		vars:  EmptyEnv(),
 		now:   time.Now(),
+		uid:   os.Getuid(),
+		pid:   os.Getpid(),
 		alias: make(map[string]string),
 	}
 	for _, o := range options {
@@ -126,7 +135,18 @@ func (s *Shell) Execute() (int, error) {
 		}
 		err = s.execute(cmd)
 	}
+	if errors.Is(err, ErrQuit) {
+		err = nil
+	}
 	return s.proc.exit, err
+	// return s.normExit(), err
+}
+
+func (s *Shell) normExit() int {
+	if _, ok := builtins[s.proc.cmd]; ok {
+		return s.proc.exit + baseExit
+	}
+	return s.proc.exit
 }
 
 func (s *Shell) execute(cmd Command) error {
@@ -158,6 +178,9 @@ func (s *Shell) execute(cmd Command) error {
 	case Continue:
 	default:
 		return fmt.Errorf("unsupported command type %T", cmd)
+	}
+	if s.proc.exit == ExitQuit {
+		return ErrQuit
 	}
 	return nil
 }
