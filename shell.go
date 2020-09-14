@@ -9,12 +9,15 @@ import (
 	"time"
 )
 
-var ErrQuit = errors.New("exit")
+var (
+	ErrQuit     = errors.New("exit")
+	ErrBreak    = errors.New("break")
+	ErrContinue = errors.New("continue")
+)
 
 const baseExit = 255
 
 const (
-	// ExitOk int = -(iota + baseExit)
 	ExitOk int = iota
 	ExitKo
 	ExitHelp
@@ -111,12 +114,7 @@ func NewShell(r io.Reader, options ...Option) (*Shell, error) {
 			return nil, err
 		}
 	}
-
 	return &s, nil
-}
-
-func (s *Shell) Uptime() time.Duration {
-	return time.Since(s.now)
 }
 
 func (s *Shell) Execute() (int, error) {
@@ -126,7 +124,7 @@ func (s *Shell) Execute() (int, error) {
 	)
 	for err == nil {
 		cmd, err = s.psr.Parse()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			err = nil
 			break
 		}
@@ -139,14 +137,6 @@ func (s *Shell) Execute() (int, error) {
 		err = nil
 	}
 	return s.proc.exit, err
-	// return s.normExit(), err
-}
-
-func (s *Shell) normExit() int {
-	if _, ok := builtins[s.proc.cmd]; ok {
-		return s.proc.exit + baseExit
-	}
-	return s.proc.exit
 }
 
 func (s *Shell) execute(cmd Command) error {

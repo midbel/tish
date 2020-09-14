@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -43,7 +44,10 @@ func (b *Builtin) Runnable() bool {
 
 func (b *Builtin) Start() error {
 	if !b.Runnable() {
-		return nil
+		return fmt.Errorf("%s: can not be executed", b.String())
+	}
+	if b.finished {
+		return fmt.Errorf("%s: already done", b.String())
 	}
 	b.done = make(chan int, 1)
 	go func() {
@@ -54,10 +58,10 @@ func (b *Builtin) Start() error {
 
 func (b *Builtin) Wait() error {
 	if !b.Runnable() {
-		return nil
+		return fmt.Errorf("%s: can not be executed", b.String())
 	}
 	if b.finished {
-		return nil
+		return fmt.Errorf("%s: already done", b.String())
 	}
 	b.Exit = <-b.done
 
@@ -115,45 +119,74 @@ var builtins = map[string]Builtin{
 		Short: "false always returns an unsuccessfull result",
 		Exec:  False,
 	},
+	"builtin": {
+		Usage: "builtin <cmd> [args]",
+		Short: "run a builtin given its arguments",
+		Exec:  ExecBuiltin,
+	},
+	"command": {
+		Usage: "command <cmd> [args]",
+		Short: "run a command given its arguments",
+		Exec:  ExecCommand,
+	},
 }
 
 func Echo(b Builtin) int {
-	if exit := ParseArgs(b, nil); exit != 0 {
+	exit, args := ParseArgs(b, nil)
+	if exit != 0 {
 		return exit
 	}
-	fmt.Fprintln(b.Stdout, strings.Join(b.Args, " "))
+	if _, err := fmt.Fprintln(b.Stdout, strings.Join(args, " ")); err != nil {
+		return ExitKo
+	}
 	return ExitOk
 }
 
 func Exit(b Builtin) int {
-	if exit := ParseArgs(b, nil); exit != 0 {
+	exit, args := ParseArgs(b, nil)
+	if exit != 0 {
+		return exit
+	}
+	if len(args) == 0 {
+		return ExitOk
+	}
+	if n, err := strconv.Atoi(args[0]); err == nil {
+		return n
+	}
+	return ExitKo
+}
+
+func Export(b Builtin) int {
+	exit, _ := ParseArgs(b, nil)
+	if exit != 0 {
 		return exit
 	}
 	return ExitOk
 }
 
-func Export(b Builtin) int {
-	if exit := ParseArgs(b, nil); exit != 0 {
-		return exit
-	}
+func ExecBuiltin(b Builtin) int {
+	return ExitOk
+}
+
+func ExecCommand(b Builtin) int {
 	return ExitOk
 }
 
 func True(b Builtin) int {
-	if exit := ParseArgs(b, nil); exit != 0 {
+	if exit, _ := ParseArgs(b, nil); exit != 0 {
 		return exit
 	}
 	return ExitOk
 }
 
 func False(b Builtin) int {
-	if exit := ParseArgs(b, nil); exit != 0 {
+	if exit, _ := ParseArgs(b, nil); exit != 0 {
 		return exit
 	}
 	return ExitKo
 }
 
-func ParseArgs(b Builtin, fn func(set *flag.FlagSet)) int {
+func ParseArgs(b Builtin, fn func(set *flag.FlagSet)) (int, []string) {
 	var (
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
@@ -163,11 +196,11 @@ func ParseArgs(b Builtin, fn func(set *flag.FlagSet)) int {
 	}
 	if err := set.Parse(b.Args); err != nil {
 		fmt.Fprintln(b.Stderr, err)
-		return ExitUsage
+		return ExitUsage, nil
 	}
 	if *help {
 		set.Usage()
-		return ExitHelp
+		return ExitHelp, nil
 	}
-	return ExitOk
+	return ExitOk, set.Args()
 }

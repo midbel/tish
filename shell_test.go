@@ -84,6 +84,7 @@ func testExit(t *testing.T) {
 		}
 		if exit != d.Exit {
 			t.Errorf("%s: exit code mismatched! want %d, got %d", d.Input, d.Exit, exit)
+			continue
 		}
 		if stdout.Len() > 0 || stdout.String() != "" {
 			t.Errorf("%s: expected stdout to be empty! got %s", d.Input, stdout.String())
