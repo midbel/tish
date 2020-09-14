@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-var (
-	ErrQuit     = errors.New("exit")
-	ErrBreak    = errors.New("break")
-	ErrContinue = errors.New("continue")
-)
+type Status struct {
+	Exit int
+	Pid  int
+	Err  error
+}
 
-const baseExit = 255
+var ErrExit = errors.New("exit")
 
 const (
 	ExitOk int = iota
@@ -24,13 +24,12 @@ const (
 	ExitUsage
 	ExitExec
 	ExitNotExec
-	ExitQuit
+
+	ExitQuit = 255
 )
 
 type Process interface {
-	Run() error
-	Start() error
-	Wait() error
+	Execute() Status
 	Close() error
 }
 
@@ -88,8 +87,6 @@ type Shell struct {
 		pid  int
 		cmd  string
 		args []string
-		sys  time.Duration
-		user time.Duration
 	}
 
 	alias map[string][]string
@@ -128,7 +125,7 @@ func (s *Shell) UnregisterAlias(is ...string) {
 		}
 	}
 	for _, i := range is {
-		delete (s.alias, i)
+		delete(s.alias, i)
 	}
 }
 
@@ -148,13 +145,19 @@ func (s *Shell) Execute() (int, error) {
 		}
 		err = s.execute(cmd)
 	}
-	if errors.Is(err, ErrQuit) {
+	if s.proc.exit >= ExitQuit {
+		s.proc.exit -= ExitQuit
+	}
+	if errors.Is(err, ErrExit) {
 		err = nil
 	}
 	return s.proc.exit, err
 }
 
 func (s *Shell) execute(cmd Command) error {
+	if s.proc.exit >= ExitQuit {
+		return ErrExit
+	}
 	if cmd == nil {
 		return nil
 	}
@@ -183,9 +186,6 @@ func (s *Shell) execute(cmd Command) error {
 	case Continue:
 	default:
 		return fmt.Errorf("unsupported command type %T", cmd)
-	}
-	if s.proc.exit == ExitQuit {
-		return ErrQuit
 	}
 	return nil
 }
@@ -302,20 +302,12 @@ func (s *Shell) run(ident string, args []string) {
 	s.attachErr(exe)
 	defer exe.Close()
 
-	exe.Run()
+	stat := exe.Execute()
 
 	s.proc.cmd = ident
 	s.proc.args = args
-	switch exe := exe.(type) {
-	case *Cmd:
-		s.proc.exit = exe.Cmd.ProcessState.ExitCode()
-		s.proc.pid = exe.Cmd.ProcessState.Pid()
-		s.proc.sys = exe.Cmd.ProcessState.SystemTime()
-		s.proc.user = exe.Cmd.ProcessState.UserTime()
-	case *Builtin:
-		s.proc.exit = exe.Exit
-		s.proc.pid = s.pid
-	}
+	s.proc.exit = stat.Exit
+	s.proc.pid = stat.Pid
 }
 
 func (s *Shell) prepare(words []Word) (string, []string) {
@@ -402,6 +394,15 @@ type Cmd struct {
 func wrapCmd(c *exec.Cmd) Process {
 	cmd := Cmd{Cmd: c}
 	return &cmd
+}
+
+func (c *Cmd) Execute() Status {
+	err := c.Cmd.Run()
+	return Status{
+		Exit: c.ProcessState.ExitCode(),
+		Pid:  c.ProcessState.Pid(),
+		Err:  err,
+	}
 }
 
 func (c *Cmd) Close() error {

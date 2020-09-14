@@ -13,12 +13,12 @@ type Builtin struct {
 	Short string
 	Desc  string
 
-	Exit int
 	*Shell
 
 	Args []string
 	Exec func(Builtin) int
 
+	exit     int
 	done     chan int
 	finished bool
 
@@ -63,11 +63,11 @@ func (b *Builtin) Wait() error {
 	if b.finished {
 		return fmt.Errorf("%s: already done", b.String())
 	}
-	b.Exit = <-b.done
 
+	b.exit = <-b.done
 	b.finished = true
 	close(b.done)
-	if b.Exit != ExitOk {
+	if b.exit != ExitOk {
 		return fmt.Errorf("%s: fail to execute properly", b.String())
 	}
 	return nil
@@ -78,6 +78,15 @@ func (b *Builtin) Run() error {
 		return err
 	}
 	return b.Wait()
+}
+
+func (b *Builtin) Execute() Status {
+	err := b.Run()
+	return Status{
+		Exit: b.exit,
+		Pid:  b.Shell.pid,
+		Err:  err,
+	}
 }
 
 func (b *Builtin) Close() error {
@@ -129,29 +138,29 @@ var builtins = map[string]Builtin{
 		Short: "run a command given its arguments",
 		Exec:  ExecCommand,
 	},
-  "alias": {
-    Usage: "alias [-p] name[[=value]]",
-    Short: "define an alias for each name given with a value",
-    Exec: Alias,
-  },
-  "unalias": {
-    Usage: "unalias [name...]",
-    Short: "remove each name from the list of alias",
-    Exec:  Unalias,
-  },
+	"alias": {
+		Usage: "alias [-p] name[[=value]]",
+		Short: "define an alias for each name given with a value",
+		Exec:  Alias,
+	},
+	"unalias": {
+		Usage: "unalias [name...]",
+		Short: "remove each name from the list of alias",
+		Exec:  Unalias,
+	},
 }
 
 func Alias(b Builtin) int {
-  return ExitOk
+	return ExitOk
 }
 
 func Unalias(b Builtin) int {
-  exit, args := ParseArgs(b, nil)
-  if exit != ExitOk {
-    return exit
-  }
-  b.Shell.UnregisterAlias(args...)
-  return ExitOk
+	exit, args := ParseArgs(b, nil)
+	if exit != ExitOk {
+		return exit
+	}
+	b.Shell.UnregisterAlias(args...)
+	return ExitOk
 }
 
 func Echo(b Builtin) int {
@@ -171,12 +180,15 @@ func Exit(b Builtin) int {
 		return exit
 	}
 	if len(args) == 0 {
-		return ExitOk
+		return ExitQuit + b.Shell.proc.exit
 	}
 	if n, err := strconv.Atoi(args[0]); err == nil {
-		return n
+		if n < 0 {
+			return ExitQuit + ExitKo
+		}
+		return ExitQuit + n
 	}
-	return ExitKo
+	return ExitQuit
 }
 
 func Export(b Builtin) int {
@@ -214,9 +226,9 @@ func ParseArgs(b Builtin, fn func(set *flag.FlagSet)) (int, []string) {
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
-  set.Usage = func() {
-    fmt.Fprintln(b.Stderr, b.Help())
-  }
+	set.Usage = func() {
+		fmt.Fprintln(b.Stderr, b.Help())
+	}
 	if fn != nil {
 		fn(set)
 	}

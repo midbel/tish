@@ -18,46 +18,18 @@ func testExit(t *testing.T) {
 		Input string
 		Exit  int
 	}{
-		{
-			Input: "exit",
-			Exit:  0,
-		},
-		{
-			Input: "exit 0",
-			Exit:  0,
-		},
-		{
-			Input: "exit 1",
-			Exit:  1,
-		},
-		{
-			Input: "exit 255",
-			Exit:  255,
-		},
-		{
-			Input: "exit -- -1",
-			Exit:  -1,
-		},
-		{
-			Input: "exit && echo foo",
-			Exit:  0,
-		},
-		{
-			Input: "exit 1; echo foo",
-			Exit:  1,
-		},
-		{
-			Input: "exit || echo foo",
-			Exit:  0,
-		},
-		{
-			Input: "exit 5 || echo foo",
-			Exit:  5,
-		},
-		{
-			Input: "exit 5 || echo foo",
-			Exit:  5,
-		},
+		{Input: "exit", Exit: 0},
+		{Input: "false; exit", Exit: 1},
+		{Input: "true; exit", Exit: 0},
+		{Input: "exit 0", Exit: 0},
+		{Input: "exit 1", Exit: 1},
+		{Input: "exit 255", Exit: 255},
+		{Input: "exit -- -1", Exit: 1},
+		{Input: "exit && echo foo", Exit: 0},
+		{Input: "exit 1; echo foo", Exit: 1},
+		{Input: "exit || echo foo", Exit: 0},
+		{Input: "exit 5 || echo foo", Exit: 5},
+		{Input: "exit 5 || echo foo", Exit: 5},
 	}
 
 	var (
