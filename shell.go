@@ -100,12 +100,12 @@ func NewShell(r io.Reader, options ...Option) (*Shell, error) {
 	s := Shell{
 		psr:   psr,
 		env:   EmptyEnv(),
-		vars:  EmptyEnv(),
 		now:   time.Now(),
 		uid:   os.Getuid(),
 		pid:   os.Getpid(),
 		alias: make(map[string][]string),
 	}
+	s.vars = EnclosedEnv(s.env)
 	for _, o := range options {
 		if err := o(&s); err != nil {
 			return nil, err
@@ -313,7 +313,7 @@ func (s *Shell) run(ident string, args []string) {
 func (s *Shell) prepare(words []Word) (string, []string) {
 	var ws []string
 	for _, w := range words {
-		ws = append(ws, w.Expand(s.env))
+		ws = append(ws, w.Expand(s.vars))
 	}
 	if len(ws) == 0 {
 		return "", nil

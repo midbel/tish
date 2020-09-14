@@ -6,6 +6,97 @@ import (
 	"testing"
 )
 
+func TestLoop(t *testing.T) {
+	t.Run("for", testFor)
+	// t.Run("while", testWhile)
+	// t.Run("until", testUntil)
+}
+
+func testFor(t *testing.T) {
+	data := []struct {
+		Input string
+		Want  string
+	}{
+		{
+			Input: "for VAR in foo bar; do echo $VAR; done",
+			Want:  "foo\nbar\n",
+		},
+	}
+
+	var (
+		stdin  = bytes.NewReader(nil)
+		stdout bytes.Buffer
+		stderr bytes.Buffer
+	)
+	options := []Option{
+		WithStdin(stdin),
+		WithStdout(&stdout),
+		WithStderr(&stderr),
+	}
+	for _, d := range data {
+		stdout.Reset()
+		s, err := NewShell(strings.NewReader(d.Input), options...)
+		if err != nil {
+			t.Errorf("%s: %s", d.Input, err)
+			continue
+		}
+		if _, err = s.Execute(); err != nil {
+			t.Errorf("unexpected error: %s", err)
+			continue
+		}
+		if got := stdout.String(); got != d.Want {
+			t.Errorf("%s: want %x, got %x", d.Input, d.Want, got)
+		}
+	}
+}
+
+func TestConditionals(t *testing.T) {
+	t.Run("if", testIf)
+	// t.Run("case", testCase)
+}
+
+func testIf(t *testing.T) {
+	data := []struct {
+		Input string
+		Want  string
+	}{
+		{
+			Input: "if true; then echo foo; fi",
+			Want:  "foo\n",
+		},
+		{
+			Input: "if false; then echo foo; else echo bar; fi",
+			Want:  "bar\n",
+		},
+	}
+
+	var (
+		stdin  = bytes.NewReader(nil)
+		stdout bytes.Buffer
+		stderr bytes.Buffer
+	)
+	options := []Option{
+		WithStdin(stdin),
+		WithStdout(&stdout),
+		WithStderr(&stderr),
+	}
+	for _, d := range data {
+		stdout.Reset()
+		s, err := NewShell(strings.NewReader(d.Input), options...)
+		if err != nil {
+			t.Errorf("%s: %s", d.Input, err)
+			continue
+		}
+		if _, err = s.Execute(); err != nil {
+			t.Errorf("unexpected error: %s", err)
+			continue
+		}
+		if got := stdout.String(); got != d.Want {
+			t.Errorf("%s: want %x, got %x", d.Input, d.Want, got)
+		}
+	}
+}
+
 func TestBuiltins(t *testing.T) {
 	t.Run("echo", testEcho)
 	t.Run("true", testTrue)
