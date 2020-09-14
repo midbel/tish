@@ -129,6 +129,29 @@ var builtins = map[string]Builtin{
 		Short: "run a command given its arguments",
 		Exec:  ExecCommand,
 	},
+  "alias": {
+    Usage: "alias [-p] name[[=value]]",
+    Short: "define an alias for each name given with a value",
+    Exec: Alias,
+  },
+  "unalias": {
+    Usage: "unalias [name...]",
+    Short: "remove each name from the list of alias",
+    Exec:  Unalias,
+  },
+}
+
+func Alias(b Builtin) int {
+  return ExitOk
+}
+
+func Unalias(b Builtin) int {
+  exit, args := ParseArgs(b, nil)
+  if exit != ExitOk {
+    return exit
+  }
+  b.Shell.UnregisterAlias(args...)
+  return ExitOk
 }
 
 func Echo(b Builtin) int {
@@ -191,6 +214,9 @@ func ParseArgs(b Builtin, fn func(set *flag.FlagSet)) (int, []string) {
 		set  = flag.NewFlagSet(b.String(), flag.ContinueOnError)
 		help = set.Bool("h", false, "show help message and exit")
 	)
+  set.Usage = func() {
+    fmt.Fprintln(b.Stderr, b.Help())
+  }
 	if fn != nil {
 		fn(set)
 	}

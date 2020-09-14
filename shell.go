@@ -92,7 +92,7 @@ type Shell struct {
 		user time.Duration
 	}
 
-	alias map[string]string
+	alias map[string][]string
 }
 
 func NewShell(r io.Reader, options ...Option) (*Shell, error) {
@@ -107,7 +107,7 @@ func NewShell(r io.Reader, options ...Option) (*Shell, error) {
 		now:   time.Now(),
 		uid:   os.Getuid(),
 		pid:   os.Getpid(),
-		alias: make(map[string]string),
+		alias: make(map[string][]string),
 	}
 	for _, o := range options {
 		if err := o(&s); err != nil {
@@ -115,6 +115,21 @@ func NewShell(r io.Reader, options ...Option) (*Shell, error) {
 		}
 	}
 	return &s, nil
+}
+
+func (s *Shell) RegisterAlias(ident string, words []string) {
+	s.alias[ident] = words
+}
+
+func (s *Shell) UnregisterAlias(is ...string) {
+	if len(is) == 0 {
+		for k := range s.alias {
+			is = append(is, k)
+		}
+	}
+	for _, i := range is {
+		delete (s.alias, i)
+	}
 }
 
 func (s *Shell) Execute() (int, error) {
@@ -303,6 +318,31 @@ func (s *Shell) run(ident string, args []string) {
 	}
 }
 
+func (s *Shell) prepare(words []Word) (string, []string) {
+	var ws []string
+	for _, w := range words {
+		ws = append(ws, w.Expand(s.env))
+	}
+	if len(ws) == 0 {
+		return "", nil
+	}
+	ident := ws[0]
+	if len(ws) > 1 {
+		return s.resolveAlias(ident, ws[1:])
+	}
+	return ident, nil
+}
+
+func (s *Shell) resolveAlias(ident string, args []string) (string, []string) {
+	if is, ok := s.alias[ident]; ok && len(is) > 0 {
+		ident = is[0]
+		if len(is) > 1 {
+			args = append(is[1:], args...)
+		}
+	}
+	return ident, args
+}
+
 func (s *Shell) attachIn(exe Process) error {
 	in, err := NewReader(s.stdin)
 	if err != nil {
@@ -349,24 +389,6 @@ func (s *Shell) attachErr(exe Process) error {
 		err = fmt.Errorf("unsupported process type %T", e)
 	}
 	return err
-}
-
-func (s *Shell) prepare(words []Word) (string, []string) {
-	var ws []string
-	for _, w := range words {
-		ws = append(ws, w.Expand(s.env))
-	}
-	if len(ws) == 0 {
-		return "", nil
-	}
-	name := ws[0]
-	if n, ok := s.alias[name]; ok {
-		name = n
-	}
-	if len(ws) > 1 {
-		return name, ws[1:]
-	}
-	return name, nil
 }
 
 func executeAssignWithEnv(cmd Assign, env *Env) {
