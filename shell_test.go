@@ -6,6 +6,11 @@ import (
 	"testing"
 )
 
+type OutputCase struct {
+	Input string
+	Want  string
+}
+
 func TestLoop(t *testing.T) {
 	t.Run("for", testFor)
 	// t.Run("while", testWhile)
@@ -13,41 +18,13 @@ func TestLoop(t *testing.T) {
 }
 
 func testFor(t *testing.T) {
-	data := []struct {
-		Input string
-		Want  string
-	}{
+	data := []OutputCase{
 		{
 			Input: "for VAR in foo bar; do echo $VAR; done",
 			Want:  "foo\nbar\n",
 		},
 	}
-
-	var (
-		stdin  = bytes.NewReader(nil)
-		stdout bytes.Buffer
-		stderr bytes.Buffer
-	)
-	options := []Option{
-		WithStdin(stdin),
-		WithStdout(&stdout),
-		WithStderr(&stderr),
-	}
-	for _, d := range data {
-		stdout.Reset()
-		s, err := NewShell(strings.NewReader(d.Input), options...)
-		if err != nil {
-			t.Errorf("%s: %s", d.Input, err)
-			continue
-		}
-		if _, err = s.Execute(); err != nil {
-			t.Errorf("unexpected error: %s", err)
-			continue
-		}
-		if got := stdout.String(); got != d.Want {
-			t.Errorf("%s: want %x, got %x", d.Input, d.Want, got)
-		}
-	}
+	testOutputCase(t, data, false)
 }
 
 func TestConditionals(t *testing.T) {
@@ -56,10 +33,7 @@ func TestConditionals(t *testing.T) {
 }
 
 func testIf(t *testing.T) {
-	data := []struct {
-		Input string
-		Want  string
-	}{
+	data := []OutputCase{
 		{
 			Input: "if true; then echo foo; fi",
 			Want:  "foo\n",
@@ -69,7 +43,39 @@ func testIf(t *testing.T) {
 			Want:  "bar\n",
 		},
 	}
+	testOutputCase(t, data, false)
+}
 
+func TestBuiltins(t *testing.T) {
+	t.Run("echo", testEcho)
+	t.Run("true", testTrue)
+	t.Run("false", testFalse)
+	t.Run("exit", testExit)
+}
+
+func testEcho(t *testing.T) {
+	data := []OutputCase{
+		{
+			Input: "echo foo bar",
+			Want:  "foo bar\n",
+		},
+		{
+			Input: "echo",
+			Want:  "\n",
+		},
+		{
+			Input: "true && echo bar",
+			Want:  "bar\n",
+		},
+		{
+			Input: "false || echo foo",
+			Want:  "foo\n",
+		},
+	}
+	testOutputCase(t, data, true)
+}
+
+func testTrue(t *testing.T) {
 	var (
 		stdin  = bytes.NewReader(nil)
 		stdout bytes.Buffer
@@ -80,28 +86,45 @@ func testIf(t *testing.T) {
 		WithStdout(&stdout),
 		WithStderr(&stderr),
 	}
-	for _, d := range data {
-		stdout.Reset()
-		s, err := NewShell(strings.NewReader(d.Input), options...)
-		if err != nil {
-			t.Errorf("%s: %s", d.Input, err)
-			continue
-		}
-		if _, err = s.Execute(); err != nil {
-			t.Errorf("unexpected error: %s", err)
-			continue
-		}
-		if got := stdout.String(); got != d.Want {
-			t.Errorf("%s: want %x, got %x", d.Input, d.Want, got)
-		}
+	s, err := NewShell(strings.NewReader("true"), options...)
+	if err != nil {
+		t.Errorf("true: %s", err)
+		return
+	}
+	exit, err := s.Execute()
+	if err != nil {
+		t.Errorf("true: unexpected error: %s", err)
+		return
+	}
+	if exit != ExitOk {
+		t.Errorf("true: unexpected exit code! want %d, got %d", ExitOk, exit)
 	}
 }
 
-func TestBuiltins(t *testing.T) {
-	t.Run("echo", testEcho)
-	t.Run("true", testTrue)
-	t.Run("false", testFalse)
-	t.Run("exit", testExit)
+func testFalse(t *testing.T) {
+	var (
+		stdin  = bytes.NewReader(nil)
+		stdout bytes.Buffer
+		stderr bytes.Buffer
+	)
+	options := []Option{
+		WithStdin(stdin),
+		WithStdout(&stdout),
+		WithStderr(&stderr),
+	}
+	s, err := NewShell(strings.NewReader("false"), options...)
+	if err != nil {
+		t.Errorf("false: %s", err)
+		return
+	}
+	exit, err := s.Execute()
+	if err != nil {
+		t.Errorf("false: unexpected error: %s", err)
+		return
+	}
+	if exit != ExitKo {
+		t.Errorf("false: unexpected exit code! want %d, got %d", ExitKo, exit)
+	}
 }
 
 func testExit(t *testing.T) {
@@ -155,28 +178,8 @@ func testExit(t *testing.T) {
 	}
 }
 
-func testEcho(t *testing.T) {
-	data := []struct {
-		Input string
-		Want  string
-	}{
-		{
-			Input: "echo foo bar",
-			Want:  "foo bar\n",
-		},
-		{
-			Input: "echo",
-			Want:  "\n",
-		},
-		{
-			Input: "true && echo bar",
-			Want:  "bar\n",
-		},
-		{
-			Input: "false || echo foo",
-			Want:  "foo\n",
-		},
-	}
+func testOutputCase(t *testing.T, data []OutputCase, chexit bool) {
+	t.Helper()
 
 	var (
 		stdin  = bytes.NewReader(nil)
@@ -202,64 +205,12 @@ func testEcho(t *testing.T) {
 			t.Errorf("%s: unexpected error: %s", d.Input, err)
 			continue
 		}
-		if exit != ExitOk {
+		if chexit && exit != ExitOk {
 			t.Errorf("%s: unexpected exit code! want %d, got %d", d.Input, ExitOk, exit)
 			continue
 		}
 		if got := stdout.String(); got != d.Want {
 			t.Errorf("%s: want %x, got %x", d.Input, d.Want, got)
 		}
-	}
-}
-
-func testTrue(t *testing.T) {
-	var (
-		stdin  = bytes.NewReader(nil)
-		stdout bytes.Buffer
-		stderr bytes.Buffer
-	)
-	options := []Option{
-		WithStdin(stdin),
-		WithStdout(&stdout),
-		WithStderr(&stderr),
-	}
-	s, err := NewShell(strings.NewReader("true"), options...)
-	if err != nil {
-		t.Errorf("true: %s", err)
-		return
-	}
-	exit, err := s.Execute()
-	if err != nil {
-		t.Errorf("true: unexpected error: %s", err)
-		return
-	}
-	if exit != ExitOk {
-		t.Errorf("true: unexpected exit code! want %d, got %d", ExitOk, exit)
-	}
-}
-
-func testFalse(t *testing.T) {
-	var (
-		stdin  = bytes.NewReader(nil)
-		stdout bytes.Buffer
-		stderr bytes.Buffer
-	)
-	options := []Option{
-		WithStdin(stdin),
-		WithStdout(&stdout),
-		WithStderr(&stderr),
-	}
-	s, err := NewShell(strings.NewReader("false"), options...)
-	if err != nil {
-		t.Errorf("false: %s", err)
-		return
-	}
-	exit, err := s.Execute()
-	if err != nil {
-		t.Errorf("false: unexpected error: %s", err)
-		return
-	}
-	if exit != ExitKo {
-		t.Errorf("false: unexpected exit code! want %d, got %d", ExitKo, exit)
 	}
 }
