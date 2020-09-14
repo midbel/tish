@@ -232,12 +232,9 @@ func (s *Shell) executeIf(cmd If) {
 }
 
 func (s *Shell) executeCase(cmd Case) {
-	var (
-		env = MergeEnv(s.vars, s.env)
-		str = cmd.word.Expand(env)
-	)
+	str := cmd.word.Expand(s.vars)
 	for _, c := range cmd.clauses {
-		if c.Match(str, env) {
+		if c.Match(str, s.env) {
 			s.execute(c.body)
 			break
 		}
