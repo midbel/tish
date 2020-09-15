@@ -30,12 +30,6 @@ func TestAssign(t *testing.T) {
 }
 
 func TestLoop(t *testing.T) {
-	t.Run("for", testFor)
-	// t.Run("while", testWhile)
-	// t.Run("until", testUntil)
-}
-
-func testFor(t *testing.T) {
 	data := []OutputCase{
 		{
 			Input: "for VAR in foo bar; do echo $VAR; done",
@@ -46,11 +40,6 @@ func testFor(t *testing.T) {
 }
 
 func TestConditionals(t *testing.T) {
-	t.Run("if", testIf)
-	// t.Run("case", testCase)
-}
-
-func testIf(t *testing.T) {
 	data := []OutputCase{
 		{
 			Input: "if true; then echo foo; fi",

@@ -15,7 +15,11 @@ type Status struct {
 	Err  error
 }
 
-var ErrExit = errors.New("exit")
+var (
+	ErrExit     = errors.New("exit")
+	ErrBreak    = errors.New("break")
+	ErrContinue = errors.New("continue")
+)
 
 const (
 	ExitOk int = iota
@@ -97,15 +101,19 @@ func NewShell(r io.Reader, options ...Option) (*Shell, error) {
 	if err != nil {
 		return nil, err
 	}
+	var (
+		env  = EmptyEnv()
+		vars = EnclosedEnv(env)
+	)
 	s := Shell{
 		psr:   psr,
-		env:   EmptyEnv(),
+		env:   env,
+		vars:  vars,
 		now:   time.Now(),
 		uid:   os.Getuid(),
 		pid:   os.Getpid(),
 		alias: make(map[string][]string),
 	}
-	s.vars = EnclosedEnv(s.env)
 	for _, o := range options {
 		if err := o(&s); err != nil {
 			return nil, err
@@ -183,7 +191,9 @@ func (s *Shell) execute(cmd Command) error {
 	case If:
 		s.executeIf(cmd)
 	case Break:
+		return ErrBreak
 	case Continue:
+		return ErrContinue
 	default:
 		return fmt.Errorf("unsupported command type %T", cmd)
 	}
