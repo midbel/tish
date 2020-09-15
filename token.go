@@ -11,6 +11,7 @@ const (
 	TokBlank
 	TokKeyword
 	TokLiteral
+	TokNumber
 	TokVariable
 	TokComment
 	TokInvalid
@@ -27,7 +28,16 @@ const (
 	TokFallthrough
 	TokBegGroup
 	TokEndGroup
+	TokBegTest
+	TokEndTest
+	TokBegArith
+	TokEndArith
 	TokShebang
+	TokAdd
+	TokSub
+	TokMul
+	TokDiv
+	TokMod
 )
 
 func (k Kind) IsBreak() bool {
@@ -54,6 +64,8 @@ func (k Kind) String() string {
 		str = "blank"
 	case TokLiteral:
 		str = "literal"
+	case TokNumber:
+		str = "number"
 	case TokKeyword:
 		str = "keyword"
 	case TokVariable:
@@ -82,6 +94,20 @@ func (k Kind) String() string {
 		str = "fallthrough"
 	case TokBegGroup, TokEndGroup:
 		str = "group"
+	case TokBegTest, TokEndTest:
+		str = "test"
+	case TokBegArith, TokEndArith:
+		str = "arithmetic"
+	case TokAdd:
+		str = "add"
+	case TokSub:
+		str = "subtract"
+	case TokMul:
+		str = "multiply"
+	case TokDiv:
+		str = "divide"
+	case TokMod:
+		str = "modulo"
 	default:
 		str = "unknown"
 	}
@@ -100,7 +126,7 @@ func (t Token) Equal(other Token) bool {
 
 func (t Token) String() string {
 	switch t.Type {
-	case TokLiteral, TokComment, TokInvalid, TokVariable, TokKeyword:
+	case TokLiteral, TokNumber, TokComment, TokInvalid, TokVariable, TokKeyword:
 		return fmt.Sprintf("<%s(%s)>", t.Type, t.Literal)
 	default:
 		return fmt.Sprintf("<%s>", t.Type)
