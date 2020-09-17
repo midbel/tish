@@ -16,18 +16,8 @@ func TestScanner(t *testing.T) {
 
 	data := []ScanCase{
 		{
-			Input: "#! /bin/tish",
-			Tokens: []Token{
-				{Type: TokShebang},
-				{Literal: "/bin/tish", Type: TokLiteral},
-			},
-		},
-		{
-			Input: "#!/bin/tish",
-			Tokens: []Token{
-				{Type: TokShebang},
-				{Literal: "/bin/tish", Type: TokLiteral},
-			},
+			Input:  "",
+			Tokens: []Token{},
 		},
 		{
 			Input: "# a comment",
@@ -250,6 +240,26 @@ func TestScanner(t *testing.T) {
 				{Type: TokEndGroup},
 			},
 		},
+		{
+			Input: "[[ $FOO -eq foo ]]",
+			Tokens: []Token{
+				{Type: TokBegTest},
+				{Literal: "FOO", Type: TokLiteral},
+				{Literal: "-eq", Type: TokLiteral},
+				{Literal: "foo", Type: TokLiteral},
+				{Type: TokEndTest},
+			},
+		},
+		{
+			Input: "$((1+2))",
+			Tokens: []Token{
+				{Type: TokBegArith},
+				{Literal: "1", Type: TokNumber},
+				{Type: TokAdd},
+				{Literal: "2", Type: TokNumber},
+				{Type: TokEndArith},
+			},
+		},
 	}
 	for _, d := range data {
 		testScanner(t, d)
@@ -263,7 +273,7 @@ func testScanner(t *testing.T, d ScanCase) {
 		return
 	}
 	for i := 0; ; i++ {
-		tok := s.Next()
+		tok := s.Scan()
 		if tok.Type == TokEOF {
 			if i < len(d.Tokens) {
 				t.Errorf("%s: not enough tokens created! want %d, got %d", d.Input, len(d.Tokens), i+1)

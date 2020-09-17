@@ -29,6 +29,7 @@ const (
 	kwElif     = "elif"
 	kwIn       = "in"
 	kwReturn   = "return"
+	kwFunc     = "function"
 )
 
 var keywords = []string{
@@ -48,6 +49,7 @@ var keywords = []string{
 	kwElif,
 	kwIn,
 	kwReturn,
+	kwFunc,
 }
 
 const (
@@ -86,14 +88,16 @@ const (
 	question   = '?'
 )
 
+type ScanFunc func(*Scanner) ScanFunc
+
 type Scanner struct {
 	buffer []byte
 	char   rune
 	curr   int
 	next   int
 
-	split func(rune) bool
-	quote rune
+	quoted int
+	queue  chan Token
 }
 
 func NewScanner(r io.Reader) (*Scanner, error) {
@@ -101,167 +105,76 @@ func NewScanner(r io.Reader) (*Scanner, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := Scanner{
-		buffer: bytes.ReplaceAll(buf, []byte{carriage, newline}, []byte{newline}),
-		split:  splitLiteral,
-	}
+	var s Scanner
+	s.buffer = bytes.ReplaceAll(buf, []byte{carriage, newline}, []byte{newline})
+	s.queue = make(chan Token)
 
-	s.readRune()
-	s.skip(isSpace)
+	go s.scan()
 	return &s, nil
 }
 
-func (s *Scanner) Next() Token {
-	s.switchSplit()
-	var t Token
-	if s.isDone() {
-		t.Type = TokEOF
-		return t
+func (s *Scanner) Scan() Token {
+	tok, ok := <-s.queue
+	if !ok {
+		tok.Type = TokEOF
 	}
-	switch {
-	case !s.quotedStrong() && isVar(s.char):
-		s.scanVariable(&t)
-	case isComment(s.char):
-		s.scanPound(&t)
-	case !s.isQuoted() && isOperator(s.char):
-		s.scanOperator(&t)
-	case s.char == newline || s.char == semicolon:
-		s.scanSemicolon(&t)
-	case !s.isQuoted() && isMeta(s.char):
-		s.scanMeta(&t)
-	case !s.isQuoted() && isSpace(s.char):
-		s.scanBlank(&t)
-		if t.Type != TokBlank {
-			return s.Next()
-		}
-	default:
-		s.scanDefault(&t)
-	}
-	// t.Quoted = s.isQuoted()
-	return t
+	return tok
 }
 
-func (s *Scanner) scanDefault(t *Token) {
-	var buf bytes.Buffer
-	for !s.isDone() && !s.split(s.char) {
-		if canEscape(s.quote, s.char) {
-			s.readRune()
-		}
-		buf.WriteRune(s.char)
-		s.readRune()
-	}
-	t.Literal = buf.String()
-	t.Type = TokLiteral
-	if s.isQuoted() && (s.isDone() || s.char == newline) {
-		t.Type = TokInvalid
-		return
-	}
-	if !s.isQuoted() {
-		x := sort.SearchStrings(keywords, t.Literal)
-		if x < len(keywords) && keywords[x] == t.Literal {
-			t.Type = TokKeyword
-			s.skip(isBlank)
-		}
-	}
-}
-
-func (s *Scanner) scanPound(t *Token) {
+func (s *Scanner) scan() {
+	defer close(s.queue)
 	s.readRune()
-	if s.char == bang {
-		s.readRune()
-		t.Type = TokShebang
-		s.skip(isSpace)
-		return
-	}
-	s.scanComment(t)
-}
-
-func (s *Scanner) scanMeta(t *Token) {
-	switch s.char {
-	case lparen:
-		t.Type = TokBegGroup
-	case rparen:
-		t.Type = TokEndGroup
-	default:
-		t.Type = TokInvalid
-	}
-	s.readRune()
-}
-
-func (s *Scanner) scanSemicolon(t *Token) {
-	s.readRune()
-	switch s.char {
-	case semicolon:
-		s.readRune()
-		t.Type = TokBreak
-		if s.char == ampersand {
-			s.readRune()
-			t.Type = TokFallthrough
-		}
-	case ampersand:
-		s.readRune()
-		t.Type = TokContinue
-	default:
-		t.Type = TokSemicolon
-	}
-	s.skip(isBlank)
-}
-
-func (s *Scanner) scanOperator(t *Token) {
-	switch s.char {
-	case ampersand:
-		t.Type = TokBackground
-		s.readRune()
-		if s.char == ampersand {
-			s.readRune()
-			t.Type = TokAnd
-		}
-		s.skip(isSpace)
-	case pipe:
-		t.Type = TokPipe
-		s.readRune()
-		if s.char == pipe {
-			s.readRune()
-			t.Type = TokOr
-		}
-		s.skip(isSpace)
-	case equal:
-		t.Type = TokAssign
-		s.readRune()
-	default:
-		t.Type = TokInvalid
-	}
-}
-
-func (s *Scanner) scanBlank(t *Token) {
-	s.skip(isSpace)
-	if s.isDone() || s.char == semicolon || s.char == newline || isComment(s.char) || isOperator(s.char) {
-		return
-	}
-	t.Type = TokBlank
-}
-
-func (s *Scanner) scanVariable(t *Token) {
-	s.readRune()
-	var buf bytes.Buffer
-	for !s.isDone() && isAlpha(s.char) {
-		buf.WriteRune(s.char)
-		s.readRune()
-	}
-	t.Literal = buf.String()
-	t.Type = TokVariable
-}
-
-func (s *Scanner) scanComment(t *Token) {
 	s.skip(isSpace)
 
-	var buf bytes.Buffer
-	for !s.isDone() && s.char != newline {
-		buf.WriteRune(s.char)
-		s.readRune()
+	var scan ScanFunc
+	for !s.isDone() {
+		if scan == nil {
+			switch {
+			case isQuote(s.char):
+				scan = scanQuote
+			case isComment(s.char):
+				scan = scanComment
+			case isVar(s.char):
+				scan = scanDollar
+			case isBlank(s.char):
+				scan = scanBlank
+			case isControl(s.char):
+				scan = scanControl
+			default:
+				scan = scanLiteral
+			}
+		}
+		scan = scan(s)
 	}
-	t.Type = TokComment
-	t.Literal = buf.String()
+}
+
+func (s *Scanner) isAssign() bool {
+	if s.char != equal || isSpace(s.prevRune()) || isSpace(s.nextRune()) {
+		return false
+	}
+	return true
+}
+
+func (s *Scanner) emit(str string, kind Kind) {
+	if str == "" {
+		return
+	}
+	s.emitToken(str, kind)
+}
+
+func (s *Scanner) emitType(kind Kind) {
+	s.emitToken("", kind)
+}
+
+func (s *Scanner) emitToken(str string, kind Kind) {
+	tok := Token{
+		Literal: str,
+		Type:    kind,
+	}
+	// if str != "" {
+	// 	tok.Quoted = s.isQuoted()
+	// }
+	s.queue <- tok
 }
 
 func (s *Scanner) readRune() {
@@ -275,6 +188,16 @@ func (s *Scanner) readRune() {
 	s.char, s.curr, s.next = c, s.next, s.next+z
 }
 
+func (s *Scanner) nextRune() rune {
+	r, _ := utf8.DecodeRune(s.buffer[s.next:])
+	return r
+}
+
+func (s *Scanner) prevRune() rune {
+	r, _ := utf8.DecodeLastRune(s.buffer[:s.curr])
+	return r
+}
+
 func (s *Scanner) skip(fn func(rune) bool) {
 	for fn(s.char) {
 		s.readRune()
@@ -285,50 +208,271 @@ func (s *Scanner) isDone() bool {
 	return s.curr >= len(s.buffer)
 }
 
-func (s *Scanner) switchSplit() {
-	if s.isDone() || (s.char != squote && s.char != dquote) {
-		return
-	}
-	defer s.readRune()
-	if s.quote == dquote || s.quote == squote {
-		s.quote = 0
-		s.split = splitLiteral
-		return
-	}
-	s.quote = s.char
-	if s.quote == dquote {
-		s.split = splitQuotedWeak
-	} else {
-		s.split = splitQuotedStrong
-	}
+func (s *Scanner) enterQuote() {
+	s.quoted++
+}
+
+func (s *Scanner) leaveQuote() {
+	s.quoted--
 }
 
 func (s *Scanner) isQuoted() bool {
-	return s.quotedWeak() || s.quotedStrong()
+	return s.quoted > 0
 }
 
-func (s *Scanner) quotedWeak() bool {
-	return s.quote == dquote
+func scanLiteral(s *Scanner) ScanFunc {
+	isDelim := func(r rune) bool {
+		return isBlank(r) || isComment(r) || isQuote(r) || isControl(r) || isVar(r)
+	}
+	var buf bytes.Buffer
+	for !s.isDone() && !isDelim(s.char) {
+		if s.isAssign() {
+			s.emit(buf.String(), TokLiteral)
+			s.emitType(TokAssign)
+			s.readRune()
+			buf.Reset()
+			continue
+		}
+		if isEscape(s.char) {
+			s.readRune()
+			if s.char == newline {
+				s.readRune()
+				s.skip(isSpace)
+			}
+		}
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	var (
+		k = TokLiteral
+		x = sort.SearchStrings(keywords, buf.String())
+	)
+	if x < len(keywords) && keywords[x] == buf.String() {
+		k = TokKeyword
+		s.skip(isBlank)
+	}
+	s.emit(buf.String(), k)
+	return nil
 }
 
-func (s *Scanner) quotedStrong() bool {
-	return s.quote == squote
+func scanQuote(s *Scanner) ScanFunc {
+	s.enterQuote()
+	defer s.leaveQuote()
+
+	escape := func(r rune) bool {
+		return r == dollar || r == backslash || r == dquote
+	}
+
+	var (
+		quote = s.char
+		kind  = TokLiteral
+		buf   bytes.Buffer
+	)
+	s.readRune()
+	for !s.isDone() && s.char != quote {
+		if quote == dquote {
+			switch {
+			case isVar(s.char):
+				s.emit(buf.String(), TokLiteral)
+				buf.Reset()
+				scanDollar(s)(s)
+			case isEscape(s.char) && escape(s.nextRune()):
+				s.readRune()
+			default:
+			}
+		}
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	if s.isDone() {
+		kind = TokInvalid
+	}
+	s.readRune()
+	s.emit(buf.String(), kind)
+	return nil
 }
 
-func canEscape(q, r rune) bool {
-	return (q == 0 || q == dquote) && r == backslash
+func scanNumber(s *Scanner) ScanFunc {
+	var buf bytes.Buffer
+	for !s.isDone() && isDigit(s.char) {
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	s.emit(buf.String(), TokNumber)
+	return nil
 }
 
-func splitLiteral(r rune) bool {
-	return isBlank(r) || isComment(r) || isQuote(r) || isMeta(r) || isOperator(r)
+func scanVariable(s *Scanner) ScanFunc {
+	if isVar(s.char) {
+		s.readRune()
+	}
+	var buf bytes.Buffer
+	for !s.isDone() && isAlpha(s.char) {
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	s.emit(buf.String(), TokVariable)
+	return nil
 }
 
-func splitQuotedStrong(r rune) bool {
-	return r == squote
+func scanComment(s *Scanner) ScanFunc {
+	if isComment(s.char) {
+		s.readRune()
+	}
+	s.skip(isSpace)
+
+	var buf bytes.Buffer
+	for !s.isDone() && s.char != newline {
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	s.emit(buf.String(), TokComment)
+	return nil
 }
 
-func splitQuotedWeak(r rune) bool {
-	return r == dquote || r == dollar
+func scanDollar(s *Scanner) ScanFunc {
+	s.readRune()
+	switch s.char {
+	case lparen:
+		s.readRune()
+		if s.char == lparen {
+			s.readRune()
+			return scanArithmetic
+		}
+		s.emitType(TokInvalid)
+	case lcurly:
+		return scanExpansion
+	default:
+		return scanVariable
+	}
+	return nil
+}
+
+func scanExpansion(s *Scanner) ScanFunc {
+	return nil
+}
+
+func scanArithmetic(s *Scanner) ScanFunc {
+	s.emitType(TokBegArith)
+	for !s.isDone() {
+		if peek := s.nextRune(); s.char == rparen && peek == s.char {
+			s.readRune()
+			s.readRune()
+			s.emitType(TokEndArith)
+			return nil
+		}
+		scanExpression(s)
+	}
+	s.emitType(TokInvalid)
+	return nil
+}
+
+func scanGroup(s *Scanner) ScanFunc {
+	s.emitType(TokBegGroup)
+	for !s.isDone() {
+		if s.char == rparen {
+			s.readRune()
+			s.emitType(TokEndGroup)
+			return nil
+		}
+		scanExpression(s)
+	}
+	s.emitType(TokInvalid)
+	return nil
+}
+
+func scanExpression(s *Scanner) {
+	switch {
+	case isSpace(s.char):
+		s.skip(isSpace)
+	case isDigit(s.char):
+		scanNumber(s)
+	case isVar(s.char):
+		scanVariable(s)
+	case s.char == plus:
+		s.readRune()
+		s.emitType(TokAdd)
+	case s.char == minus:
+		s.readRune()
+		s.emitType(TokSub)
+	case s.char == star:
+		s.readRune()
+		s.emitType(TokMul)
+	case s.char == slash:
+		s.readRune()
+		s.emitType(TokDiv)
+	case s.char == percent:
+		s.readRune()
+		s.emitType(TokMod)
+	case s.char == lparen:
+		s.readRune()
+		scanGroup(s)
+	default:
+	}
+}
+
+func scanControl(s *Scanner) ScanFunc {
+	switch s.char {
+	case lparen:
+		s.readRune()
+		s.emitType(TokBegGroup)
+	case rparen:
+		s.readRune()
+		s.emitType(TokEndGroup)
+	case ampersand:
+		s.readRune()
+		if s.char == ampersand {
+			s.readRune()
+			s.emitType(TokAnd)
+		} else {
+			s.emitType(TokBackground)
+		}
+		s.skip(isSpace)
+	case pipe:
+		s.readRune()
+		if s.char == pipe {
+			s.readRune()
+			s.emitType(TokOr)
+		} else {
+			s.emitType(TokPipe)
+		}
+		s.skip(isSpace)
+	case semicolon:
+		s.readRune()
+		switch s.char {
+		case semicolon:
+			s.readRune()
+			if s.char == ampersand {
+				s.readRune()
+				s.emitType(TokFallthrough)
+			} else {
+				s.emitType(TokBreak)
+			}
+		case ampersand:
+			s.readRune()
+			s.emitType(TokContinue)
+		default:
+			s.emitType(TokSemicolon)
+		}
+		s.skip(isBlank)
+	default:
+		s.emitType(TokInvalid)
+	}
+	return nil
+}
+
+func scanBlank(s *Scanner) ScanFunc {
+	if s.char == newline {
+		s.readRune()
+		s.emitType(TokSemicolon)
+		return nil
+	}
+	s.skip(isSpace)
+	if s.isDone() || isComment(s.char) || isControl(s.char) {
+		return nil
+	}
+	s.emitType(TokBlank)
+	return nil
 }
 
 func isAlpha(r rune) bool {
@@ -344,7 +488,7 @@ func isDigit(r rune) bool {
 }
 
 func isSpace(r rune) bool {
-	return r == space || r == tab
+	return r == space || r == tab || r == utf8.RuneError
 }
 
 func isBlank(r rune) bool {
@@ -363,10 +507,10 @@ func isComment(r rune) bool {
 	return r == pound
 }
 
-func isOperator(r rune) bool {
-	return r == pipe || r == ampersand || r == equal
+func isEscape(r rune) bool {
+	return r == backslash
 }
 
-func isMeta(r rune) bool {
-	return r == lparen || r == rparen || r == semicolon
+func isControl(r rune) bool {
+	return r == lparen || r == rparen || r == semicolon || r == pipe || r == ampersand
 }

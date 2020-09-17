@@ -15,7 +15,6 @@ type Parser struct {
 
 	loop        int
 	keepComment bool
-	// allow func(Token) bool
 }
 
 func Parse(r io.Reader) (Command, error) {
@@ -72,6 +71,7 @@ func (p *Parser) Parse() (Command, error) {
 }
 
 func (p *Parser) parse() (Command, error) {
+	p.skipBlanks()
 	switch p.curr.Type {
 	case TokKeyword:
 		parse, ok := p.kws[p.curr.Literal]
@@ -466,7 +466,7 @@ func (p *Parser) skipBlanks() {
 
 func (p *Parser) next() {
 	p.curr = p.peek
-	p.peek = p.scan.Next()
+	p.peek = p.scan.Scan()
 	if p.keepComment {
 		return
 	}

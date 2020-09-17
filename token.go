@@ -21,8 +21,6 @@ const (
 	TokPipe
 	TokBackground
 	TokAssign
-	TokEqual
-	TokNotEqual
 	TokBreak
 	TokContinue
 	TokFallthrough
@@ -32,12 +30,20 @@ const (
 	TokEndTest
 	TokBegArith
 	TokEndArith
-	TokShebang
 	TokAdd
 	TokSub
 	TokMul
 	TokDiv
 	TokMod
+	TokLeftShift
+	TokRightShift
+	TokGreater
+	TokGreateq
+	TokLesser
+	TokLesseq
+	TokEqual
+	TokNotEqual
+	TokNot
 )
 
 func (k Kind) IsBreak() bool {
