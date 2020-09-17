@@ -44,6 +44,8 @@ const (
 	TokEqual
 	TokNotEqual
 	TokNot
+	TokBegExp
+	TokEndExp
 )
 
 func (k Kind) IsBreak() bool {
@@ -104,6 +106,8 @@ func (k Kind) String() string {
 		str = "test"
 	case TokBegArith, TokEndArith:
 		str = "arithmetic"
+	case TokBegExp, TokEndExp:
+		str = "expansion"
 	case TokAdd:
 		str = "add"
 	case TokSub:

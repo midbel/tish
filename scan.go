@@ -86,6 +86,7 @@ const (
 	dot        = '.'
 	bang       = '!'
 	question   = '?'
+	caret      = '^'
 )
 
 type ScanFunc func(*Scanner) ScanFunc
@@ -205,7 +206,8 @@ func (s *Scanner) scan() {
 }
 
 func (s *Scanner) isAssign() bool {
-	if s.char != equal || isSpace(s.prevRune()) || isSpace(s.nextRune()) {
+	// if s.char != equal || isSpace(s.prevRune()) || isSpace(s.nextRune()) {
+	if s.char != equal || isSpace(s.prevRune()) {
 		return false
 	}
 	return s.canAssign()
@@ -402,6 +404,7 @@ func scanDollar(s *Scanner) ScanFunc {
 		}
 		s.emitType(TokInvalid)
 	case lcurly:
+		s.readRune()
 		return scanExpansion
 	default:
 		return scanVariable
@@ -410,6 +413,18 @@ func scanDollar(s *Scanner) ScanFunc {
 }
 
 func scanExpansion(s *Scanner) ScanFunc {
+	s.emitType(TokBegExp)
+	isDelim := func(r rune) bool {
+		return r == newline || r == semicolon || r == rcurly
+	}
+	for !s.isDone() && !isDelim(s.char) {
+
+	}
+	k := TokEndExp
+	if s.char != rcurly {
+		k = TokInvalid
+	}
+	s.emitType(k)
 	return nil
 }
 

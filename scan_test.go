@@ -265,6 +265,38 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
+			Input: "FOO=",
+			Tokens: []Token{
+				{Literal: "FOO", Type: TokLiteral},
+				{Type: TokAssign},
+			},
+		},
+		{
+			Input: "FOO= echo $FOO",
+			Tokens: []Token{
+				{Literal: "FOO", Type: TokLiteral},
+				{Type: TokAssign},
+				blank,
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "FOO", Type: TokVariable},
+			},
+		},
+		{
+			Input: "FOO= BAR= echo $FOO",
+			Tokens: []Token{
+				{Literal: "FOO", Type: TokLiteral},
+				{Type: TokAssign},
+				blank,
+				{Literal: "BAR", Type: TokLiteral},
+				{Type: TokAssign},
+				blank,
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "FOO", Type: TokVariable},
+			},
+		},
+		{
 			Input: "\techo foo\n\t;;\techo bar\n\t;;&\techo $VAR\n\t;&",
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
