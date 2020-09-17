@@ -46,6 +46,19 @@ const (
 	TokNot
 	TokBegExp
 	TokEndExp
+	TokLen
+	TokTrimSuffix
+	TokTrimSuffixLong
+	TokTrimPrefix
+	TokTrimPrefixLong
+	TokReplace
+	TokReplaceAll
+	TokReplacePrefix
+	TokReplaceSuffix
+	TokLower
+	TokLowerAll
+	TokUpper
+	TokUpperAll
 )
 
 func (k Kind) IsBreak() bool {

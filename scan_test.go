@@ -140,6 +140,14 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
+			Input: "echo foo\\\n\t\tbar",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "foobar", Type: TokLiteral},
+			},
+		},
+		{
 			Input: "echo foo\" <foobar> \"bar",
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
@@ -326,6 +334,25 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
+			Input: "if elif fi for do done case esac in then break continue while until",
+			Tokens: []Token{
+				{Literal: "if", Type: TokKeyword},
+				{Literal: "elif", Type: TokKeyword},
+				{Literal: "fi", Type: TokKeyword},
+				{Literal: "for", Type: TokKeyword},
+				{Literal: "do", Type: TokKeyword},
+				{Literal: "done", Type: TokKeyword},
+				{Literal: "case", Type: TokKeyword},
+				{Literal: "esac", Type: TokKeyword},
+				{Literal: "in", Type: TokKeyword},
+				{Literal: "then", Type: TokKeyword},
+				{Literal: "break", Type: TokKeyword},
+				{Literal: "continue", Type: TokKeyword},
+				{Literal: "while", Type: TokKeyword},
+				{Literal: "until", Type: TokKeyword},
+			},
+		},
+		{
 			Input: "[[ $FOO -eq foo ]]",
 			Tokens: []Token{
 				{Type: TokBegTest},
@@ -343,6 +370,143 @@ func TestScanner(t *testing.T) {
 				{Type: TokAdd},
 				{Literal: "2", Type: TokNumber},
 				{Type: TokEndArith},
+			},
+		},
+		{
+			Input: "${FOO}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO#foobar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokTrimPrefix},
+				{Literal: "foobar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO##foobar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokTrimPrefixLong},
+				{Literal: "foobar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO%foobar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokTrimSuffix},
+				{Literal: "foobar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO%%foobar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokTrimSuffixLong},
+				{Literal: "foobar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO//foo/bar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokReplaceAll},
+				{Literal: "foo", Type: TokLiteral},
+				{Literal: "bar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO/foo/bar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokReplace},
+				{Literal: "foo", Type: TokLiteral},
+				{Literal: "bar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO/#foo/bar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokReplacePrefix},
+				{Literal: "foo", Type: TokLiteral},
+				{Literal: "bar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO/%foo/bar}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokReplaceSuffix},
+				{Literal: "foo", Type: TokLiteral},
+				{Literal: "bar", Type: TokLiteral},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${#FOO}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Type: TokLen},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO,}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokLower},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO,,}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokLowerAll},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO^}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokUpper},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO^^}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokUpperAll},
+				{Type: TokEndExp},
 			},
 		},
 	}
@@ -366,7 +530,7 @@ func testScanner(t *testing.T, d ScanCase) {
 			break
 		}
 		if i >= len(d.Tokens) {
-			t.Errorf("%s: too many tokens created! want %d, got %d", d.Input, len(d.Tokens), i+1)
+			t.Errorf("%s: too many tokens created! want %d, got %d - %s", d.Input, len(d.Tokens), i+1, tok)
 			return
 		}
 		if !tok.Equal(d.Tokens[i]) {

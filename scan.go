@@ -87,6 +87,7 @@ const (
 	bang       = '!'
 	question   = '?'
 	caret      = '^'
+	comma      = ','
 )
 
 type ScanFunc func(*Scanner) ScanFunc
@@ -278,6 +279,19 @@ func (s *Scanner) isDone() bool {
 	return s.curr >= len(s.buffer)
 }
 
+func scanUntil(s *Scanner, fn func(rune) bool) {
+	var buf bytes.Buffer
+	for !s.isDone() && !fn(s.char) {
+		buf.WriteRune(s.char)
+		s.readRune()
+	}
+	k := TokLiteral
+	if s.isDone() && !fn(s.char) {
+		k = TokInvalid
+	}
+	s.emit(buf.String(), k)
+}
+
 func scanLiteral(s *Scanner) ScanFunc {
 	isDelim := func(r rune) bool {
 		return isBlank(r) || isComment(r) || isQuote(r) || isControl(r) || isVar(r)
@@ -414,17 +428,109 @@ func scanDollar(s *Scanner) ScanFunc {
 
 func scanExpansion(s *Scanner) ScanFunc {
 	s.emitType(TokBegExp)
-	isDelim := func(r rune) bool {
-		return r == newline || r == semicolon || r == rcurly
+	if s.char == pound {
+		s.readRune()
+		s.emitType(TokLen)
+		scanVariable(s)
+		if s.char != rcurly {
+			s.emitType(TokInvalid)
+			return nil
+		}
+		s.emitType(TokEndExp)
+		s.readRune()
+		return nil
 	}
-	for !s.isDone() && !isDelim(s.char) {
-
+	scanVariable(s)
+	switch s.char {
+	case colon:
+		s.readRune()
+	case comma:
+		s.readRune()
+		k := TokLower
+		if s.char == comma {
+			s.readRune()
+			k = TokLowerAll
+		}
+		s.emitType(k)
+	case caret:
+		s.readRune()
+		k := TokUpper
+		if s.char == caret {
+			s.readRune()
+			k = TokUpperAll
+		}
+		s.emitType(k)
+	case slash:
+		s.readRune()
+		switch s.char {
+		case slash:
+			s.readRune()
+			s.emitType(TokReplaceAll)
+		case percent:
+			s.readRune()
+			s.emitType(TokReplaceSuffix)
+		case pound:
+			s.readRune()
+			s.emitType(TokReplacePrefix)
+		default:
+			if !isVar(s.char) && !isAlpha(s.char) {
+				s.emitType(TokInvalid)
+				return nil
+			}
+			s.emitType(TokReplace)
+		}
+		if isVar(s.char) {
+			scanVariable(s)
+		} else {
+			scanUntil(s, func(r rune) bool { return r == slash })
+		}
+		if s.char != slash {
+			s.emitType(TokInvalid)
+			return nil
+		}
+		s.readRune()
+		if isVar(s.char) {
+			scanVariable(s)
+		} else {
+			scanUntil(s, func(r rune) bool { return r == rcurly })
+		}
+	case pound:
+		s.readRune()
+		k := TokTrimPrefix
+		if s.char == pound {
+			s.readRune()
+			k = TokTrimPrefixLong
+		}
+		s.emitType(k)
+		if s.char == dollar {
+			scanVariable(s)
+		} else {
+			scanUntil(s, func(r rune) bool { return r == rcurly })
+		}
+	case percent:
+		s.readRune()
+		k := TokTrimSuffix
+		if s.char == percent {
+			s.readRune()
+			k = TokTrimSuffixLong
+		}
+		s.emitType(k)
+		if s.char == dollar {
+			scanVariable(s)
+		} else {
+			scanUntil(s, func(r rune) bool { return r == rcurly })
+		}
+	case rcurly:
+	default:
+		s.emitType(TokInvalid)
+		return nil
 	}
-	k := TokEndExp
 	if s.char != rcurly {
-		k = TokInvalid
+		s.emitType(TokInvalid)
+		return nil
 	}
-	s.emitType(k)
+	s.readRune()
+	s.emitType(TokEndExp)
 	return nil
 }
 
