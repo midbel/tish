@@ -3,7 +3,6 @@ package tish
 import (
 	"errors"
 	"io"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -269,8 +268,8 @@ func testParser(t *testing.T, d ParseCase) {
 			t.Errorf("%s: too many command created! want %d, got %d", d.Input, len(d.Cmds), i+1)
 			return
 		}
-		// if !last.Equal(d.Cmds[i]) {
-		if !reflect.DeepEqual(last, d.Cmds[i]) {
+		// if !reflect.DeepEqual(last, d.Cmds[i]) {
+		if !last.equal(d.Cmds[i]) {
 			t.Errorf("%s: cmd mismatched!", d.Input)
 			t.Errorf("- want: %s", d.Cmds[i])
 			t.Errorf("- got : %s", last)

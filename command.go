@@ -7,6 +7,7 @@ import (
 
 type Command interface {
 	fmt.Stringer
+	equal(Command) bool
 }
 
 type Word struct {
@@ -45,6 +46,18 @@ func (w Word) IsZero() bool {
 	return len(w.tokens) == 0
 }
 
+func (w Word) equal(other Word) bool {
+	if len(w.tokens) != len(other.tokens) {
+		return false
+	}
+	for i := range w.tokens {
+		if !w.tokens[i].Equal(other.tokens[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 type Simple struct {
 	env   []Assign
 	words []Word
@@ -56,6 +69,22 @@ func (s Simple) String() string {
 		ws[i] = s.words[i].String()
 	}
 	return fmt.Sprintf("simple(%s)", strings.Join(ws, " "))
+}
+
+func (s Simple) equal(other Command) bool {
+	c, ok := other.(Simple)
+	if !ok {
+		return ok
+	}
+	if len(s.words) != len(c.words) {
+		return false
+	}
+	for i := range s.words {
+		if !s.words[i].equal(c.words[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 type List struct {
@@ -70,6 +99,22 @@ func (i List) String() string {
 	return fmt.Sprintf("list(%s)", strings.Join(ws, ", "))
 }
 
+func (i List) equal(other Command) bool {
+	c, ok := other.(List)
+	if !ok {
+		return ok
+	}
+	if len(i.cmds) != len(c.cmds) {
+		return false
+	}
+	for j := range i.cmds {
+		if !i.cmds[j].equal(c.cmds[j]) {
+			return false
+		}
+	}
+	return true
+}
+
 type And struct {
 	left  Command
 	right Command
@@ -79,6 +124,14 @@ func (a And) String() string {
 	return fmt.Sprintf("and(%s, %s)", a.left, a.right)
 }
 
+func (a And) equal(other Command) bool {
+	c, ok := other.(And)
+	if !ok {
+		return ok
+	}
+	return a.left.equal(c.left) && a.right.equal(c.right)
+}
+
 type Or struct {
 	left  Command
 	right Command
@@ -86,6 +139,14 @@ type Or struct {
 
 func (o Or) String() string {
 	return fmt.Sprintf("or(%s, %s)", o.left, o.right)
+}
+
+func (o Or) equal(other Command) bool {
+	c, ok := other.(Or)
+	if !ok {
+		return ok
+	}
+	return o.left.equal(c.left) && o.right.equal(c.right)
 }
 
 type Case struct {
@@ -99,6 +160,25 @@ func (c Case) String() string {
 		ws[i] = c.String()
 	}
 	return fmt.Sprintf("case(word: %s, body: %s)", c.word, ws)
+}
+
+func (c Case) equal(other Command) bool {
+	x, ok := other.(Case)
+	if !ok {
+		return ok
+	}
+	if !c.word.equal(x.word) {
+		return false
+	}
+	if len(c.clauses) != len(x.clauses) {
+		return false
+	}
+	for i := range c.clauses {
+		if !c.clauses[i].equal(x.clauses[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 type Clause struct {
@@ -124,6 +204,18 @@ func (c Clause) String() string {
 	return fmt.Sprintf("clause(pattern: %s, body: %s)", strings.Join(ws, ", "), c.body)
 }
 
+func (c Clause) equal(other Command) bool {
+	x, ok := other.(Clause)
+	if !ok {
+		return ok
+	}
+	ok = c.op.Equal(x.op)
+	if c.body != nil && x.body != nil {
+		return c.body.equal(x.body) && ok
+	}
+	return (c.body == nil && x.body == nil) && ok
+}
+
 type If struct {
 	cmd Command
 	csq Command
@@ -137,6 +229,23 @@ func (i If) String() string {
 	return fmt.Sprintf("if(cmd: %s, csq: %s)", i.cmd, i.csq)
 }
 
+func (i If) equal(other Command) bool {
+	c, ok := other.(If)
+	if !ok {
+		return ok
+	}
+	if !i.cmd.equal(c.cmd) {
+		return false
+	}
+	if !i.csq.equal(c.csq) {
+		return false
+	}
+	if i.alt != nil && c.alt != nil {
+		return i.alt.equal(c.alt)
+	}
+	return i.alt == nil && c.alt == nil
+}
+
 type Until struct {
 	cmd  Command
 	body Command
@@ -146,6 +255,20 @@ func (u Until) String() string {
 	return fmt.Sprintf("until(cmd: %s, body: %s)", u.cmd, u.body)
 }
 
+func (u Until) equal(other Command) bool {
+	c, ok := other.(Until)
+	if !ok {
+		return ok
+	}
+	if !u.cmd.equal(c.cmd) {
+		return false
+	}
+	if u.body != nil && c.body != nil {
+		return u.body.equal(c.body)
+	}
+	return u.body == nil && c.body == nil
+}
+
 type While struct {
 	cmd  Command
 	body Command
@@ -153,6 +276,20 @@ type While struct {
 
 func (w While) String() string {
 	return fmt.Sprintf("while(cmd: %s, body: %s)", w.cmd, w.body)
+}
+
+func (w While) equal(other Command) bool {
+	c, ok := other.(While)
+	if !ok {
+		return ok
+	}
+	if !w.cmd.equal(c.cmd) {
+		return false
+	}
+	if w.body != nil && c.body != nil {
+		return w.body.equal(c.body)
+	}
+	return w.body == nil && c.body == nil
 }
 
 type For struct {
@@ -165,16 +302,48 @@ func (f For) String() string {
 	return fmt.Sprintf("for(words: %s, body: %s)", "", f.body.String())
 }
 
+func (f For) equal(other Command) bool {
+	c, ok := other.(For)
+	if !ok {
+		return ok
+	}
+	if !f.ident.Equal(c.ident) {
+		return false
+	}
+	if len(f.words) != len(c.words) {
+		return false
+	}
+	for i := range f.words {
+		if !f.words[i].equal(c.words[i]) {
+			return false
+		}
+	}
+	if f.body != nil && c.body != nil {
+		return f.body.equal(c.body)
+	}
+	return f.body == nil && c.body == nil
+}
+
 type Break struct{}
 
 func (_ Break) String() string {
 	return "break()"
 }
 
+func (_ Break) equal(other Command) bool {
+	_, ok := other.(Break)
+	return ok
+}
+
 type Continue struct{}
 
 func (_ Continue) String() string {
 	return "continue()"
+}
+
+func (_ Continue) equal(other Command) bool {
+	_, ok := other.(Continue)
+	return ok
 }
 
 type Assign struct {
@@ -184,4 +353,12 @@ type Assign struct {
 
 func (a Assign) String() string {
 	return fmt.Sprintf("assign(ident: %s, word: %s)", a.ident, a.word)
+}
+
+func (a Assign) equal(other Command) bool {
+	c, ok := other.(Assign)
+	if !ok {
+		return ok
+	}
+	return a.ident.Equal(c.ident) && a.word.equal(c.word)
 }

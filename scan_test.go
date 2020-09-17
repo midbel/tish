@@ -510,12 +510,18 @@ func TestScanner(t *testing.T) {
 			},
 		},
 	}
+	testTokens(t, data)
+}
+
+func testTokens(t *testing.T, data []ScanCase) {
+	t.Helper()
 	for _, d := range data {
-		testScanner(t, d)
+		cmpTokens(t, d)
 	}
 }
 
-func testScanner(t *testing.T, d ScanCase) {
+func cmpTokens(t *testing.T, d ScanCase) {
+	t.Helper()
 	s, err := NewScanner(strings.NewReader(d.Input))
 	if err != nil {
 		t.Errorf("%s: fail to create scanner", d.Input)
