@@ -59,6 +59,9 @@ const (
 	TokLowerAll
 	TokUpper
 	TokUpperAll
+	TokReverse
+	TokReverseAll
+	TokSlice
 )
 
 func (k Kind) IsBreak() bool {

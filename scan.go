@@ -426,6 +426,36 @@ func scanDollar(s *Scanner) ScanFunc {
 	return nil
 }
 
+func scanSlice(s *Scanner) bool {
+	s.emitType(TokSlice)
+	switch {
+	case isVar(s.char):
+		scanVariable(s)
+	case isDigit(s.char):
+		scanNumber(s)
+	case s.char == colon:
+		s.emit("0", TokNumber)
+	default:
+		s.emitType(TokInvalid)
+		return false
+	}
+	if s.char != colon {
+		return false
+	}
+	s.readRune()
+	switch {
+	case isVar(s.char):
+		scanVariable(s)
+	case isDigit(s.char):
+		scanNumber(s)
+	case s.char == rcurly:
+		s.emit("0", TokNumber)
+	default:
+		return false
+	}
+	return true
+}
+
 func scanExpansion(s *Scanner) ScanFunc {
 	s.emitType(TokBegExp)
 	if s.char == pound {
@@ -444,6 +474,18 @@ func scanExpansion(s *Scanner) ScanFunc {
 	switch s.char {
 	case colon:
 		s.readRune()
+		if !scanSlice(s) {
+			s.emitType(TokInvalid)
+			return nil
+		}
+	case tilde:
+		s.readRune()
+		k := TokReverse
+		if s.char == tilde {
+			s.readRune()
+			k = TokReverseAll
+		}
+		s.emitType(k)
 	case comma:
 		s.readRune()
 		k := TokLower

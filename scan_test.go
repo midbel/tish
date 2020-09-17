@@ -509,6 +509,61 @@ func TestScanner(t *testing.T) {
 				{Type: TokEndExp},
 			},
 		},
+		{
+			Input: "${FOO:1:5}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokSlice},
+				{Literal: "1", Type: TokNumber},
+				{Literal: "5", Type: TokNumber},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO::5}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokSlice},
+				{Literal: "0", Type: TokNumber},
+				{Literal: "5", Type: TokNumber},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO:1:}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokSlice},
+				{Literal: "1", Type: TokNumber},
+				{Literal: "0", Type: TokNumber},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO:$VAR:5}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokSlice},
+				{Literal: "VAR", Type: TokVariable},
+				{Literal: "5", Type: TokNumber},
+				{Type: TokEndExp},
+			},
+		},
+		{
+			Input: "${FOO:1:$VAR}",
+			Tokens: []Token{
+				{Type: TokBegExp},
+				{Literal: "FOO", Type: TokVariable},
+				{Type: TokSlice},
+				{Literal: "1", Type: TokNumber},
+				{Literal: "VAR", Type: TokVariable},
+				{Type: TokEndExp},
+			},
+		},
 	}
 	testTokens(t, data)
 }
