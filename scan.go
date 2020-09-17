@@ -90,14 +90,67 @@ const (
 
 type ScanFunc func(*Scanner) ScanFunc
 
+const (
+	stateCmdReset = iota
+	stateFstBlank
+	stateCmd
+	stateSndBlank
+)
+
+type ScannerState struct {
+	simple int
+	quoted int
+}
+
+func (s *ScannerState) enterQuote() {
+	s.quoted++
+}
+
+func (s *ScannerState) leaveQuote() {
+	s.quoted--
+}
+
+func (s *ScannerState) isQuoted() bool {
+	return s.quoted > 0
+}
+
+func (s *ScannerState) update(k Kind) {
+	if k == TokSemicolon {
+		s.reset()
+		return
+	}
+	if !s.canAssign() {
+		return
+	}
+	if k == TokBlank && (s.simple == stateCmdReset || s.simple == stateCmd) {
+		s.simple++
+	} else if (k == TokLiteral || k == TokVariable) && s.simple == stateFstBlank {
+		s.simple++
+	} else {
+		s.simple = stateCmdReset
+	}
+}
+
+func (s *ScannerState) canAssign() bool {
+	return s.simple != stateSndBlank
+}
+
+func (s *ScannerState) reset() {
+	s.simple = stateFstBlank
+	s.quoted = 0
+}
+
 type Scanner struct {
 	buffer []byte
 	char   rune
 	curr   int
 	next   int
 
-	quoted int
-	queue  chan Token
+	ScannerState
+	queue chan Token
+
+	line   int
+	column int
 }
 
 func NewScanner(r io.Reader) (*Scanner, error) {
@@ -108,6 +161,8 @@ func NewScanner(r io.Reader) (*Scanner, error) {
 	var s Scanner
 	s.buffer = bytes.ReplaceAll(buf, []byte{carriage, newline}, []byte{newline})
 	s.queue = make(chan Token)
+	s.line = 1
+	s.reset()
 
 	go s.scan()
 	return &s, nil
@@ -118,6 +173,7 @@ func (s *Scanner) Scan() Token {
 	if !ok {
 		tok.Type = TokEOF
 	}
+	s.update(tok.Type)
 	return tok
 }
 
@@ -152,7 +208,7 @@ func (s *Scanner) isAssign() bool {
 	if s.char != equal || isSpace(s.prevRune()) || isSpace(s.nextRune()) {
 		return false
 	}
-	return true
+	return s.canAssign()
 }
 
 func (s *Scanner) emit(str string, kind Kind) {
@@ -170,14 +226,21 @@ func (s *Scanner) emitToken(str string, kind Kind) {
 	tok := Token{
 		Literal: str,
 		Type:    kind,
+		Position: Position{
+			Line: s.line,
+			Col:  s.column,
+		},
 	}
-	// if str != "" {
+	// if str != "" && tok.Type != TokInvalid {
 	// 	tok.Quoted = s.isQuoted()
 	// }
 	s.queue <- tok
 }
 
 func (s *Scanner) readRune() {
+	if s.char == newline {
+		s.column = 0
+	}
 	c, z := utf8.DecodeRune(s.buffer[s.next:])
 	if c == utf8.RuneError {
 		if z == 0 {
@@ -186,6 +249,11 @@ func (s *Scanner) readRune() {
 		return
 	}
 	s.char, s.curr, s.next = c, s.next, s.next+z
+
+	s.column++
+	if s.char == newline {
+		s.line++
+	}
 }
 
 func (s *Scanner) nextRune() rune {
@@ -206,18 +274,6 @@ func (s *Scanner) skip(fn func(rune) bool) {
 
 func (s *Scanner) isDone() bool {
 	return s.curr >= len(s.buffer)
-}
-
-func (s *Scanner) enterQuote() {
-	s.quoted++
-}
-
-func (s *Scanner) leaveQuote() {
-	s.quoted--
-}
-
-func (s *Scanner) isQuoted() bool {
-	return s.quoted > 0
 }
 
 func scanLiteral(s *Scanner) ScanFunc {
@@ -268,8 +324,13 @@ func scanQuote(s *Scanner) ScanFunc {
 		kind  = TokLiteral
 		buf   bytes.Buffer
 	)
+
+	isDelim := func(r rune) bool {
+		return r == quote || r == newline
+	}
+
 	s.readRune()
-	for !s.isDone() && s.char != quote {
+	for !s.isDone() && !isDelim(s.char) {
 		if quote == dquote {
 			switch {
 			case isVar(s.char):
@@ -284,7 +345,7 @@ func scanQuote(s *Scanner) ScanFunc {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
-	if s.isDone() {
+	if s.isDone() || s.char != quote {
 		kind = TokInvalid
 	}
 	s.readRune()

@@ -220,6 +220,15 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
+			Input: "echo FOO=$BAR",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "FOO=", Type: TokLiteral},
+				{Literal: "BAR", Type: TokVariable},
+			},
+		},
+		{
 			Input: "FOO=foo BAR=bar echo =$FOO=$BAR=",
 			Tokens: []Token{
 				{Literal: "FOO", Type: TokLiteral},

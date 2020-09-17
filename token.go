@@ -120,10 +120,16 @@ func (k Kind) String() string {
 	return str
 }
 
+type Position struct {
+	Line int
+	Col  int
+}
+
 type Token struct {
 	Literal string
 	Type    Kind
 	Quoted  bool
+	Position
 }
 
 func (t Token) Equal(other Token) bool {
