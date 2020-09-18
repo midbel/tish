@@ -169,6 +169,19 @@ func (t Token) String() string {
 	}
 }
 
+func (t Token) isKeyword() bool {
+	return t.Type == TokKeyword
+}
+
+func (t Token) isSimple() bool {
+	switch t.Type {
+	case TokLiteral, TokVariable, TokBegArith, TokBegExp:
+		return true
+	default:
+		return false
+	}
+}
+
 func (t Token) isTrim() bool {
 	switch t.Type {
 	case TokTrimSuffix, TokTrimSuffixLong, TokTrimPrefix, TokTrimPrefixLong:

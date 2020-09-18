@@ -72,17 +72,18 @@ func (p *Parser) Parse() (Command, error) {
 
 func (p *Parser) parse() (Command, error) {
 	p.skipBlanks()
-	switch p.curr.Type {
-	case TokKeyword:
+
+	switch {
+	default:
+		return nil, fmt.Errorf("parse: unexpected token: %s", p.curr)
+	case p.curr.isKeyword():
 		parse, ok := p.kws[p.curr.Literal]
 		if !ok {
 			return nil, fmt.Errorf("parse: unexpected keyword %s", p.curr)
 		}
 		return parse()
-	case TokLiteral, TokVariable:
+	case p.curr.isSimple():
 		return p.parseSimple()
-	default:
-		return nil, fmt.Errorf("parse: unexpected token: %s", p.curr)
 	}
 }
 

@@ -97,6 +97,7 @@ const (
 	stateFstBlank
 	stateCmd
 	stateSndBlank
+	stateWait
 )
 
 type ScannerState struct {
@@ -128,13 +129,17 @@ func (s *ScannerState) update(k Kind) {
 		s.simple++
 	} else if (k == TokLiteral || k == TokVariable) && s.simple == stateFstBlank {
 		s.simple++
+	} else if (k == TokBegExp || k == TokBegArith) && s.simple == stateFstBlank {
+		s.simple = stateWait
+	} else if (k == TokEndExp || k == TokEndArith) && s.simple == stateWait {
+		s.simple = stateCmd
 	} else {
 		s.simple = stateCmdReset
 	}
 }
 
 func (s *ScannerState) canAssign() bool {
-	return s.simple != stateSndBlank
+	return s.simple < stateSndBlank
 }
 
 func (s *ScannerState) reset() {
