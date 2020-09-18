@@ -2,7 +2,9 @@ package tish
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"unicode"
 )
 
 type Command interface {
@@ -442,8 +444,9 @@ func (r Replace) Expand(env *Env) string {
 }
 
 type Transform struct {
-	ident Token
-	op    Token
+	ident   Token
+	pattern Token
+	op      Token
 }
 
 func (t Transform) String() string {
@@ -459,7 +462,62 @@ func (t Transform) Equal(other Command) bool {
 }
 
 func (t Transform) Expand(env *Env) string {
-	return ""
+	w := env.Resolve(t.ident.Literal)
+	if w == nil {
+		return ""
+	}
+	str := w.Expand(env)
+	switch t.op.Type {
+	case TokLower:
+		str = t.toLowerCase(str, false)
+	case TokLowerAll:
+		str = t.toLowerCase(str, true)
+	case TokUpper:
+		str = t.toUpperCase(str, false)
+	case TokUpperAll:
+		str = t.toUpperCase(str, true)
+	case TokReverse:
+		str = t.reverseCase(str, false)
+	case TokReverseAll:
+		str = t.reverseCase(str, true)
+	}
+	return str
+}
+
+func (t Transform) toUpperCase(str string, all bool) string {
+	if !all {
+		rs := []rune(str)
+		rs[0] = unicode.ToUpper(rs[0])
+		return string(rs)
+	}
+	return strings.ToUpper(str)
+}
+
+func (t Transform) toLowerCase(str string, all bool) string {
+	if !all {
+		rs := []rune(str)
+		rs[0] = unicode.ToLower(rs[0])
+		return string(rs)
+	}
+	return strings.ToLower(str)
+}
+
+func (t Transform) reverseCase(str string, all bool) string {
+	rs := []rune(str)
+	for i := 0; i < len(rs); i++ {
+		if i > 0 && !all {
+			break
+		}
+		if !unicode.IsLetter(rs[i]) {
+			continue
+		}
+		if unicode.IsUpper(rs[i]) {
+			rs[i] = unicode.ToLower(rs[i])
+		} else {
+			rs[i] = unicode.ToUpper(rs[i])
+		}
+	}
+	return string(rs)
 }
 
 type Length struct {
@@ -479,5 +537,13 @@ func (e Length) Equal(other Command) bool {
 }
 
 func (e Length) Expand(env *Env) string {
-	return ""
+	w := env.Resolve(e.ident.Literal)
+	if w == nil {
+		return "0"
+	}
+	var (
+		str = w.Expand(env)
+		n   = len(str)
+	)
+	return strconv.Itoa(n)
 }
