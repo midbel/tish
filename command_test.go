@@ -120,7 +120,63 @@ func testTransform(t *testing.T) {
 }
 
 func testReplace(t *testing.T) {
-	t.SkipNow()
+	data := []WordCase{
+		{
+			Word: Replace{
+				ident: makeIdent("VAR"),
+				src:   makeIdent("o"),
+				dst:   makeIdent("-"),
+				op:    makeType(TokReplace),
+			},
+			Want: "f-obar",
+		},
+		{
+			Word: Replace{
+				ident: makeIdent("VAR"),
+				src:   makeIdent("o"),
+				dst:   makeIdent("-"),
+				op:    makeType(TokReplaceAll),
+			},
+			Want: "f--bar",
+		},
+		{
+			Word: Replace{
+				ident: makeIdent("VAR"),
+				src:   makeIdent("bar"),
+				dst:   makeIdent("foo"),
+				op:    makeType(TokReplaceSuffix),
+			},
+			Want: "foofoo",
+		},
+		{
+			Word: Replace{
+				ident: makeIdent("VAR"),
+				src:   makeIdent("---"),
+				dst:   makeIdent("foo"),
+				op:    makeType(TokReplaceSuffix),
+			},
+			Want: "foobar",
+		},
+		{
+			Word: Replace{
+				ident: makeIdent("VAR"),
+				src:   makeIdent("foo"),
+				dst:   makeIdent("bar"),
+				op:    makeType(TokReplacePrefix),
+			},
+			Want: "barbar",
+		},
+		{
+			Word: Replace{
+				ident: makeIdent("VAR"),
+				src:   makeIdent("---"),
+				dst:   makeIdent("bar"),
+				op:    makeType(TokReplacePrefix),
+			},
+			Want: "foobar",
+		},
+	}
+	testWordCase(t, data)
 }
 
 func testSlice(t *testing.T) {

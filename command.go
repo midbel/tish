@@ -477,7 +477,28 @@ func (r Replace) Equal(other Command) bool {
 }
 
 func (r Replace) Expand(env *Env) string {
-	return ""
+	w := env.Resolve(r.ident.Literal)
+	if w == nil {
+		return ""
+	}
+	str := w.Expand(env)
+	switch r.op.Type {
+	case TokReplace:
+		str = strings.Replace(str, r.src.Literal, r.dst.Literal, 1)
+	case TokReplaceAll:
+		str = strings.ReplaceAll(str, r.src.Literal, r.dst.Literal)
+	case TokReplaceSuffix:
+		if strings.HasSuffix(str, r.src.Literal) {
+			str = strings.TrimSuffix(str, r.src.Literal)
+			str += r.dst.Literal
+		}
+	case TokReplacePrefix:
+		if strings.HasPrefix(str, r.src.Literal) {
+			str = strings.TrimPrefix(str, r.src.Literal)
+			str = r.dst.Literal + str
+		}
+	}
+	return str
 }
 
 type Transform struct {
