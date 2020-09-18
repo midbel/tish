@@ -126,6 +126,48 @@ func (p *Parser) parseSimple() (Command, error) {
 	return cmd, nil
 }
 
+func (p *Parser) parseExpansion() (Word, error) {
+	p.next()
+	var w Word
+	switch k := p.curr.Type; {
+	case k == TokLen:
+		p.next()
+	case k == TokVariable && p.peek.Type == TokEndExp:
+	case k == TokVariable && p.peek.isTrim():
+		p.next()
+		p.next()
+	case k == TokVariable && p.peek.isReplace():
+		p.next()
+		p.next()
+		if p.curr.Type != TokVariable && p.curr.Type != TokLiteral && p.curr.Type != TokNumber {
+			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable/literal'", p.curr)
+		}
+		p.next()
+		if p.curr.Type != TokVariable && p.curr.Type != TokLiteral && p.curr.Type != TokNumber {
+			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable/literal'", p.curr)
+		}
+	case k == TokVariable && p.peek.isTransform():
+		p.next()
+		p.next()
+	case k == TokVariable && p.peek.isSlice():
+		p.next()
+		if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable'", p.curr)
+		}
+		p.next()
+		if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable'", p.curr)
+		}
+	default:
+		return w, fmt.Errorf("expansion: unexpected token %s", p.curr)
+	}
+	p.next()
+	if p.curr.Type != TokEndExp {
+		return w, fmt.Errorf("expansion: unexpected token %s", p.curr)
+	}
+	return Word{}, nil
+}
+
 func (p *Parser) parseAssign(name Token) (Assign, error) {
 	a := Assign{ident: name}
 	if p.curr.Type == TokBlank {
@@ -140,6 +182,9 @@ func (p *Parser) parseAssign(name Token) (Assign, error) {
 }
 
 func (p *Parser) parseWord() (Word, error) {
+	if p.curr.Type == TokBegExp {
+		return p.parseExpansion()
+	}
 	var w Word
 	for !p.isDone() && !p.curr.Type.EndOfWord() {
 		if !p.curr.Quoted && p.curr.Type == TokKeyword {

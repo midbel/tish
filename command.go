@@ -10,6 +10,11 @@ type Command interface {
 	Equal(Command) bool
 }
 
+type Word1 interface {
+	Command
+	Expand(*Env) string
+}
+
 type Word struct {
 	tokens []Token
 }
@@ -23,9 +28,7 @@ func (w Word) Expand(env *Env) string {
 			str = tok.Literal
 		case TokVariable:
 			word := env.Resolve(tok.Literal)
-			if !word.IsZero() {
-				str = word.Expand(env)
-			}
+			str = word.Expand(env)
 		default:
 			continue
 		}
@@ -42,16 +45,16 @@ func (w Word) String() string {
 	return fmt.Sprintf("word(%s)", strings.Join(ws, ""))
 }
 
-func (w Word) IsZero() bool {
-	return len(w.tokens) == 0
-}
-
-func (w Word) Equal(other Word) bool {
-	if len(w.tokens) != len(other.tokens) {
+func (w Word) Equal(other Command) bool {
+	c, ok := other.(Word)
+	if !ok {
+		return ok
+	}
+	if len(w.tokens) != len(c.tokens) {
 		return false
 	}
 	for i := range w.tokens {
-		if !w.tokens[i].Equal(other.tokens[i]) {
+		if !Compare(w.tokens[i], c.tokens[i]) {
 			return false
 		}
 	}
@@ -75,6 +78,14 @@ func (s Simple) Equal(other Command) bool {
 	c, ok := other.(Simple)
 	if !ok {
 		return ok
+	}
+	if len(s.env) != len(c.env) {
+		return false
+	}
+	for i := range s.env {
+		if !s.env[i].Equal(c.env[i]) {
+			return false
+		}
 	}
 	if len(s.words) != len(c.words) {
 		return false
@@ -209,7 +220,7 @@ func (c Clause) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	ok = c.op.Equal(x.op)
+	ok = Compare(c.op, x.op)
 	if c.body != nil && x.body != nil {
 		return c.body.Equal(x.body) && ok
 	}
@@ -307,7 +318,7 @@ func (f For) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	if !f.ident.Equal(c.ident) {
+	if !Compare(f.ident, c.ident) {
 		return false
 	}
 	if len(f.words) != len(c.words) {
@@ -360,5 +371,113 @@ func (a Assign) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	return a.ident.Equal(c.ident) && a.word.Equal(c.word)
+	return Compare(a.ident, c.ident) && a.word.Equal(c.word)
+}
+
+type Slice struct {
+	ident  Token
+	offset Token
+	length Token
+}
+
+func (s Slice) String() string {
+	return fmt.Sprintf("slice(ident: %s, offset: %s, length: %s)", s.ident, s.offset, s.length)
+}
+
+func (s Slice) Equal(other Command) bool {
+	c, ok := other.(Slice)
+	if !ok {
+		return ok
+	}
+	return Compare(s.ident, c.ident) && Compare(s.offset, c.offset) && Compare(s.length, c.length)
+}
+
+func (s Slice) Expand(env *Env) string {
+	return ""
+}
+
+type Trim struct {
+	ident Token
+	str   Token
+	part  Token
+}
+
+func (t Trim) String() string {
+	return fmt.Sprintf("trim(ident: %s, str: %s, part: %s)", t.ident, t.str, t.part)
+}
+
+func (t Trim) Equal(other Command) bool {
+	c, ok := other.(Trim)
+	if !ok {
+		return ok
+	}
+	return Compare(t.ident, c.ident) && Compare(t.str, c.str) && Compare(t.part, c.part)
+}
+
+func (t Trim) Expand(env *Env) string {
+	return ""
+}
+
+type Replace struct {
+	ident Token
+	src   Token
+	dst   Token
+	op    Token
+}
+
+func (r Replace) String() string {
+	return fmt.Sprintf("replace(ident: %s, src: %s, dst: %s, op: %s)", r.ident, r.src, r.dst, r.op)
+}
+
+func (r Replace) Equal(other Command) bool {
+	c, ok := other.(Replace)
+	if !ok {
+		return ok
+	}
+	return Compare(r.ident, c.ident) && Compare(r.src, c.src) && Compare(r.dst, c.dst) && Compare(r.op, c.op)
+}
+
+func (r Replace) Expand(env *Env) string {
+	return ""
+}
+
+type Transform struct {
+	ident Token
+	op    Token
+}
+
+func (t Transform) String() string {
+	return fmt.Sprintf("case(ident: %s, case: %s)", t.ident, t.op)
+}
+
+func (t Transform) Equal(other Command) bool {
+	c, ok := other.(Transform)
+	if !ok {
+		return ok
+	}
+	return Compare(t.ident, c.ident) && Compare(t.op, c.op)
+}
+
+func (t Transform) Expand(env *Env) string {
+	return ""
+}
+
+type Length struct {
+	ident Token
+}
+
+func (e Length) String() string {
+	return fmt.Sprintf("length(ident: %s)", e.ident)
+}
+
+func (e Length) Equal(other Command) bool {
+	c, ok := other.(Length)
+	if !ok {
+		return ok
+	}
+	return Compare(e.ident, c.ident)
+}
+
+func (e Length) Expand(env *Env) string {
+	return ""
 }

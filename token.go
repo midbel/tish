@@ -152,6 +152,10 @@ type Token struct {
 	Position
 }
 
+func Compare(fst, snd Token) bool {
+	return fst.Equal(snd)
+}
+
 func (t Token) Equal(other Token) bool {
 	return t.Type == other.Type && t.Literal == other.Literal && t.Quoted == other.Quoted
 }
@@ -163,4 +167,35 @@ func (t Token) String() string {
 	default:
 		return fmt.Sprintf("<%s>", t.Type)
 	}
+}
+
+func (t Token) isTrim() bool {
+	switch t.Type {
+	case TokTrimSuffix, TokTrimSuffixLong, TokTrimPrefix, TokTrimPrefixLong:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t Token) isReplace() bool {
+	switch t.Type {
+	case TokReplace, TokReplaceAll, TokReplaceSuffix, TokReplacePrefix:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t Token) isTransform() bool {
+	switch t.Type {
+	case TokLower, TokLowerAll, TokUpper, TokUpperAll, TokReverse, TokReverseAll:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t Token) isSlice() bool {
+	return t.Type == TokSlice
 }

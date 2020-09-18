@@ -43,7 +43,7 @@ func testResolve(t *testing.T, env *Env, ecs []EnvCase) {
 	t.Helper()
 	for _, e := range ecs {
 		w := env.Resolve(e.ident)
-		if w.IsZero() {
+		if isZero(w) {
 			t.Errorf("%s: want %s, got empty word", e.ident, e.word)
 			continue
 		}
@@ -70,7 +70,7 @@ func testDelete(t *testing.T, env *Env, ecs []EnvCase) {
 	}
 	for _, e := range ecs {
 		w := env.Resolve(e.ident)
-		if !w.IsZero() {
+		if !isZero(w) {
 			t.Errorf("%s: want empty word, got %s", e.ident, e.word)
 		}
 	}
@@ -84,4 +84,8 @@ func makeWord(str string) Word {
 	return Word{
 		tokens: []Token{tok},
 	}
+}
+
+func isZero(w Word) bool {
+	return len(w.tokens) == 0
 }
