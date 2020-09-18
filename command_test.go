@@ -35,12 +35,58 @@ func testLength(t *testing.T) {
 	testWordCase(t, data)
 }
 
-func testReplace(t *testing.T) {
-	t.SkipNow()
-}
-
 func testTrim(t *testing.T) {
-	t.SkipNow()
+	data := []WordCase{
+		{
+			Word: Trim{
+				ident: makeIdent("VAR"),
+				str:   makeIdent("bar"),
+				part:  makeType(TokTrimSuffix),
+			},
+			Want: "foo",
+		},
+		{
+			Word: Trim{
+				ident: makeIdent("VAR"),
+				str:   makeIdent("test"),
+				part:  makeType(TokTrimSuffix),
+			},
+			Want: "foobar",
+		},
+		{
+			Word: Trim{
+				ident: makeIdent("VAR"),
+				str:   makeIdent("test"),
+				part:  makeType(TokTrimSuffixLong),
+			},
+			Want: "foobar",
+		},
+		{
+			Word: Trim{
+				ident: makeIdent("VAR"),
+				str:   makeIdent("foo"),
+				part:  makeType(TokTrimPrefix),
+			},
+			Want: "bar",
+		},
+		{
+			Word: Trim{
+				ident: makeIdent("VAR"),
+				str:   makeIdent("test"),
+				part:  makeType(TokTrimPrefix),
+			},
+			Want: "foobar",
+		},
+		{
+			Word: Trim{
+				ident: makeIdent("VAR"),
+				str:   makeIdent("test"),
+				part:  makeType(TokTrimPrefixLong),
+			},
+			Want: "foobar",
+		},
+	}
+	testWordCase(t, data)
 }
 
 func testTransform(t *testing.T) {
@@ -71,6 +117,10 @@ func testTransform(t *testing.T) {
 		},
 	}
 	testWordCase(t, data)
+}
+
+func testReplace(t *testing.T) {
+	t.SkipNow()
 }
 
 func testSlice(t *testing.T) {

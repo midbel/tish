@@ -417,7 +417,44 @@ func (t Trim) Equal(other Command) bool {
 }
 
 func (t Trim) Expand(env *Env) string {
-	return ""
+	w := env.Resolve(t.ident.Literal)
+	if w == nil {
+		return ""
+	}
+	str := w.Expand(env)
+	switch t.part.Type {
+	case TokTrimSuffix:
+		str = t.trimSuffix(str, t.str.Literal, true)
+	case TokTrimSuffixLong:
+		str = t.trimSuffix(str, t.str.Literal, false)
+	case TokTrimPrefix:
+		str = t.trimPrefix(str, t.str.Literal, true)
+	case TokTrimPrefixLong:
+		str = t.trimPrefix(str, t.str.Literal, false)
+	}
+	return str
+}
+
+func (t Trim) trimSuffix(str, suffix string, short bool) string {
+	for strings.HasSuffix(str, suffix) {
+		str = strings.TrimSuffix(str, suffix)
+		if short {
+			break
+		}
+	}
+	return str
+}
+
+func (t Trim) trimPrefix(str, prefix string, short bool) string {
+	if short {
+	}
+	for strings.HasPrefix(str, prefix) {
+		str = strings.TrimPrefix(str, prefix)
+		if short {
+			break
+		}
+	}
+	return str
 }
 
 type Replace struct {
