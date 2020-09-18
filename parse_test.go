@@ -76,8 +76,8 @@ func TestParser(t *testing.T) {
 				For{
 					ident: Token{Literal: "VAR", Type: TokLiteral},
 					words: []Word{
-						{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
-						{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+						Literal{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+						Literal{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
 					},
 					body: bodyLoop(),
 				},
@@ -148,7 +148,7 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Assign{
 					ident: Token{Literal: "FOO", Type: TokLiteral},
-					word: Word{
+					word: Literal{
 						tokens: []Token{{Literal: "foo", Type: TokLiteral}},
 					},
 				},
@@ -159,6 +159,7 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Assign{
 					ident: Token{Literal: "FOO", Type: TokLiteral},
+					word:  Literal{},
 				},
 			},
 		},
@@ -167,13 +168,13 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Assign{
 					ident: Token{Literal: "FOO", Type: TokLiteral},
-					word: Word{
+					word: Literal{
 						tokens: []Token{{Literal: "foo", Type: TokLiteral}},
 					},
 				},
 				Assign{
 					ident: Token{Literal: "BAR", Type: TokLiteral},
-					word: Word{
+					word: Literal{
 						tokens: []Token{{Literal: "bar", Type: TokLiteral}},
 					},
 				},
@@ -184,7 +185,7 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Assign{
 					ident: Token{Literal: "VAR", Type: TokLiteral},
-					word: Word{
+					word: Literal{
 						tokens: []Token{{Literal: "FOOBAR", Type: TokVariable}},
 					},
 				},
@@ -197,21 +198,21 @@ func TestParser(t *testing.T) {
 					env: []Assign{
 						{
 							ident: Token{Literal: "FOO", Type: TokLiteral},
-							word: Word{
+							word: Literal{
 								tokens: []Token{{Literal: "foo", Type: TokLiteral}},
 							},
 						},
 						{
 							ident: Token{Literal: "BAR", Type: TokLiteral},
-							word: Word{
+							word: Literal{
 								tokens: []Token{{Literal: "bar", Type: TokLiteral}},
 							},
 						},
 					},
 					words: []Word{
-						{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-						{tokens: []Token{{Literal: "FOO", Type: TokVariable}}},
-						{tokens: []Token{{Literal: "BAR", Type: TokVariable}}},
+						Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						Literal{tokens: []Token{{Literal: "FOO", Type: TokVariable}}},
+						Literal{tokens: []Token{{Literal: "BAR", Type: TokVariable}}},
 					},
 				},
 			},
@@ -220,24 +221,116 @@ func TestParser(t *testing.T) {
 			Input: "case $VAR in\n\tfoo | bar)\n\techo foo\n\t;;\n\tfoobar)\n\techo bar\n\t;;\n\tesac",
 			Cmds: []Command{
 				Case{
-					word: Word{
+					word: Literal{
 						tokens: []Token{{Literal: "VAR", Type: TokVariable}},
 					},
 					clauses: []Clause{
 						{
 							pattern: []Word{
-								{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
-								{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+								Literal{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+								Literal{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
 							},
 							body: makeList(echoFoo()),
 							op:   Token{Type: TokBreak},
 						},
 						{
 							pattern: []Word{
-								{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
+								Literal{tokens: []Token{{Literal: "foobar", Type: TokLiteral}}},
 							},
 							body: makeList(echoBar()),
 							op:   Token{Type: TokBreak},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo ${VAR}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						Literal{tokens: []Token{{Literal: "VAR", Type: TokVariable}}},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo ${#VAR}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						Length{ident: Token{Literal: "VAR", Type: TokVariable}},
+					},
+				},
+			},
+		},
+		{
+			Input: "${VAR}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{tokens: []Token{{Literal: "VAR", Type: TokVariable}}},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo ${VAR:1:7}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						Slice{
+							ident:  Token{Literal: "VAR", Type: TokVariable},
+							offset: Token{Literal: "1", Type: TokNumber},
+							length: Token{Literal: "7", Type: TokNumber},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo ${VAR#foo}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						Trim{
+							ident: Token{Literal: "VAR", Type: TokVariable},
+							str:   Token{Literal: "foo", Type: TokLiteral},
+							part:  Token{Type: TokTrimPrefix},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo ${VAR/foo/bar}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						Replace{
+							ident: Token{Literal: "VAR", Type: TokVariable},
+							src:   Token{Literal: "foo", Type: TokLiteral},
+							dst:   Token{Literal: "bar", Type: TokLiteral},
+							op:    Token{Type: TokReplace},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo ${VAR,,}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+						Transform{
+							ident: Token{Literal: "VAR", Type: TokVariable},
+							op:    Token{Type: TokLowerAll},
 						},
 					},
 				},
@@ -280,8 +373,8 @@ func testParser(t *testing.T, d ParseCase) {
 func echoFoo() Command {
 	return Simple{
 		words: []Word{
-			{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-			{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
+			Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+			Literal{tokens: []Token{{Literal: "foo", Type: TokLiteral}}},
 		},
 	}
 }
@@ -289,8 +382,8 @@ func echoFoo() Command {
 func echoBar() Command {
 	return Simple{
 		words: []Word{
-			{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-			{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
+			Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+			Literal{tokens: []Token{{Literal: "bar", Type: TokLiteral}}},
 		},
 	}
 }
@@ -298,8 +391,8 @@ func echoBar() Command {
 func echoVar() Command {
 	return Simple{
 		words: []Word{
-			{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
-			{tokens: []Token{{Literal: "VAR", Type: TokVariable}}},
+			Literal{tokens: []Token{{Literal: "echo", Type: TokLiteral}}},
+			Literal{tokens: []Token{{Literal: "VAR", Type: TokVariable}}},
 		},
 	}
 }
@@ -323,7 +416,7 @@ func testCmd() Command {
 func testSimple() Command {
 	return Simple{
 		words: []Word{
-			{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
+			Literal{tokens: []Token{{Literal: "test", Type: TokLiteral}}},
 		},
 	}
 }

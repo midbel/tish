@@ -126,46 +126,98 @@ func (p *Parser) parseSimple() (Command, error) {
 	return cmd, nil
 }
 
+func (p *Parser) parseLength() Word {
+	p.next()
+	return Length{ident: p.curr}
+}
+
+func (p *Parser) parseVariable() Word {
+	return Literal{tokens: []Token{p.curr}}
+}
+
+func (p *Parser) parseTransform() Word {
+	w := Transform{
+		ident: p.curr,
+		op:    p.peek,
+	}
+	p.next()
+	return w
+}
+
+func (p *Parser) parseTrim() Word {
+	t := Trim{
+		ident: p.curr,
+		part:  p.peek,
+	}
+	p.next()
+	p.next()
+	t.str = p.curr
+	return t
+}
+
+func (p *Parser) parseReplace() (Word, error) {
+	r := Replace{ident: p.curr, op: p.peek}
+	p.next()
+	p.next()
+	if p.curr.Type != TokVariable && p.curr.Type != TokLiteral && p.curr.Type != TokNumber {
+		return nil, fmt.Errorf("replace: unexpected token %s, want 'number/variable/literal'", p.curr)
+	}
+	r.src = p.curr
+	p.next()
+	if p.curr.Type != TokVariable && p.curr.Type != TokLiteral && p.curr.Type != TokNumber {
+		return nil, fmt.Errorf("replace: unexpected token %s, want 'number/variable/literal'", p.curr)
+	}
+	r.dst = p.curr
+	return r, nil
+}
+
+func (p *Parser) parseSlice() (Word, error) {
+	i := Slice{ident: p.curr}
+	p.next()
+	p.next()
+	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+		return nil, fmt.Errorf("slice: unexpected token %s, want 'number/variable'", p.curr)
+	}
+	i.offset = p.curr
+	p.next()
+	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+		return nil, fmt.Errorf("slice: unexpected token %s, want 'number/variable'", p.curr)
+	}
+	i.length = p.curr
+	return i, nil
+}
+
 func (p *Parser) parseExpansion() (Word, error) {
 	p.next()
-	var w Word
+	var (
+		w   Word
+		err error
+	)
 	switch k := p.curr.Type; {
 	case k == TokLen:
-		p.next()
+		w = p.parseLength()
 	case k == TokVariable && p.peek.Type == TokEndExp:
+		w = p.parseVariable()
 	case k == TokVariable && p.peek.isTrim():
-		p.next()
-		p.next()
+		w = p.parseTrim()
 	case k == TokVariable && p.peek.isReplace():
-		p.next()
-		p.next()
-		if p.curr.Type != TokVariable && p.curr.Type != TokLiteral && p.curr.Type != TokNumber {
-			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable/literal'", p.curr)
-		}
-		p.next()
-		if p.curr.Type != TokVariable && p.curr.Type != TokLiteral && p.curr.Type != TokNumber {
-			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable/literal'", p.curr)
-		}
+		w, err = p.parseReplace()
 	case k == TokVariable && p.peek.isTransform():
-		p.next()
-		p.next()
+		w = p.parseTransform()
 	case k == TokVariable && p.peek.isSlice():
-		p.next()
-		if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
-			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable'", p.curr)
-		}
-		p.next()
-		if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
-			return w, fmt.Errorf("expansion: unexpected token %s, want 'number/variable'", p.curr)
-		}
+		w, err = p.parseSlice()
 	default:
 		return w, fmt.Errorf("expansion: unexpected token %s", p.curr)
+	}
+	if err != nil {
+		return nil, err
 	}
 	p.next()
 	if p.curr.Type != TokEndExp {
 		return w, fmt.Errorf("expansion: unexpected token %s", p.curr)
 	}
-	return Word{}, nil
+	p.next()
+	return w, nil
 }
 
 func (p *Parser) parseAssign(name Token) (Assign, error) {
@@ -185,15 +237,15 @@ func (p *Parser) parseWord() (Word, error) {
 	if p.curr.Type == TokBegExp {
 		return p.parseExpansion()
 	}
-	var w Word
+	var i Literal
 	for !p.isDone() && !p.curr.Type.EndOfWord() {
 		if !p.curr.Quoted && p.curr.Type == TokKeyword {
-			return w, fmt.Errorf("word: unexpected keyword %s", p.curr)
+			return nil, fmt.Errorf("word: unexpected keyword %s", p.curr)
 		}
-		w.tokens = append(w.tokens, p.curr)
+		i.tokens = append(i.tokens, p.curr)
 		p.next()
 	}
-	return w, nil
+	return i, nil
 }
 
 func (p *Parser) parseAnd(left Command) (Command, error) {

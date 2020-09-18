@@ -10,18 +10,18 @@ type Command interface {
 	Equal(Command) bool
 }
 
-type Word1 interface {
+type Word interface {
 	Command
 	Expand(*Env) string
 }
 
-type Word struct {
+type Literal struct {
 	tokens []Token
 }
 
-func (w Word) Expand(env *Env) string {
-	ws := make([]string, 0, len(w.tokens))
-	for _, tok := range w.tokens {
+func (i Literal) Expand(env *Env) string {
+	ws := make([]string, 0, len(i.tokens))
+	for _, tok := range i.tokens {
 		var str string
 		switch tok.Type {
 		case TokLiteral:
@@ -37,24 +37,24 @@ func (w Word) Expand(env *Env) string {
 	return strings.Join(ws, "")
 }
 
-func (w Word) String() string {
-	ws := make([]string, len(w.tokens))
-	for i := range w.tokens {
-		ws[i] = w.tokens[i].Literal
+func (i Literal) String() string {
+	ws := make([]string, len(i.tokens))
+	for j := range i.tokens {
+		ws[j] = i.tokens[j].Literal
 	}
-	return fmt.Sprintf("word(%s)", strings.Join(ws, ""))
+	return fmt.Sprintf("literal(%s)", strings.Join(ws, ""))
 }
 
-func (w Word) Equal(other Command) bool {
-	c, ok := other.(Word)
+func (i Literal) Equal(other Command) bool {
+	c, ok := other.(Literal)
 	if !ok {
 		return ok
 	}
-	if len(w.tokens) != len(c.tokens) {
+	if len(i.tokens) != len(c.tokens) {
 		return false
 	}
-	for i := range w.tokens {
-		if !Compare(w.tokens[i], c.tokens[i]) {
+	for j := range i.tokens {
+		if !Compare(i.tokens[j], c.tokens[j]) {
 			return false
 		}
 	}
