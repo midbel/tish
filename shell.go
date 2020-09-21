@@ -79,8 +79,8 @@ type Shell struct {
 	pid int
 	uid int
 
-	env  *Env
-	vars *Env
+	env  Environment
+	vars Environment
 
 	stdout io.Writer
 	stderr io.Writer
@@ -135,6 +135,22 @@ func (s *Shell) UnregisterAlias(is ...string) {
 	for _, i := range is {
 		delete(s.alias, i)
 	}
+}
+
+func (s *Shell) Define(id, value string) error {
+	return nil
+}
+
+func (s *Shell) Resolve(id string) string {
+	return ""
+}
+
+func (s *Shell) Delete(id string) error {
+	return nil
+}
+
+func (s *Shell) Environ() []string {
+	return nil
 }
 
 func (s *Shell) Execute() (int, error) {
@@ -201,12 +217,6 @@ func (s *Shell) execute(cmd Command) error {
 }
 
 func (s *Shell) executeFor(cmd For) {
-	s.vars = EnclosedEnv(s.vars)
-	for _, w := range cmd.words {
-		s.vars.Define(cmd.ident.Literal, w)
-		s.execute(cmd.body)
-	}
-	s.vars = s.vars.Unwrap()
 }
 
 func (s *Shell) executeWhile(cmd While) {
@@ -274,72 +284,10 @@ func (s *Shell) executeOr(cmd Or) {
 }
 
 func (s *Shell) executeAssign(cmd Assign) {
-	executeAssignWithEnv(cmd, s.vars)
 }
 
 func (s *Shell) executeSimple(cmd Simple) {
-	s.env = EnclosedEnv(s.env)
-	for _, a := range cmd.env {
-		executeAssignWithEnv(a, s.env)
-	}
 
-	ident, args := s.prepare(cmd.words)
-	s.run(ident, args)
-	s.env = s.env.Unwrap()
-}
-
-func (s *Shell) run(ident string, args []string) {
-	if ident == "" {
-		return
-	}
-	var exe Process
-	if b, ok := builtins[ident]; ok && b.Runnable() {
-		b.Args = args
-		b.Shell = s
-
-		exe = &b
-	} else {
-		cmd := exec.Command(ident, args...)
-		cmd.Env = s.env.Environ()
-		exe = wrapCmd(cmd)
-	}
-
-	s.attachIn(exe)
-	s.attachOut(exe)
-	s.attachErr(exe)
-	defer exe.Close()
-
-	stat := exe.Execute()
-
-	s.proc.cmd = ident
-	s.proc.args = args
-	s.proc.exit = stat.Exit
-	s.proc.pid = stat.Pid
-}
-
-func (s *Shell) prepare(words []Word) (string, []string) {
-	var ws []string
-	for _, w := range words {
-		ws = append(ws, w.Expand(s.vars))
-	}
-	if len(ws) == 0 {
-		return "", nil
-	}
-	ident := ws[0]
-	if len(ws) > 1 {
-		return s.resolveAlias(ident, ws[1:])
-	}
-	return ident, nil
-}
-
-func (s *Shell) resolveAlias(ident string, args []string) (string, []string) {
-	if is, ok := s.alias[ident]; ok && len(is) > 0 {
-		ident = is[0]
-		if len(is) > 1 {
-			args = append(is[1:], args...)
-		}
-	}
-	return ident, args
 }
 
 func (s *Shell) attachIn(exe Process) error {
@@ -388,10 +336,6 @@ func (s *Shell) attachErr(exe Process) error {
 		err = fmt.Errorf("unsupported process type %T", e)
 	}
 	return err
-}
-
-func executeAssignWithEnv(cmd Assign, env *Env) {
-	env.Define(cmd.ident.Literal, cmd.word)
 }
 
 type Cmd struct {

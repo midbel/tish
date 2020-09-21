@@ -14,14 +14,14 @@ type Command interface {
 
 type Word interface {
 	Command
-	Expand(*Env) string
+	Expand(Environment) string
 }
 
 type Literal struct {
 	tokens []Token
 }
 
-func (i Literal) Expand(env *Env) string {
+func (i Literal) Expand(env Environment) string {
 	ws := make([]string, 0, len(i.tokens))
 	for _, tok := range i.tokens {
 		var str string
@@ -29,8 +29,7 @@ func (i Literal) Expand(env *Env) string {
 		case TokLiteral:
 			str = tok.Literal
 		case TokVariable:
-			word := env.Resolve(tok.Literal)
-			str = word.Expand(env)
+			str = env.Resolve(tok.Literal)
 		default:
 			continue
 		}
@@ -98,6 +97,15 @@ func (s Simple) Equal(other Command) bool {
 		}
 	}
 	return true
+}
+
+func (s Simple) Expand(env Environment) []string {
+	var ws []string
+	for _, w := range s.words {
+		str := w.Expand(env)
+		ws = append(ws, str)
+	}
+	return ws
 }
 
 type List struct {
@@ -200,7 +208,7 @@ type Clause struct {
 	op      Token
 }
 
-func (c Clause) Match(str string, env *Env) bool {
+func (c Clause) Match(str string, env Environment) bool {
 	for _, w := range c.pattern {
 		if str == w.Expand(env) {
 			return true
@@ -394,12 +402,11 @@ func (s Slice) Equal(other Command) bool {
 	return Compare(s.ident, c.ident) && Compare(s.offset, c.offset) && Compare(s.length, c.length)
 }
 
-func (s Slice) Expand(env *Env) string {
-	w := env.Resolve(s.ident.Literal)
-	if w == nil {
-		return ""
+func (s Slice) Expand(env Environment) string {
+	str := env.Resolve(s.ident.Literal)
+	if str == "" {
+		return str
 	}
-	str := w.Expand(env)
 	offset, length := s.convert()
 
 	if offset < 0 {
@@ -450,12 +457,11 @@ func (t Trim) Equal(other Command) bool {
 	return Compare(t.ident, c.ident) && Compare(t.str, c.str) && Compare(t.part, c.part)
 }
 
-func (t Trim) Expand(env *Env) string {
-	w := env.Resolve(t.ident.Literal)
-	if w == nil {
-		return ""
+func (t Trim) Expand(env Environment) string {
+	str := env.Resolve(t.ident.Literal)
+	if str == "" {
+		return str
 	}
-	str := w.Expand(env)
 	switch t.part.Type {
 	case TokTrimSuffix:
 		str = t.trimSuffix(str, t.str.Literal, true)
@@ -510,12 +516,11 @@ func (r Replace) Equal(other Command) bool {
 	return Compare(r.ident, c.ident) && Compare(r.src, c.src) && Compare(r.dst, c.dst) && Compare(r.op, c.op)
 }
 
-func (r Replace) Expand(env *Env) string {
-	w := env.Resolve(r.ident.Literal)
-	if w == nil {
-		return ""
+func (r Replace) Expand(env Environment) string {
+	str := env.Resolve(r.ident.Literal)
+	if str == "" {
+		return str
 	}
-	str := w.Expand(env)
 	switch r.op.Type {
 	case TokReplace:
 		str = strings.Replace(str, r.src.Literal, r.dst.Literal, 1)
@@ -553,12 +558,11 @@ func (t Transform) Equal(other Command) bool {
 	return Compare(t.ident, c.ident) && Compare(t.op, c.op)
 }
 
-func (t Transform) Expand(env *Env) string {
-	w := env.Resolve(t.ident.Literal)
-	if w == nil {
-		return ""
+func (t Transform) Expand(env Environment) string {
+	str := env.Resolve(t.ident.Literal)
+	if str == "" {
+		return str
 	}
-	str := w.Expand(env)
 	switch t.op.Type {
 	case TokLower:
 		str = t.toLowerCase(str, false)
@@ -628,14 +632,16 @@ func (e Length) Equal(other Command) bool {
 	return Compare(e.ident, c.ident)
 }
 
-func (e Length) Expand(env *Env) string {
-	w := env.Resolve(e.ident.Literal)
-	if w == nil {
-		return "0"
-	}
-	var (
-		str = w.Expand(env)
-		n   = len(str)
-	)
-	return strconv.Itoa(n)
+func (e Length) Expand(env Environment) string {
+	str := env.Resolve(e.ident.Literal)
+	return strconv.Itoa(len(str))
+}
+
+type Serie struct {
+	tokens []Token
+}
+
+type Range struct {
+	first Token
+	last  Token
 }

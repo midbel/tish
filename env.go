@@ -1,24 +1,34 @@
 package tish
 
 import (
+	"errors"
 	"fmt"
 )
 
+var ErrReadOnly = errors.New("read only")
+
+type Environment interface {
+	Define(string, string) error
+	Resolve(string) string
+	Delete(string) error
+	Environ() []string
+}
+
 type variable struct {
 	ro   bool
-	word Word
+	word string
 }
 
 type Env struct {
-	parent *Env
+	parent Environment
 	vars   map[string]variable
 }
 
-func EmptyEnv() *Env {
+func EmptyEnv() Environment {
 	return EnclosedEnv(nil)
 }
 
-func EnclosedEnv(env *Env) *Env {
+func EnclosedEnv(env Environment) Environment {
 	e := Env{
 		parent: env,
 		vars:   make(map[string]variable),
@@ -26,29 +36,31 @@ func EnclosedEnv(env *Env) *Env {
 	return &e
 }
 
-func (e *Env) Define(id string, value Word) {
+func (e *Env) Define(id string, value string) error {
 	v, ok := e.vars[id]
 	if ok && v.ro {
-		return
+		return fmt.Errorf("%s: %w", id, ErrReadOnly)
 	}
 	e.vars[id] = variable{
 		ro:   false,
 		word: value,
 	}
+	return nil
 }
 
-func (e *Env) Delete(id string) {
-	_, ok := e.vars[id]
+func (e *Env) Delete(id string) error {
+	v, ok := e.vars[id]
 	if !ok && e.parent != nil {
-		e.parent.Delete(id)
-		return
+		return e.parent.Delete(id)
 	}
-	if ok {
-		delete(e.vars, id)
+	if ok && v.ro {
+		return fmt.Errorf("%s: %w", id, ErrReadOnly)
 	}
+	delete(e.vars, id)
+	return nil
 }
 
-func (e *Env) Resolve(id string) Word {
+func (e *Env) Resolve(id string) string {
 	w, ok := e.vars[id]
 	if !ok && e.parent != nil {
 		return e.parent.Resolve(id)
@@ -59,7 +71,7 @@ func (e *Env) Resolve(id string) Word {
 func (e *Env) Environ() []string {
 	ws := make([]string, 0, len(e.vars))
 	for k, v := range e.vars {
-		ws = append(ws, fmt.Sprintf("%s=%s", k, v.word.Expand(e)))
+		ws = append(ws, fmt.Sprintf("%s=%s", k, v.word))
 	}
 	if e.parent != nil {
 		ps := e.parent.Environ()
@@ -68,20 +80,9 @@ func (e *Env) Environ() []string {
 	return ws
 }
 
-func (e *Env) Unwrap() *Env {
+func (e *Env) Unwrap() Environment {
 	if e.parent != nil {
 		return e.parent
 	}
 	return e
-}
-
-func (e *Env) Copy() *Env {
-	env := EmptyEnv()
-	for k, v := range e.vars {
-		env.vars[k] = v
-	}
-	if e.parent != nil {
-		env.parent = e.parent.Copy()
-	}
-	return env
 }
