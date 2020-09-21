@@ -138,19 +138,19 @@ func (s *Shell) UnregisterAlias(is ...string) {
 }
 
 func (s *Shell) Define(id, value string) error {
-	return nil
+	return s.vars.Define(id, value)
 }
 
 func (s *Shell) Resolve(id string) string {
-	return ""
+	return s.vars.Resolve(id)
 }
 
 func (s *Shell) Delete(id string) error {
-	return nil
+	return s.vars.Delete(id)
 }
 
 func (s *Shell) Environ() []string {
-	return nil
+	return s.vars.Environ()
 }
 
 func (s *Shell) Execute() (int, error) {
@@ -254,7 +254,7 @@ func (s *Shell) executeIf(cmd If) {
 func (s *Shell) executeCase(cmd Case) {
 	str := cmd.word.Expand(s.vars)
 	for _, c := range cmd.clauses {
-		if c.Match(str, s.env) {
+		if c.Match(str, s.vars) {
 			s.execute(c.body)
 			break
 		}
@@ -284,6 +284,7 @@ func (s *Shell) executeOr(cmd Or) {
 }
 
 func (s *Shell) executeAssign(cmd Assign) {
+	
 }
 
 func (s *Shell) executeSimple(cmd Simple) {

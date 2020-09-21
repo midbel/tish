@@ -1,54 +1,8 @@
 package tish
 
 import (
-	"strings"
 	"testing"
 )
-
-func TestSimple_Expand(t *testing.T) {
-	env := EmptyEnv()
-	env.Define("FOO", "foo")
-	env.Define("BAR", "bar")
-	data := []struct {
-		Input string
-		Want  []string
-	}{
-		{
-			Input: "echo foo bar",
-			Want:  []string{"echo", "foo", "bar"},
-		},
-		{
-			Input: "echo $FOO $BAR",
-			Want:  []string{"echo", "foo", "bar"},
-		},
-		{
-			Input: "echo ${#FOO}",
-			Want:  []string{"echo", "3"},
-		},
-	}
-	for _, d := range data {
-		p, _ := NewParser(strings.NewReader(d.Input))
-		c, err := p.Parse()
-		if err != nil {
-			t.Errorf("%s: error while parsing input: %s", d.Input, err)
-			continue
-		}
-		s, ok := c.(Simple)
-		if !ok {
-			t.Errorf("%s: expected Simple, got %T", d.Input, c)
-			continue
-		}
-		words := s.Expand(env)
-		if len(words) != len(d.Want) {
-			t.Errorf("%s: number of words mismatched! want %s, got %s", d.Input, d.Want, words)
-		}
-		for i := range d.Want {
-			if d.Want[i] != words[i] {
-				t.Errorf("%s: word mismatched! want %s, got %s", d.Input, d.Want[i], words[i])
-			}
-		}
-	}
-}
 
 type WordCase struct {
 	Word

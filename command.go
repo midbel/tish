@@ -99,15 +99,6 @@ func (s Simple) Equal(other Command) bool {
 	return true
 }
 
-func (s Simple) Expand(env Environment) []string {
-	var ws []string
-	for _, w := range s.words {
-		str := w.Expand(env)
-		ws = append(ws, str)
-	}
-	return ws
-}
-
 type List struct {
 	cmds []Command
 }
