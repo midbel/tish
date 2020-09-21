@@ -395,7 +395,41 @@ func (s Slice) Equal(other Command) bool {
 }
 
 func (s Slice) Expand(env *Env) string {
-	return ""
+	w := env.Resolve(s.ident.Literal)
+	if w == nil {
+		return ""
+	}
+	str := w.Expand(env)
+	offset, length := s.convert()
+
+	if offset < 0 {
+		offset = len(str) + offset
+	}
+	if length < 0 {
+		length = len(str) + length
+	}
+	switch {
+	case offset == 0 && length == 0:
+		return str
+	case offset > 0 && length == 0:
+		if offset >= len(str) {
+			return ""
+		}
+		return str[offset:]
+	case offset == 0 && length > 0:
+		if length >= len(str) {
+			return str
+		}
+		return str[:length]
+	default:
+		return str[offset : offset+length]
+	}
+}
+
+func (s Slice) convert() (int, int) {
+	offset, _ := strconv.Atoi(s.offset.Literal)
+	length, _ := strconv.Atoi(s.length.Literal)
+	return offset, length
 }
 
 type Trim struct {

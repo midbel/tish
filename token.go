@@ -134,6 +134,16 @@ func (k Kind) String() string {
 		str = "divide"
 	case TokMod:
 		str = "modulo"
+	case TokSlice:
+		str = "slice"
+	case TokReplace, TokReplaceAll, TokReplacePrefix, TokReplaceSuffix:
+		str = "replace"
+	case TokTrimSuffix, TokTrimSuffixLong, TokTrimPrefix, TokTrimPrefixLong:
+		str = "trim"
+	case TokLower, TokLowerAll, TokUpper, TokUpperAll, TokReverse, TokReverseAll:
+		str = "transform"
+	case TokLen:
+		str = "length"
 	default:
 		str = "unknown"
 	}

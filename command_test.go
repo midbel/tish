@@ -180,7 +180,33 @@ func testReplace(t *testing.T) {
 }
 
 func testSlice(t *testing.T) {
-	t.SkipNow()
+	data := []WordCase{
+		{
+			Word: Slice{
+				ident:  makeIdent("VAR"),
+				offset: Token{Literal: "1", Type: TokNumber},
+				length: Token{Literal: "3", Type: TokNumber},
+			},
+			Want: "oob",
+		},
+		{
+			Word: Slice{
+				ident:  makeIdent("VAR"),
+				offset: Token{Literal: "0", Type: TokNumber},
+				length: Token{Literal: "3", Type: TokNumber},
+			},
+			Want: "foo",
+		},
+		{
+			Word: Slice{
+				ident:  makeIdent("VAR"),
+				offset: Token{Literal: "1", Type: TokNumber},
+				length: Token{Literal: "0", Type: TokNumber},
+			},
+			Want: "oobar",
+		},
+	}
+	testWordCase(t, data)
 }
 
 func testWordCase(t *testing.T, data []WordCase) {
