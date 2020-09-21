@@ -239,9 +239,9 @@ func (s *Scanner) emitToken(str string, kind Kind) {
 			Col:  s.column,
 		},
 	}
-	// if str != "" && tok.Type != TokInvalid {
-	// 	tok.Quoted = s.isQuoted()
-	// }
+	if str != "" && tok.Type != TokInvalid {
+		tok.Quoted = s.isQuoted()
+	}
 	s.queue <- tok
 }
 
@@ -409,6 +409,12 @@ func scanComment(s *Scanner) ScanFunc {
 		s.readRune()
 	}
 	s.emit(buf.String(), TokComment)
+	return nil
+}
+
+func scanBraces(s *Scanner) ScanFunc {
+	s.emitType(TokBegBrace)
+	s.emitType(TokEndBrace)
 	return nil
 }
 
@@ -633,6 +639,18 @@ func scanExpression(s *Scanner) {
 	case s.char == percent:
 		s.readRune()
 		s.emitType(TokMod)
+	case s.char == langle:
+		s.readRune()
+		if s.char == langle {
+			s.readRune()
+			s.emitType(TokLeftShift)
+		}
+	case s.char == rangle:
+		s.readRune()
+		if s.char == rangle {
+			s.readRune()
+			s.emitType(TokRightShift)
+		}
 	case s.char == lparen:
 		s.readRune()
 		scanGroup(s)
@@ -640,8 +658,17 @@ func scanExpression(s *Scanner) {
 	}
 }
 
+func scanTest(s *Scanner) ScanFunc {
+	return nil
+}
+
 func scanControl(s *Scanner) ScanFunc {
 	switch s.char {
+	case lcurly:
+		s.readRune()
+		scanBraces(s)
+	case lsquare:
+
 	case lparen:
 		s.readRune()
 		s.emitType(TokBegGroup)
@@ -741,5 +768,9 @@ func isEscape(r rune) bool {
 }
 
 func isControl(r rune) bool {
-	return r == lparen || r == rparen || r == semicolon || r == pipe || r == ampersand
+	return isGroup(r) || r == semicolon || r == pipe || r == ampersand
+}
+
+func isGroup(r rune) bool {
+	return r == lparen || r == rparen || r == lcurly || r == rcurly //|| r == lsquare || r == rsquare
 }

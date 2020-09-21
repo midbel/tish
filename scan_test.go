@@ -64,7 +64,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "foo bar", Type: TokLiteral},
+				{Literal: "foo bar", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{
@@ -72,7 +72,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "\"foo bar\"", Type: TokLiteral},
+				{Literal: "\"foo bar\"", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{
@@ -88,7 +88,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "foo bar", Type: TokLiteral},
+				{Literal: "foo bar", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{
@@ -96,7 +96,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "foo; bar", Type: TokLiteral},
+				{Literal: "foo; bar", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{
@@ -104,7 +104,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "\"foo bar\"", Type: TokLiteral},
+				{Literal: "\"foo bar\"", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{
@@ -153,7 +153,7 @@ func TestScanner(t *testing.T) {
 				{Literal: "echo", Type: TokLiteral},
 				blank,
 				{Literal: "foo", Type: TokLiteral},
-				{Literal: " <foobar> ", Type: TokLiteral},
+				{Literal: " <foobar> ", Type: TokLiteral, Quoted: true},
 				{Literal: "bar", Type: TokLiteral},
 			},
 		},
@@ -163,11 +163,11 @@ func TestScanner(t *testing.T) {
 				{Literal: "echo", Type: TokLiteral},
 				blank,
 				{Literal: "foo", Type: TokLiteral},
-				{Literal: " <", Type: TokLiteral},
-				{Literal: "FOO", Type: TokVariable},
-				{Literal: "> <", Type: TokLiteral},
-				{Literal: "BAR", Type: TokVariable},
-				{Literal: "> ", Type: TokLiteral},
+				{Literal: " <", Type: TokLiteral, Quoted: true},
+				{Literal: "FOO", Type: TokVariable, Quoted: true},
+				{Literal: "> <", Type: TokLiteral, Quoted: true},
+				{Literal: "BAR", Type: TokVariable, Quoted: true},
+				{Literal: "> ", Type: TokLiteral, Quoted: true},
 				{Literal: "bar", Type: TokLiteral},
 			},
 		},
@@ -176,7 +176,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "$FOO $BAR", Type: TokLiteral},
+				{Literal: "$FOO $BAR", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{
@@ -208,7 +208,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
 				blank,
-				{Literal: "=foo=bar=", Type: TokLiteral},
+				{Literal: "=foo=bar=", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{
@@ -216,7 +216,7 @@ func TestScanner(t *testing.T) {
 			Tokens: []Token{
 				{Literal: "foo", Type: TokLiteral},
 				{Type: TokAssign},
-				{Literal: "bar", Type: TokLiteral},
+				{Literal: "bar", Type: TokLiteral, Quoted: true},
 			},
 		},
 		{

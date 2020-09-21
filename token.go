@@ -62,6 +62,8 @@ const (
 	TokReverse
 	TokReverseAll
 	TokSlice
+	TokBegBrace
+	TokEndBrace
 )
 
 func (k Kind) IsBreak() bool {
@@ -144,6 +146,8 @@ func (k Kind) String() string {
 		str = "transform"
 	case TokLen:
 		str = "length"
+	case TokBegBrace, TokEndBrace:
+		str = "brace"
 	default:
 		str = "unknown"
 	}
