@@ -287,6 +287,11 @@ func (s *Scanner) isDone() bool {
 func scanUntil(s *Scanner, fn func(rune) bool) {
 	var buf bytes.Buffer
 	for !s.isDone() && !fn(s.char) {
+		if isComment(s.char) {
+			s.emit(buf.String(), TokLiteral)
+			scanComment(s)
+			return
+		}
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
@@ -618,6 +623,8 @@ func scanGroup(s *Scanner) ScanFunc {
 
 func scanExpression(s *Scanner) {
 	switch {
+	case isComment(s.char):
+		scanComment(s)
 	case isSpace(s.char):
 		s.skip(isSpace)
 	case isDigit(s.char):
