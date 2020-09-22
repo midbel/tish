@@ -10,7 +10,9 @@ type Parser struct {
 	curr Token
 	peek Token
 
-	kws map[string]func() (Command, error)
+	kws    map[string]func() (Command, error)
+	prefix map[Kind]func() (Evaluator, error)
+	infix  map[Kind]func(Evaluator) (Evaluator, error)
 
 	loop        int
 	keepComment bool
@@ -56,6 +58,23 @@ func NewParser(r io.Reader) (*Parser, error) {
 		kwBreak:    p.parseBC,
 		kwContinue: p.parseBC,
 	}
+	p.prefix = map[Kind]func() (Evaluator, error){
+		TokLiteral:  p.parsePrefix,
+		TokVariable: p.parsePrefix,
+		TokNumber:   p.parsePrefix,
+		TokSub:      p.parsePrefix,
+		TokBegGroup: p.parsePrefix,
+	}
+	p.infix = map[Kind]func(Evaluator) (Evaluator, error){
+		TokAdd:        p.parseInfix,
+		TokSub:        p.parseInfix,
+		TokMul:        p.parseInfix,
+		TokDiv:        p.parseInfix,
+		TokMod:        p.parseInfix,
+		TokLeftShift:  p.parseInfix,
+		TokRightShift: p.parseInfix,
+	}
+
 	p.next()
 	p.next()
 
@@ -132,7 +151,7 @@ func (p *Parser) parseLength() Word {
 }
 
 func (p *Parser) parseVariable() Word {
-	return Literal{tokens: []Token{p.curr}}
+	return Literal{token: p.curr}
 }
 
 func (p *Parser) parseTransform() Word {
@@ -220,9 +239,94 @@ func (p *Parser) parseExpansion() (Word, error) {
 	return w, nil
 }
 
+func (p *Parser) parseArithmetic() (Word, error) {
+	p.next()
+
+	e, err := p.parseExpression(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type != TokEndArith {
+		return nil, fmt.Errorf("expr: unexpected token %s, want %s", p.curr, TokEndArith)
+	}
+	p.next()
+	return Expr{eval: e}, nil
+}
+
+func (p *Parser) parseExpression(bp int) (Evaluator, error) {
+	prefix, ok := p.prefix[p.curr.Type]
+	if !ok {
+		return nil, fmt.Errorf("expr(prefix): unexpected operator %s", p.curr)
+	}
+	left, err := prefix()
+	if err != nil {
+		return nil, err
+	}
+	for p.curr.Type != TokEndArith && bp < bindPower(p.curr.Type) {
+		infix, ok := p.infix[p.curr.Type]
+		if !ok {
+			return nil, fmt.Errorf("expr(infix): unexpected operator %s", p.curr)
+		}
+		left, err = infix(left)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return left, nil
+}
+
+func (p *Parser) parsePrefix() (Evaluator, error) {
+	var (
+		eval Evaluator
+		err  error
+	)
+	switch p.curr.Type {
+	case TokLiteral, TokVariable:
+		eval = Identifier{ident: p.curr}
+		p.next()
+	case TokNumber:
+		eval = Number{ident: p.curr}
+		p.next()
+	case TokSub:
+		p.next()
+		eval, err = p.parseExpression(bindPrefix)
+		if err == nil {
+			eval = Prefix{
+				op:    TokSub,
+				right: eval,
+			}
+		}
+	case TokBegGroup:
+		p.next()
+		eval, err = p.parseExpression(bindLowest)
+		if err == nil {
+			if p.curr.Type != TokEndGroup {
+				return nil, fmt.Errorf("expr(prefix): unexpected token %s, want %s", p.curr.Type, TokEndGroup)
+			}
+			p.next()
+		}
+	}
+	return eval, err
+}
+
+func (p *Parser) parseInfix(left Evaluator) (Evaluator, error) {
+	i := Infix{
+		left: left,
+		op:   p.curr.Type,
+	}
+	p.next()
+	right, err := p.parseExpression(bindPower(i.op))
+	if err != nil {
+		return nil, err
+	}
+	i.right = right
+	return i, nil
+}
+
 func (p *Parser) parseAssign(name Token) (Assign, error) {
 	a := Assign{ident: name}
-	if p.curr.Type == TokBlank {
+	if p.curr.Type == TokBlank || p.curr.Type == TokEOF || p.curr.Type == TokSemicolon {
+		a.word = Literal{}
 		p.next()
 		return a, nil
 	}
@@ -234,18 +338,32 @@ func (p *Parser) parseAssign(name Token) (Assign, error) {
 }
 
 func (p *Parser) parseWord() (Word, error) {
-	if p.curr.Type == TokBegExp {
-		return p.parseExpansion()
-	}
-	var i Literal
+	var ws WordList
 	for !p.isDone() && !p.curr.Type.EndOfWord() {
 		if !p.curr.Quoted && p.curr.Type == TokKeyword {
 			return nil, fmt.Errorf("word: unexpected keyword %s", p.curr)
 		}
-		i.tokens = append(i.tokens, p.curr)
+		var (
+			w   Word
+			err error
+		)
+		switch p.curr.Type {
+		case TokLiteral, TokVariable:
+			w = Literal{token: p.curr}
+		case TokBegArith:
+			w, err = p.parseArithmetic()
+		case TokBegExp:
+			w, err = p.parseExpansion()
+		default:
+			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
+		}
+		if err != nil {
+			return nil, err
+		}
+		ws.words = append(ws.words, w)
 		p.next()
 	}
-	return i, nil
+	return ws.asWord(), nil
 }
 
 func (p *Parser) parseAnd(left Command) (Command, error) {
