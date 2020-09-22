@@ -69,6 +69,6 @@ func makeWord(str string) Word {
 		Type:    TokLiteral,
 	}
 	return Literal{
-		tokens: []Token{tok},
+		token: tok,
 	}
 }

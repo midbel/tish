@@ -100,6 +100,20 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
+			Input: "echo \"1+1 = $((1+1)).\"",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "1+1 = ", Type: TokLiteral, Quoted: true},
+				{Type: TokBegArith},
+				{Literal: "1", Type: TokNumber, Quoted: true},
+				{Type: TokAdd},
+				{Literal: "1", Type: TokNumber, Quoted: true},
+				{Type: TokEndArith},
+				{Literal: ".", Type: TokLiteral, Quoted: true},
+			},
+		},
+		{
 			Input: "echo \"\\\"foo bar\\\"\"", // echo "\"foobar\""
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},

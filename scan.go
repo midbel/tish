@@ -337,7 +337,7 @@ func scanQuote(s *Scanner) ScanFunc {
 	defer s.leaveQuote()
 
 	escape := func(r rune) bool {
-		return r == dollar || r == backslash || r == dquote
+		return r == dollar || r == backslash || r == dquote || r == newline
 	}
 
 	var (
@@ -622,7 +622,7 @@ func scanExpression(s *Scanner) {
 		s.skip(isSpace)
 	case isDigit(s.char):
 		scanNumber(s)
-	case isVar(s.char):
+	case isVar(s.char) || isLetter(s.char):
 		scanVariable(s)
 	case s.char == plus:
 		s.readRune()
