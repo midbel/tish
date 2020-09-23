@@ -114,6 +114,57 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
+			Input: "echo \"1+1 = $((0x1+0o1)).\"",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "1+1 = ", Type: TokLiteral, Quoted: true},
+				{Type: TokBegArith},
+				{Literal: "0x1", Type: TokNumber, Quoted: true},
+				{Type: TokAdd},
+				{Literal: "0o1", Type: TokNumber, Quoted: true},
+				{Type: TokEndArith},
+				{Literal: ".", Type: TokLiteral, Quoted: true},
+			},
+		},
+		{
+			Input: "echo $((== != = << >> <<= >>= += -= && || & &= | |= ~ ^ ^= <= >= < > ! ++ -- , VAR $VAR))",
+			Tokens: []Token{
+				createToken("echo", TokLiteral),
+				blank,
+				createToken("", TokBegArith),
+				createToken("", TokEqual),
+				createToken("", TokNotEqual),
+				createToken("", TokAssign),
+				createToken("", TokLeftShift),
+				createToken("", TokRightShift),
+				createToken("", TokLeftShiftAssign),
+				createToken("", TokRightShiftAssign),
+				createToken("", TokAddAssign),
+				createToken("", TokSubAssign),
+				createToken("", TokAnd),
+				createToken("", TokOr),
+				createToken("", TokBinAnd),
+				createToken("", TokBinAndAssign),
+				createToken("", TokBinOr),
+				createToken("", TokBinOrAssign),
+				createToken("", TokBinNot),
+				createToken("", TokBinXor),
+				createToken("", TokBinXorAssign),
+				createToken("", TokLessEq),
+				createToken("", TokGreatEq),
+				createToken("", TokLesser),
+				createToken("", TokGreater),
+				createToken("", TokNot),
+				createToken("", TokIncr),
+				createToken("", TokDecr),
+				createToken("", TokSemicolon),
+				createToken("VAR", TokVariable),
+				createToken("VAR", TokVariable),
+				createToken("", TokEndArith),
+			},
+		},
+		{
 			Input: "echo \"\\\"foo bar\\\"\"", // echo "\"foobar\""
 			Tokens: []Token{
 				{Literal: "echo", Type: TokLiteral},
@@ -645,16 +696,16 @@ func cmpTokens(t *testing.T, d ScanCase) {
 		tok := s.Scan()
 		if tok.Type == TokEOF {
 			if i < len(d.Tokens) {
-				t.Errorf("%s: not enough tokens created! want %d, got %d", d.Input, len(d.Tokens), i+1)
+				t.Errorf("%d) %s: not enough tokens created! want %d, got %d", i+1, d.Input, len(d.Tokens), i+1)
 			}
 			break
 		}
 		if i >= len(d.Tokens) {
-			t.Errorf("%s: too many tokens created! want %d, got %d - %s", d.Input, len(d.Tokens), i+1, tok)
+			t.Errorf("%d) %s: too many tokens created! want %d, got %d - %s", i+1, d.Input, len(d.Tokens), i+1, tok)
 			return
 		}
 		if !tok.Equal(d.Tokens[i]) {
-			t.Errorf("%s: tokens mismatched! want %s, got %s", d.Input, d.Tokens[i], tok)
+			t.Errorf("%d) %s: tokens mismatched! want %s, got %s", i+1, d.Input, d.Tokens[i], tok)
 			break
 		}
 	}

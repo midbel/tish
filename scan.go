@@ -380,17 +380,27 @@ func scanQuote(s *Scanner) ScanFunc {
 }
 
 func scanNumber(s *Scanner) ScanFunc {
-	var isDelim func(rune) bool
+	var (
+		accept func(rune) bool
+		buf bytes.Buffer
+	)
 	switch peek := s.nextRune(); {
-	case s.char == '0' && (peek == 'x' || peek == 'X'):
-		isDelim = isHexa
+	case s.char == '0' && peek == 'x':
+		accept = isHexa
+		s.readRune()
+		s.readRune()
+		buf.WriteRune('0')
+		buf.WriteRune(peek)
 	case s.char == '0' && peek == 'o':
-		isDelim = isOctal
+		accept = isOctal
+		s.readRune()
+		s.readRune()
+		buf.WriteRune('0')
+		buf.WriteRune(peek)
 	default:
-		isDelim = isDecimal
+		accept = isDecimal
 	}
-	var buf bytes.Buffer
-	for !s.isDone() && isDelim(s.char) {
+	for !s.isDone() && accept(s.char) {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
@@ -403,7 +413,7 @@ func isHexa(r rune) bool {
 }
 
 func isOctal(r rune) bool {
-	return r >= '0' || r <= '7' || r == underscore
+	return (r >= '0' && r <= '7') || r == underscore
 }
 
 func isDecimal(r rune) bool {
@@ -657,7 +667,7 @@ func scanExpression(s *Scanner) {
 		if s.char == equal {
 			s.readRune()
 			s.emitType(TokAddAssign)
-		} else if s.char == add{
+		} else if s.char == plus {
 			s.readRune()
 			s.emitType(TokIncr)
 		} else {
@@ -745,9 +755,18 @@ func scanExpression(s *Scanner) {
 	case s.char == bang:
 		s.readRune()
 		if s.char == equal {
+			s.readRune()
 			s.emitType(TokNotEqual)
 		} else {
 			s.emitType(TokNot)
+		}
+	case s.char == caret:
+		s.readRune()
+		if s.char == equal {
+			s.readRune()
+			s.emitType(TokBinXorAssign)
+		} else {
+			s.emitType(TokBinXor)
 		}
 	case s.char == tilde:
 		s.readRune()
@@ -757,6 +776,9 @@ func scanExpression(s *Scanner) {
 		if s.char == ampersand {
 			s.readRune()
 			s.emitType(TokAnd)
+		} else if s.char == equal {
+			s.readRune()
+			s.emitType(TokBinAndAssign)
 		} else {
 			s.emitType(TokBinAnd)
 		}
@@ -764,7 +786,10 @@ func scanExpression(s *Scanner) {
 		s.readRune()
 		if s.char == pipe {
 			s.readRune()
-			s.emitType(TokPipe)
+			s.emitType(TokOr)
+		} else if s.char == equal {
+			s.readRune()
+			s.emitType(TokBinOrAssign)
 		} else {
 			s.emitType(TokBinOr)
 		}
@@ -775,6 +800,7 @@ func scanExpression(s *Scanner) {
 		s.readRune()
 		scanGroup(s)
 	default:
+		s.emitType(TokInvalid)
 	}
 }
 
