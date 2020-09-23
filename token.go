@@ -81,6 +81,8 @@ const (
 	TokSlice
 	TokBegBrace
 	TokEndBrace
+	TokSerie
+	TokRange
 )
 
 func (k Kind) IsBreak() bool {
@@ -213,6 +215,18 @@ type Token struct {
 	Type    Kind
 	Quoted  bool
 	Position
+}
+
+func createToken(lit string, k Kind) Token {
+	return createQuotedToken(lit, false, k)
+}
+
+func createQuotedToken(lit string, q bool, k Kind) Token {
+	return Token{
+		Literal: lit,
+		Type:    k,
+		Quoted:  q,
+	}
 }
 
 func Compare(fst, snd Token) bool {

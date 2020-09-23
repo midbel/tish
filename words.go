@@ -64,6 +64,10 @@ type WordList struct {
 	words []Word
 }
 
+func createList(ws ...Word) Word {
+	return WordList{ws}
+}
+
 func (w WordList) Expand(env Environment) string {
 	ws := make([]string, 0, len(w.words))
 	for _, w := range w.words {
@@ -106,6 +110,10 @@ func (w WordList) asWord() Word {
 
 type Literal struct {
 	token Token
+}
+
+func createLiteral(tok Token) Word {
+	return Literal{tok}
 }
 
 func (i Literal) Expand(env Environment) string {
@@ -386,16 +394,48 @@ func (e Length) Expand(env Environment) string {
 }
 
 type Serie struct {
-	tokens []Token
+	words []Word
+}
+
+func (s Serie) Expand(env Environment) string {
+	return ""
+}
+
+func (s Serie) String() string {
+	return ""
+}
+
+func (s Serie) Equal(other Command) bool {
+	return false
 }
 
 type Range struct {
 	first Token
 	last  Token
+	incr  Token
+}
+
+func (r Range) Expand(env Environment) string {
+	return ""
+}
+
+func (r Range) String() string {
+	return ""
+}
+
+func (r Range) Equal(other Command) bool {
+	return false
 }
 
 type Expr struct {
 	eval Evaluator
+}
+
+func createExpr(es ...Evaluator) Word {
+	if len(es) == 1 {
+		return Expr{es[0]}
+	}
+	return Expr{EvalList{es}}
 }
 
 func (e Expr) Expand(env Environment) string {
@@ -532,6 +572,10 @@ type Number struct {
 	ident Token
 }
 
+func createNumber(tok Token) Evaluator {
+	return Number{tok}
+}
+
 func (n Number) Eval(_ Environment) (int, error) {
 	x, err := strconv.ParseInt(n.ident.Literal, 0, 64)
 	return int(x), err
@@ -551,6 +595,10 @@ func (n Number) Equal(other Evaluator) bool {
 
 type Identifier struct {
 	ident Token
+}
+
+func createIdentifier(tok Token) Evaluator {
+	return Identifier{tok}
 }
 
 func (i Identifier) Eval(env Environment) (int, error) {
@@ -573,6 +621,10 @@ func (i Identifier) Equal(other Evaluator) bool {
 type Prefix struct {
 	op    Kind
 	right Evaluator
+}
+
+func createPrefix(right Evaluator, op Kind) Evaluator {
+	return Prefix{op: op, right: right}
 }
 
 func (p Prefix) Eval(env Environment) (int, error) {
@@ -627,6 +679,10 @@ type Infix struct {
 	op    Kind
 	left  Evaluator
 	right Evaluator
+}
+
+func createInfix(left, right Evaluator, op Kind) Evaluator {
+	return Infix{op: op, left: left, right: right}
 }
 
 func (i Infix) Eval(env Environment) (int, error) {

@@ -23,14 +23,12 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
-						Expr{
-							eval: Infix{
-								op:    TokAdd,
-								left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
-								right: Identifier{ident: Token{Literal: "VAR", Type: TokVariable}},
-							},
-						},
+						createLiteral(createToken("echo", TokLiteral)),
+						createExpr(createInfix(
+							createNumber(createToken("1", TokNumber)),
+							createIdentifier(createToken("VAR", TokVariable)),
+							TokAdd,
+						)),
 					},
 				},
 			},
@@ -40,17 +38,12 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
-						Expr{
-							eval: Infix{
-								op: TokAdd,
-								left: Prefix{
-									op:    TokSub,
-									right: Number{ident: Token{Literal: "1", Type: TokNumber}},
-								},
-								right: Identifier{ident: Token{Literal: "VAR", Type: TokVariable}},
-							},
-						},
+						createLiteral(createToken("echo", TokLiteral)),
+						createExpr(createInfix(
+							createPrefix(createNumber(createToken("1", TokNumber)), TokSub),
+							createIdentifier(createToken("VAR", TokVariable)),
+							TokAdd,
+						)),
 					},
 				},
 			},
@@ -60,18 +53,16 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
-						Expr{
-							eval: Infix{
-								op: TokLeftShift,
-								left: Infix{
-									op:    TokAdd,
-									left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
-									right: Identifier{ident: Token{Literal: "VAR", Type: TokVariable}},
-								},
-								right: Number{ident: Token{Literal: "8", Type: TokNumber}},
-							},
-						},
+						createLiteral(createToken("echo", TokLiteral)),
+						createExpr(createInfix(
+							createInfix(
+								createNumber(createToken("1", TokNumber)),
+								createIdentifier(createToken("VAR", TokVariable)),
+								TokAdd,
+							),
+							createNumber(createToken("8", TokNumber)),
+							TokLeftShift,
+						)),
 					},
 				},
 			},
@@ -82,18 +73,14 @@ func TestParser(t *testing.T) {
 				Simple{
 					words: []Word{
 						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
-						WordList{
-							words: []Word{
-								Literal{token: Token{Literal: "1+1 = ", Type: TokLiteral, Quoted: true}},
-								Expr{
-									eval: Infix{
-										op:    TokAdd,
-										left:  Number{ident: Token{Literal: "1", Type: TokNumber, Quoted: true}},
-										right: Number{ident: Token{Literal: "1", Type: TokNumber, Quoted: true}},
-									},
-								},
-							},
-						},
+						createList(
+							createLiteral(createQuotedToken("1+1 = ", true, TokLiteral)),
+							createExpr(createInfix(
+								createNumber(createQuotedToken("1", true, TokNumber)),
+								createNumber(createQuotedToken("1", true, TokNumber)),
+								TokAdd,
+							)),
+						),
 					},
 				},
 			},
@@ -103,28 +90,23 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
-						Expr{
-							eval: EvalList{
-								evals: []Evaluator{
-									Infix{
-										op:    TokAdd,
-										left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
-										right: Number{ident: Token{Literal: "1", Type: TokNumber}},
-									},
-									Infix{
-										op:    TokLeftShift,
-										left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
-										right: Number{ident: Token{Literal: "4", Type: TokNumber}},
-									},
-									Infix{
-										op:    TokAnd,
-										left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
-										right: Number{ident: Token{Literal: "2", Type: TokNumber}},
-									},
-								},
-							},
-						},
+						createLiteral(createToken("echo", TokLiteral)),
+						createExpr(
+							createInfix(
+								createNumber(createToken("1", TokNumber)),
+								createNumber(createToken("1", TokNumber)),
+								TokAdd,
+							),
+							createInfix(
+								createNumber(createToken("1", TokNumber)),
+								createNumber(createToken("4", TokNumber)),
+								TokLeftShift),
+							createInfix(
+								createNumber(createToken("1", TokNumber)),
+								createNumber(createToken("2", TokNumber)),
+								TokAnd,
+							),
+						),
 					},
 				},
 			},
