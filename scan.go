@@ -1,6 +1,7 @@
 package tish
 
 import (
+	// "fmt"
 	"bytes"
 	"io"
 	"io/ioutil"

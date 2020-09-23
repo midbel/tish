@@ -431,6 +431,52 @@ func TestParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			Input: "echo {foo,bar}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
+						Serie{
+							words: []Word{
+								Literal{token: Token{Literal: "foo", Type: TokLiteral}},
+								Literal{token: Token{Literal: "bar", Type: TokLiteral}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo {1..10}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
+						Range{
+							first: Token{Literal: "1", Type: TokNumber},
+							last:  Token{Literal: "10", Type: TokNumber},
+							incr:  Token{Literal: "1", Type: TokNumber},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo {1..10..2}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
+						Range{
+							first: Token{Literal: "1", Type: TokNumber},
+							last:  Token{Literal: "10", Type: TokNumber},
+							incr:  Token{Literal: "2", Type: TokNumber},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, d := range data {
 		testParser(t, d)

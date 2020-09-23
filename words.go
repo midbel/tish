@@ -394,7 +394,9 @@ func (e Length) Expand(env Environment) string {
 }
 
 type Serie struct {
-	words []Word
+	prefix Word
+	suffix Word
+	words  []Word
 }
 
 func (s Serie) Expand(env Environment) string {
@@ -402,17 +404,35 @@ func (s Serie) Expand(env Environment) string {
 }
 
 func (s Serie) String() string {
-	return ""
+	ws := make([]string, len(s.words))
+	for i := range s.words {
+		ws[i] = s.words[i].String()
+	}
+	return fmt.Sprintf("serie(words: %s)", strings.Join(ws, ", "))
 }
 
 func (s Serie) Equal(other Command) bool {
-	return false
+	c, ok := other.(Serie)
+	if !ok {
+		return ok
+	}
+	if len(s.words) != len(c.words) {
+		return false
+	}
+	for i := range s.words {
+		if !s.words[i].Equal(c.words[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 type Range struct {
-	first Token
-	last  Token
-	incr  Token
+	prefix Word
+	suffix Word
+	first  Token
+	last   Token
+	incr   Token
 }
 
 func (r Range) Expand(env Environment) string {
@@ -420,11 +440,15 @@ func (r Range) Expand(env Environment) string {
 }
 
 func (r Range) String() string {
-	return ""
+	return fmt.Sprintf("range(first: %s, last: %s, incr: %s)", r.first, r.last, r.incr)
 }
 
 func (r Range) Equal(other Command) bool {
-	return false
+	c, ok := other.(Range)
+	if !ok {
+		return ok
+	}
+	return Compare(r.first, c.first) && Compare(r.last, c.last) && Compare(r.incr, c.incr)
 }
 
 type Expr struct {

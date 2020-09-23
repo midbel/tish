@@ -266,6 +266,77 @@ func (p *Parser) parseExpansion() (Word, error) {
 	return w, nil
 }
 
+func (p *Parser) parseSerie(s Serie) (Word, error) {
+	for !p.isDone() {
+		w, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
+		s.words = append(s.words, w)
+		if p.curr.Type == TokEndBrace {
+			p.next()
+			break
+		}
+		if p.curr.Type != TokSerie {
+			return nil, fmt.Errorf("serie: unexpected token %s, want 'comma'", p.curr)
+		}
+		p.next()
+	}
+	return s, nil
+}
+
+func (p *Parser) parseRange(r Range) (Word, error) {
+	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+		return nil, fmt.Errorf("range(first): unexpected token %s, want 'number|variable'", p.curr)
+	}
+	r.first = p.curr
+	p.next()
+	if p.curr.Type != TokRange {
+		return nil, fmt.Errorf("range: unexpected token %s, want 'range'", p.curr)
+	}
+	p.next()
+	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+		return nil, fmt.Errorf("range(last): unexpected token %s, want 'number|variable'", p.curr)
+	}
+	r.last = p.curr
+	p.next()
+	if p.curr.Type == TokEndBrace {
+		p.next()
+		r.incr = Token{Literal: "1", Type: TokNumber}
+		return r, nil
+	}
+	if p.curr.Type != TokRange {
+		return nil, fmt.Errorf("range: unexpected token %s, want 'range'", p.curr)
+	}
+	p.next()
+	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+		return nil, fmt.Errorf("range(incr): unexpected token %s, want 'number|variable'", p.curr)
+	}
+	r.last = p.curr
+
+	p.next()
+	if p.curr.Type != TokEndBrace {
+		return nil, fmt.Errorf("range: unexpected token %s, want 'brace'", p.curr)
+	}
+	p.next()
+
+	return r, nil
+}
+
+func (p *Parser) parseBraces(prefix Word) (Word, error) {
+	p.next()
+	switch p.peek.Type {
+	case TokSerie:
+		s := Serie{prefix: prefix}
+		return p.parseSerie(s)
+	case TokRange:
+		r := Range{prefix: prefix}
+		return p.parseRange(r)
+	default:
+		return nil, fmt.Errorf("brace: unexpected token %s, want 'serie|range'", p.peek)
+	}
+}
+
 func (p *Parser) parseArithmetic() (Word, error) {
 	p.next()
 	var es EvalList
@@ -393,6 +464,8 @@ func (p *Parser) parseWord() (Word, error) {
 			w, err = p.parseArithmetic()
 		case TokBegExp:
 			w, err = p.parseExpansion()
+		case TokBegBrace:
+			w, err = p.parseBraces(ws.asWord())
 		default:
 			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
 		}

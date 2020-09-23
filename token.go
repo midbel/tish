@@ -93,7 +93,8 @@ func (k Kind) EndOfWord() bool {
 	return k == TokBlank || k == TokAnd ||
 		k == TokOr || k == TokSemicolon ||
 		k == TokPipe || k == TokBackground ||
-		k == TokEndGroup || k == TokBegGroup
+		k == TokEndGroup || k == TokBegGroup ||
+		k == TokSerie || k == TokRange || k == TokEndBrace
 }
 
 func (k Kind) EndOfCommand() bool {
