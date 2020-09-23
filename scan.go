@@ -292,6 +292,9 @@ func scanUntil(s *Scanner, fn func(rune) bool) {
 			scanComment(s)
 			return
 		}
+		if isEscape(s.char) {
+			s.readRune()
+		}
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
@@ -382,7 +385,7 @@ func scanQuote(s *Scanner) ScanFunc {
 func scanNumber(s *Scanner) ScanFunc {
 	var (
 		accept func(rune) bool
-		buf bytes.Buffer
+		buf    bytes.Buffer
 	)
 	switch peek := s.nextRune(); {
 	case s.char == '0' && peek == 'x':
@@ -450,7 +453,44 @@ func scanComment(s *Scanner) ScanFunc {
 
 func scanBraces(s *Scanner) ScanFunc {
 	s.emitType(TokBegBrace)
-	s.emitType(TokEndBrace)
+	for !s.isDone() {
+		switch {
+		case isSpace(s.char):
+			s.skip(isSpace)
+		case isVar(s.char):
+			scanDollar(s)(s)
+		case isLetter(s.char):
+			scanUntil(s, func(r rune) bool {
+				return r == comma || r == lcurly || r == rcurly || (r == dot && s.nextRune() == dot)
+			})
+		case isQuote(s.char):
+			scanQuote(s)
+		case isDigit(s.char):
+			scanNumber(s)
+		case s.char == lcurly:
+			s.readRune()
+			scanBraces(s)
+		case s.char == comma:
+			s.readRune()
+			s.emitType(TokSerie)
+		case s.char == dot:
+			s.readRune()
+			if s.char == dot {
+				s.readRune()
+				s.emitType(TokRange)
+			} else {
+				s.emitType(TokInvalid)
+			}
+		case s.char == rcurly:
+			s.readRune()
+			s.emitType(TokEndBrace)
+			return nil
+		default:
+			s.emitType(TokInvalid)
+			return nil
+		}
+	}
+	s.emitType(TokInvalid)
 	return nil
 }
 
