@@ -113,6 +113,60 @@ func TestExpand(t *testing.T) {
 	t.Run("trim", testTrim)
 	t.Run("transform", testTransform)
 	t.Run("slice", testSlice)
+	t.Run("expr", testExpr)
+}
+
+func testExpr(t *testing.T) {
+	data := []struct {
+		Eval Evaluator
+		Want int
+	}{
+		{
+			Eval: Prefix{
+				op:    TokSub,
+				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+			},
+			Want: -1,
+		},
+		{
+			Eval: Prefix{
+				op:    TokBinNot,
+				right: Number{ident: Token{Literal: "2", Type: TokNumber}},
+			},
+			Want: -3,
+		},
+		{
+			Eval: Infix{
+				op:   TokAdd,
+				left: Number{ident: Token{Literal: "1", Type: TokNumber}},
+				right: Prefix{
+					op:    TokSub,
+					right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+				},
+			},
+			Want: 0,
+		},
+		{
+			Eval: Infix{
+				op:    TokSub,
+				left:  Identifier{ident: Token{Literal: "VAR", Type: TokVariable}},
+				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+			},
+			Want: 0,
+		},
+	}
+	env := EmptyEnv()
+	env.Define("VAR", "1")
+	for _, d := range data {
+		got, err := d.Eval.Eval(env)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %s", d.Eval, err)
+			continue
+		}
+		if got != d.Want {
+			t.Errorf("%s: result mismatched! want %d, got %d", d.Eval, d.Want, got)
+		}
+	}
 }
 
 func testLength(t *testing.T) {

@@ -59,20 +59,47 @@ func NewParser(r io.Reader) (*Parser, error) {
 		kwContinue: p.parseBC,
 	}
 	p.prefix = map[Kind]func() (Evaluator, error){
+		TokIncr:     p.parsePrefix,
+		TokDecr:     p.parsePrefix,
 		TokLiteral:  p.parsePrefix,
 		TokVariable: p.parsePrefix,
 		TokNumber:   p.parsePrefix,
 		TokSub:      p.parsePrefix,
+		TokNot:      p.parsePrefix,
+		TokBinNot:   p.parsePrefix,
 		TokBegGroup: p.parsePrefix,
 	}
 	p.infix = map[Kind]func(Evaluator) (Evaluator, error){
-		TokAdd:        p.parseInfix,
-		TokSub:        p.parseInfix,
-		TokMul:        p.parseInfix,
-		TokDiv:        p.parseInfix,
-		TokMod:        p.parseInfix,
-		TokLeftShift:  p.parseInfix,
-		TokRightShift: p.parseInfix,
+		TokAdd:              p.parseInfix,
+		TokSub:              p.parseInfix,
+		TokMul:              p.parseInfix,
+		TokDiv:              p.parseInfix,
+		TokMod:              p.parseInfix,
+		TokExponent:         p.parseInfix,
+		TokLeftShift:        p.parseInfix,
+		TokRightShift:       p.parseInfix,
+		TokBinAnd:           p.parseInfix,
+		TokBinOr:            p.parseInfix,
+		TokBinXor:           p.parseInfix,
+		TokEqual:            p.parseInfix,
+		TokNotEqual:         p.parseInfix,
+		TokLesser:           p.parseInfix,
+		TokLessEq:           p.parseInfix,
+		TokGreater:          p.parseInfix,
+		TokGreatEq:          p.parseInfix,
+		TokAnd:              p.parseInfix,
+		TokOr:               p.parseInfix,
+		TokAssign:           p.parseInfix,
+		TokAddAssign:        p.parseInfix,
+		TokSubAssign:        p.parseInfix,
+		TokMulAssign:        p.parseInfix,
+		TokDivAssign:        p.parseInfix,
+		TokModAssign:        p.parseInfix,
+		TokLeftShiftAssign:  p.parseInfix,
+		TokRightShiftAssign: p.parseInfix,
+		TokBinAndAssign:     p.parseInfix,
+		TokBinOrAssign:      p.parseInfix,
+		TokBinXorAssign:     p.parseInfix,
 	}
 
 	p.next()
@@ -241,16 +268,22 @@ func (p *Parser) parseExpansion() (Word, error) {
 
 func (p *Parser) parseArithmetic() (Word, error) {
 	p.next()
-
-	e, err := p.parseExpression(bindLowest)
-	if err != nil {
-		return nil, err
+	var es EvalList
+	for p.curr.Type != TokEndArith {
+		e, err := p.parseExpression(bindLowest)
+		if err != nil {
+			return nil, err
+		}
+		es.evals = append(es.evals, e)
+		if p.curr.Type == TokSemicolon {
+			p.next()
+		}
 	}
 	if p.curr.Type != TokEndArith {
 		return nil, fmt.Errorf("expr: unexpected token %s, want %s", p.curr, TokEndArith)
 	}
 	p.next()
-	return Expr{eval: e}, nil
+	return Expr{eval: es.asEvaluator()}, nil
 }
 
 func (p *Parser) parseExpression(bp int) (Evaluator, error) {
@@ -262,7 +295,7 @@ func (p *Parser) parseExpression(bp int) (Evaluator, error) {
 	if err != nil {
 		return nil, err
 	}
-	for p.curr.Type != TokEndArith && bp < bindPower(p.curr.Type) {
+	for (p.curr.Type != TokEndArith && p.curr.Type != TokSemicolon) && bp < bindPower(p.curr.Type) {
 		infix, ok := p.infix[p.curr.Type]
 		if !ok {
 			return nil, fmt.Errorf("expr(infix): unexpected operator %s", p.curr)
@@ -287,12 +320,13 @@ func (p *Parser) parsePrefix() (Evaluator, error) {
 	case TokNumber:
 		eval = Number{ident: p.curr}
 		p.next()
-	case TokSub:
+	case TokSub, TokIncr, TokDecr:
+		op := p.curr.Type
 		p.next()
 		eval, err = p.parseExpression(bindPrefix)
 		if err == nil {
 			eval = Prefix{
-				op:    TokSub,
+				op:    op,
 				right: eval,
 			}
 		}
@@ -310,6 +344,11 @@ func (p *Parser) parsePrefix() (Evaluator, error) {
 }
 
 func (p *Parser) parseInfix(left Evaluator) (Evaluator, error) {
+	if p.curr.Type == TokAssign {
+		if _, ok := left.(Identifier); !ok {
+			return nil, fmt.Errorf("expr(infix): expecter identifier on left side of assignment (%s)", left)
+		}
+	}
 	i := Infix{
 		left: left,
 		op:   p.curr.Type,

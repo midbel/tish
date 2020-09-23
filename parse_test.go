@@ -99,6 +99,37 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
+			Input: "echo $((1+1, 1<<4, 1 && 2))",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
+						Expr{
+							eval: EvalList{
+								evals: []Evaluator{
+									Infix{
+										op:    TokAdd,
+										left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
+										right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+									},
+									Infix{
+										op:    TokLeftShift,
+										left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
+										right: Number{ident: Token{Literal: "4", Type: TokNumber}},
+									},
+									Infix{
+										op:    TokAnd,
+										left:  Number{ident: Token{Literal: "1", Type: TokNumber}},
+										right: Number{ident: Token{Literal: "2", Type: TokNumber}},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			Input: "echo \"length: ${#FOO}\"",
 			Cmds: []Command{
 				Simple{

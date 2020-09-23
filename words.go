@@ -2,6 +2,7 @@ package tish
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -419,20 +420,55 @@ func (e Expr) Equal(other Command) bool {
 
 const (
 	bindLowest int = iota
+	bindAssign
+	bindOr
+	bindAnd
+	bindBinOr
+	bindBinXor
+	bindBinAnd
+	bindEq
+	bindCmp
 	bindShift
 	bindPlus
 	bindMul
+	bindExp
+	bindIncr
 	bindPrefix
 )
 
 var bindings = map[Kind]int{
-	TokAdd:        bindPlus,
-	TokSub:        bindPlus,
-	TokMul:        bindMul,
-	TokDiv:        bindMul,
-	TokMod:        bindMul,
-	TokLeftShift:  bindShift,
-	TokRightShift: bindShift,
+	TokIncr:             bindIncr,
+	TokDecr:             bindIncr,
+	TokAdd:              bindPlus,
+	TokSub:              bindPlus,
+	TokMul:              bindMul,
+	TokDiv:              bindMul,
+	TokMod:              bindMul,
+	TokExponent:         bindExp,
+	TokBinAnd:           bindBinAnd,
+	TokBinOr:            bindBinOr,
+	TokBinXor:           bindBinXor,
+	TokLeftShift:        bindShift,
+	TokRightShift:       bindShift,
+	TokLesser:           bindCmp,
+	TokLessEq:           bindCmp,
+	TokGreater:          bindCmp,
+	TokGreatEq:          bindCmp,
+	TokAnd:              bindAnd,
+	TokOr:               bindOr,
+	TokEqual:            bindEq,
+	TokNotEqual:         bindEq,
+	TokAssign:           bindAssign,
+	TokAddAssign:        bindAssign,
+	TokSubAssign:        bindAssign,
+	TokMulAssign:        bindAssign,
+	TokDivAssign:        bindAssign,
+	TokModAssign:        bindAssign,
+	TokLeftShiftAssign:  bindAssign,
+	TokRightShiftAssign: bindAssign,
+	TokBinAndAssign:     bindAssign,
+	TokBinOrAssign:      bindAssign,
+	TokBinXorAssign:     bindAssign,
 }
 
 func bindPower(k Kind) int {
@@ -443,12 +479,62 @@ func bindPower(k Kind) int {
 	return p
 }
 
+type EvalList struct {
+	evals []Evaluator
+}
+
+func (e EvalList) Eval(env Environment) (int, error) {
+	var (
+		res int
+		err error
+	)
+	for _, e := range e.evals {
+		res, err = e.Eval(env)
+		if err == nil {
+			break
+		}
+	}
+	return res, err
+}
+
+func (e EvalList) String() string {
+	es := make([]string, len(e.evals))
+	for i := range e.evals {
+		es[i] = e.evals[i].String()
+	}
+	return fmt.Sprintf("evallist(%s)", strings.Join(es, ", "))
+}
+
+func (e EvalList) Equal(other Evaluator) bool {
+	c, ok := other.(EvalList)
+	if !ok {
+		return ok
+	}
+	if len(e.evals) != len(c.evals) {
+		return false
+	}
+	for i := range e.evals {
+		if !e.evals[i].Equal(c.evals[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (e EvalList) asEvaluator() Evaluator {
+	if len(e.evals) == 1 {
+		return e.evals[0]
+	}
+	return e
+}
+
 type Number struct {
 	ident Token
 }
 
 func (n Number) Eval(_ Environment) (int, error) {
-	return strconv.Atoi(n.ident.Literal)
+	x, err := strconv.ParseInt(n.ident.Literal, 0, 64)
+	return int(x), err
 }
 
 func (n Number) String() string {
@@ -491,12 +577,38 @@ type Prefix struct {
 
 func (p Prefix) Eval(env Environment) (int, error) {
 	right, _ := p.right.Eval(env)
+	var err error
 	switch p.op {
+	case TokNot:
+		if right == 0 {
+			right = 1
+		} else {
+			right = 0
+		}
+	case TokIncr:
+		v, ok := p.right.(Identifier)
+		if !ok {
+			err = fmt.Errorf("expected identifier on right side of increment operator")
+			break
+		}
+		right++
+		err = env.Define(v.ident.Literal, strconv.Itoa(right))
+	case TokDecr:
+		v, ok := p.right.(Identifier)
+		if !ok {
+			err = fmt.Errorf("expected identifier on right side of decrement operator")
+			break
+		}
+		right--
+		err = env.Define(v.ident.Literal, strconv.Itoa(right))
+	case TokAdd:
 	case TokSub:
 		right = -right
+	case TokBinNot:
+		right = ^right
 	default:
 	}
-	return right, nil
+	return right, err
 }
 
 func (p Prefix) String() string {
@@ -521,26 +633,79 @@ func (i Infix) Eval(env Environment) (int, error) {
 	left, _ := i.left.Eval(env)
 	right, _ := i.right.Eval(env)
 
-	var result int
+	var (
+		res int
+		err error
+	)
 	switch i.op {
-	case TokAdd:
-		result = left + right
-	case TokSub:
-		result = left - right
-	case TokMul:
-		result = left * right
-	case TokDiv:
-		result = left / right
-	case TokMod:
-		result = left % right
-	case TokLeftShift:
-		result = left >> right
-	case TokRightShift:
-		result = left << right
+	case TokAssign:
+		res = right
+	case TokAdd, TokAddAssign:
+		res = left + right
+	case TokSub, TokSubAssign:
+		res = left - right
+	case TokMul, TokMulAssign:
+		res = left * right
+	case TokDiv, TokDivAssign:
+		if right == 0 {
+			err = fmt.Errorf("division by zero")
+			break
+		}
+		res = left / right
+	case TokMod, TokModAssign:
+		res = left % right
+	case TokExponent:
+		pow := math.Pow(float64(left), float64(right))
+		res = int(pow)
+	case TokLeftShift, TokLeftShiftAssign:
+		res = left >> right
+	case TokRightShift, TokRightShiftAssign:
+		res = left << right
+	case TokBinAnd, TokBinAndAssign:
+		res = left & right
+	case TokBinOr, TokBinOrAssign:
+		res = left | right
+	case TokBinXor, TokBinXorAssign:
+		res = left ^ right
+	case TokEqual:
+		if left != right {
+			res++
+		}
+	case TokNotEqual:
+		if left == right {
+			res++
+		}
+	case TokLesser:
+		if left >= right {
+			res++
+		}
+	case TokLessEq:
+		if left > right {
+			res++
+		}
+	case TokGreater:
+		if left <= right {
+			res++
+		}
+	case TokGreatEq:
+		if left < right {
+			res++
+		}
+	case TokAnd:
+		if left != 0 {
+			res = right
+		}
+	case TokOr:
+		if left == 0 {
+			res = right
+		}
 	default:
-		return 0, fmt.Errorf("infix: unsupported operation %s", i.op)
+		err = fmt.Errorf("infix: unsupported operation %s", i.op)
 	}
-	return result, nil
+	if err == nil && i.op.IsAssign() {
+		res, err = i.assign(env, res)
+	}
+	return res, err
 }
 
 func (i Infix) String() string {
@@ -553,4 +718,12 @@ func (i Infix) Equal(other Evaluator) bool {
 		return ok
 	}
 	return i.op == c.op && i.left.Equal(i.left) && i.right.Equal(c.right)
+}
+
+func (i Infix) assign(env Environment, result int) (int, error) {
+	v, ok := i.left.(Identifier)
+	if !ok {
+		return 1, fmt.Errorf("expected identifier on left side of assignment")
+	}
+	return 0, env.Define(v.ident.Literal, strconv.Itoa(result))
 }

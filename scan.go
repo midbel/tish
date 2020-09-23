@@ -380,13 +380,34 @@ func scanQuote(s *Scanner) ScanFunc {
 }
 
 func scanNumber(s *Scanner) ScanFunc {
+	var isDelim func(rune) bool
+	switch peek := s.nextRune(); {
+	case s.char == '0' && (peek == 'x' || peek == 'X'):
+		isDelim = isHexa
+	case s.char == '0' && peek == 'o':
+		isDelim = isOctal
+	default:
+		isDelim = isDecimal
+	}
 	var buf bytes.Buffer
-	for !s.isDone() && isDigit(s.char) {
+	for !s.isDone() && isDelim(s.char) {
 		buf.WriteRune(s.char)
 		s.readRune()
 	}
 	s.emit(buf.String(), TokNumber)
 	return nil
+}
+
+func isHexa(r rune) bool {
+	return r == underscore || isDigit(r) || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+}
+
+func isOctal(r rune) bool {
+	return r >= '0' || r <= '7' || r == underscore
+}
+
+func isDecimal(r rune) bool {
+	return r == underscore || isDigit(r)
 }
 
 func scanVariable(s *Scanner) ScanFunc {
@@ -633,31 +654,123 @@ func scanExpression(s *Scanner) {
 		scanVariable(s)
 	case s.char == plus:
 		s.readRune()
-		s.emitType(TokAdd)
+		if s.char == equal {
+			s.readRune()
+			s.emitType(TokAddAssign)
+		} else if s.char == add{
+			s.readRune()
+			s.emitType(TokIncr)
+		} else {
+			s.emitType(TokAdd)
+		}
 	case s.char == minus:
 		s.readRune()
-		s.emitType(TokSub)
+		if s.char == equal {
+			s.readRune()
+			s.emitType(TokSubAssign)
+		} else if s.char == minus {
+			s.readRune()
+			s.emitType(TokDecr)
+		} else {
+			s.emitType(TokSub)
+		}
 	case s.char == star:
 		s.readRune()
-		s.emitType(TokMul)
+		k := TokMul
+		switch s.char {
+		case star:
+			s.readRune()
+			k = TokExponent
+		case equal:
+			s.readRune()
+			k = TokMulAssign
+		}
+		s.emitType(k)
 	case s.char == slash:
 		s.readRune()
-		s.emitType(TokDiv)
+		if s.char == equal {
+			s.readRune()
+			s.emitType(TokDivAssign)
+		} else {
+			s.emitType(TokDiv)
+		}
 	case s.char == percent:
 		s.readRune()
-		s.emitType(TokMod)
+		if s.char == equal {
+			s.readRune()
+			s.emitType(TokModAssign)
+		} else {
+			s.emitType(TokMod)
+		}
 	case s.char == langle:
 		s.readRune()
-		if s.char == langle {
+		k := TokLesser
+		switch s.char {
+		case langle:
 			s.readRune()
-			s.emitType(TokLeftShift)
+			k = TokLeftShift
+			if s.char == equal {
+				s.readRune()
+				k = TokLeftShiftAssign
+			}
+		case equal:
+			s.readRune()
+			k = TokLessEq
 		}
+		s.emitType(k)
 	case s.char == rangle:
 		s.readRune()
-		if s.char == rangle {
+		k := TokGreater
+		switch s.char {
+		case rangle:
 			s.readRune()
-			s.emitType(TokRightShift)
+			k = TokRightShift
+			if s.char == equal {
+				s.readRune()
+				k = TokRightShiftAssign
+			}
+		case equal:
+			s.readRune()
+			k = TokGreatEq
 		}
+		s.emitType(k)
+	case s.char == equal:
+		s.readRune()
+		if s.char == equal {
+			s.readRune()
+			s.emitType(TokEqual)
+		} else {
+			s.emitType(TokAssign)
+		}
+	case s.char == bang:
+		s.readRune()
+		if s.char == equal {
+			s.emitType(TokNotEqual)
+		} else {
+			s.emitType(TokNot)
+		}
+	case s.char == tilde:
+		s.readRune()
+		s.emitType(TokBinNot)
+	case s.char == ampersand:
+		s.readRune()
+		if s.char == ampersand {
+			s.readRune()
+			s.emitType(TokAnd)
+		} else {
+			s.emitType(TokBinAnd)
+		}
+	case s.char == pipe:
+		s.readRune()
+		if s.char == pipe {
+			s.readRune()
+			s.emitType(TokPipe)
+		} else {
+			s.emitType(TokBinOr)
+		}
+	case s.char == comma:
+		s.readRune()
+		s.emitType(TokSemicolon)
 	case s.char == lparen:
 		s.readRune()
 		scanGroup(s)

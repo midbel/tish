@@ -30,17 +30,34 @@ const (
 	TokEndTest
 	TokBegArith
 	TokEndArith
+	TokIncr
+	TokDecr
 	TokAdd
+	TokAddAssign
 	TokSub
+	TokSubAssign
 	TokMul
+	TokMulAssign
 	TokDiv
+	TokDivAssign
 	TokMod
+	TokModAssign
+	TokExponent
 	TokLeftShift
+	TokLeftShiftAssign
 	TokRightShift
+	TokRightShiftAssign
+	TokBinXor
+	TokBinXorAssign
+	TokBinNot
+	TokBinAnd
+	TokBinAndAssign
+	TokBinOr
+	TokBinOrAssign
 	TokGreater
-	TokGreateq
+	TokGreatEq
 	TokLesser
-	TokLesseq
+	TokLessEq
 	TokEqual
 	TokNotEqual
 	TokNot
@@ -79,6 +96,34 @@ func (k Kind) EndOfWord() bool {
 
 func (k Kind) EndOfCommand() bool {
 	return k == TokSemicolon || k == TokEOF
+}
+
+func (k Kind) IsArithmetic() bool {
+	return k == TokAdd || k == TokSub || k == TokMul ||
+		k == TokDiv || k == TokMod || k == TokExponent ||
+		k == TokIncr || k == TokDecr
+}
+
+func (k Kind) IsComparison() bool {
+	return k == TokEqual || k == TokNotEqual ||
+		k == TokLesser || k == TokLessEq ||
+		k == TokGreater || k == TokGreatEq
+}
+
+func (k Kind) IsBinary() bool {
+	return k == TokBinAnd || k == TokBinOr || k == TokBinXor ||
+		k == TokLeftShift || k == TokRightShift
+}
+
+func (k Kind) IsRelation() bool {
+	return k == TokAnd || k == TokOr
+}
+
+func (k Kind) IsAssign() bool {
+	return k == TokAssign || k == TokAddAssign || k == TokSubAssign ||
+		k == TokMulAssign || k == TokDivAssign || k == TokModAssign ||
+		k == TokLeftShiftAssign || k == TokRightShiftAssign ||
+		k == TokBinAndAssign || k == TokBinOrAssign || k == TokBinXorAssign
 }
 
 func (k Kind) String() string {
@@ -136,6 +181,8 @@ func (k Kind) String() string {
 		str = "divide"
 	case TokMod:
 		str = "modulo"
+	case TokExponent:
+		str = "exponent"
 	case TokLeftShift, TokRightShift:
 		str = "shift"
 	case TokSlice:
