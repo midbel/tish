@@ -102,10 +102,14 @@ func (w WordList) Equal(other Command) bool {
 }
 
 func (w WordList) asWord() Word {
-	if len(w.words) == 1 {
+	switch len(w.words) {
+	case 0:
+		return nil
+	case 1:
 		return w.words[0]
+	default:
+		return w
 	}
-	return w
 }
 
 type Literal struct {
@@ -408,7 +412,7 @@ func (s Serie) String() string {
 	for i := range s.words {
 		ws[i] = s.words[i].String()
 	}
-	return fmt.Sprintf("serie(words: %s)", strings.Join(ws, ", "))
+	return fmt.Sprintf("serie(words: %s, prefix: %v, suffix: %v)", strings.Join(ws, ", "), s.prefix, s.suffix)
 }
 
 func (s Serie) Equal(other Command) bool {
@@ -424,7 +428,10 @@ func (s Serie) Equal(other Command) bool {
 			return false
 		}
 	}
-	return true
+	if (s.prefix != nil && c.prefix != nil) && (s.suffix != nil && c.suffix != nil) {
+		return s.prefix.Equal(c.prefix) && s.suffix.Equal(c.suffix)
+	}
+	return (s.prefix == nil && c.prefix == nil) && (s.suffix == nil && c.suffix == nil)
 }
 
 type Range struct {
@@ -440,7 +447,7 @@ func (r Range) Expand(env Environment) string {
 }
 
 func (r Range) String() string {
-	return fmt.Sprintf("range(first: %s, last: %s, incr: %s)", r.first, r.last, r.incr)
+	return fmt.Sprintf("range(first: %s, last: %s, incr: %s, prefix: %v, suffix: %v)", r.first, r.last, r.incr, r.prefix, r.suffix)
 }
 
 func (r Range) Equal(other Command) bool {
@@ -448,7 +455,14 @@ func (r Range) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	return Compare(r.first, c.first) && Compare(r.last, c.last) && Compare(r.incr, c.incr)
+	ok = r.first.Equal(c.first) && r.last.Equal(c.last) && r.incr.Equal(c.incr)
+	if !ok {
+		return ok
+	}
+	if (r.prefix != nil && c.prefix != nil) && (r.suffix != nil && c.suffix != nil) {
+		return r.prefix.Equal(c.prefix) && r.suffix.Equal(c.suffix)
+	}
+	return (r.prefix == nil && c.prefix == nil) && (r.suffix == nil && c.suffix == nil)
 }
 
 type Expr struct {

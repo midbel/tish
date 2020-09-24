@@ -448,6 +448,24 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
+			Input: "echo {1, 100, $VAR, 1000}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Serie{
+							words: []Word{
+								createLiteral(createToken("1", TokNumber)),
+								createLiteral(createToken("100", TokNumber)),
+								createLiteral(createToken("VAR", TokVariable)),
+								createLiteral(createToken("1000", TokNumber)),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			Input: "echo {1..10}",
 			Cmds: []Command{
 				Simple{
@@ -472,6 +490,117 @@ func TestParser(t *testing.T) {
 							first: createToken("1", TokNumber),
 							last:  createToken("10", TokNumber),
 							incr:  createToken("2", TokNumber),
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo foo-{foo,bar}-bar",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Serie{
+							prefix: createLiteral(createToken("foo-", TokLiteral)),
+							suffix: createLiteral(createToken("-bar", TokLiteral)),
+							words: []Word{
+								createLiteral(createToken("foo", TokLiteral)),
+								createLiteral(createToken("bar", TokLiteral)),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo foo-{1..10}-bar",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Range{
+							prefix: createLiteral(createToken("foo-", TokLiteral)),
+							suffix: createLiteral(createToken("-bar", TokLiteral)),
+							first:  createToken("1", TokNumber),
+							last:   createToken("10", TokNumber),
+							incr:   createToken("1", TokNumber),
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo {foo-{1..10},bar-{1..10}}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Serie{
+							words: []Word{
+								Range{
+									prefix: createLiteral(createToken("foo-", TokLiteral)),
+									first:  createToken("1", TokNumber),
+									last:   createToken("10", TokNumber),
+									incr:   createToken("1", TokNumber),
+								},
+								Range{
+									prefix: createLiteral(createToken("bar-", TokLiteral)),
+									first:  createToken("1", TokNumber),
+									last:   createToken("10", TokNumber),
+									incr:   createToken("1", TokNumber),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo {{1..10},{10..100}}",
+			Cmds:  []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Serie{
+							words: []Word{
+								Range{
+									first:  createToken("1", TokNumber),
+									last:   createToken("10", TokNumber),
+									incr:   createToken("1", TokNumber),
+								},
+								Range{
+									first:  createToken("10", TokNumber),
+									last:   createToken("100", TokNumber),
+									incr:   createToken("1", TokNumber),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "echo {1..10}{100..1000..10}{foo,bar}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Range{
+							prefix: Range{
+								first: createToken("1", TokNumber),
+								last:  createToken("10", TokNumber),
+								incr:  createToken("1", TokNumber),
+							},
+							suffix: Serie{
+								words: []Word{
+									createLiteral(createToken("foo", TokLiteral)),
+									createLiteral(createToken("bar", TokLiteral)),
+								},
+							},
+							first: createToken("100", TokNumber),
+							last:  createToken("1000", TokNumber),
+							incr:  createToken("10", TokNumber),
 						},
 					},
 				},

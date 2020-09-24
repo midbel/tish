@@ -474,6 +474,7 @@ func scanBraces(s *Scanner) ScanFunc {
 		case s.char == comma:
 			s.readRune()
 			s.emitType(TokSerie)
+			s.skip(isSpace)
 		case s.char == dot:
 			s.readRune()
 			if s.char == dot {

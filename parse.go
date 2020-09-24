@@ -266,6 +266,44 @@ func (p *Parser) parseExpansion() (Word, error) {
 	return w, nil
 }
 
+func (p *Parser) parseRange(r Range) (Word, error) {
+	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+		return nil, fmt.Errorf("range(first): unexpected token %s, want 'number|variable'", p.curr)
+	}
+	r.first = p.curr
+	p.next()
+	if p.curr.Type != TokRange {
+		return nil, fmt.Errorf("range: unexpected token %s, want 'range'", p.curr)
+	}
+	p.next()
+	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+		return nil, fmt.Errorf("range(last): unexpected token %s, want 'number|variable'", p.curr)
+	}
+	r.last = p.curr
+	r.incr = Token{Literal: "1", Type: TokNumber}
+	p.next()
+	if p.curr.Type == TokRange {
+		p.next()
+
+		if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
+			return nil, fmt.Errorf("range(incr): unexpected token %s, want 'number|variable'", p.curr)
+		}
+		r.incr = p.curr
+
+		p.next()
+	}
+	if p.curr.Type != TokEndBrace {
+		return nil, fmt.Errorf("range: unexpected token %s, want 'brace'", p.curr)
+	}
+	p.next()
+
+	suffix, err := p.parseWord()
+	if err == nil && suffix != nil {
+		r.suffix = suffix
+	}
+	return r, err
+}
+
 func (p *Parser) parseSerie(s Serie) (Word, error) {
 	for !p.isDone() {
 		w, err := p.parseWord()
@@ -282,45 +320,11 @@ func (p *Parser) parseSerie(s Serie) (Word, error) {
 		}
 		p.next()
 	}
-	return s, nil
-}
-
-func (p *Parser) parseRange(r Range) (Word, error) {
-	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
-		return nil, fmt.Errorf("range(first): unexpected token %s, want 'number|variable'", p.curr)
+	suffix, err := p.parseWord()
+	if err == nil && suffix != nil {
+		s.suffix = suffix
 	}
-	r.first = p.curr
-	p.next()
-	if p.curr.Type != TokRange {
-		return nil, fmt.Errorf("range: unexpected token %s, want 'range'", p.curr)
-	}
-	p.next()
-	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
-		return nil, fmt.Errorf("range(last): unexpected token %s, want 'number|variable'", p.curr)
-	}
-	r.last = p.curr
-	p.next()
-	if p.curr.Type == TokEndBrace {
-		p.next()
-		r.incr = Token{Literal: "1", Type: TokNumber}
-		return r, nil
-	}
-	if p.curr.Type != TokRange {
-		return nil, fmt.Errorf("range: unexpected token %s, want 'range'", p.curr)
-	}
-	p.next()
-	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
-		return nil, fmt.Errorf("range(incr): unexpected token %s, want 'number|variable'", p.curr)
-	}
-	r.incr = p.curr
-
-	p.next()
-	if p.curr.Type != TokEndBrace {
-		return nil, fmt.Errorf("range: unexpected token %s, want 'brace'", p.curr)
-	}
-	p.next()
-
-	return r, nil
+	return s, err
 }
 
 func (p *Parser) parseBraces(prefix Word) (Word, error) {
@@ -451,16 +455,17 @@ func (p *Parser) parseWord() (Word, error) {
 	var ws WordList
 	for !p.isDone() {
 		var (
-			w Word
+			w   Word
 			err error
 		)
 		switch p.curr.Type {
-		case TokLiteral, TokVariable:
+		case TokLiteral, TokVariable, TokNumber:
 			w = Literal{token: p.curr}
 		case TokBegArith:
 			w, err = p.parseArithmetic()
 		case TokBegBrace:
 			w, err = p.parseBraces(ws.asWord())
+			ws.words = ws.words[:0]
 		case TokBegExp:
 			w, err = p.parseExpansion()
 		case TokKeyword:
@@ -791,6 +796,9 @@ func (p *Parser) skipBlanks() {
 }
 
 func (p *Parser) next() {
+	if p.curr.Type == TokEOF {
+		return
+	}
 	p.curr = p.peek
 	p.peek = p.scan.Scan()
 	if p.keepComment {
