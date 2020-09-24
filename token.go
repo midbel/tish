@@ -89,14 +89,6 @@ func (k Kind) IsBreak() bool {
 	return k == TokBreak || k == TokContinue || k == TokFallthrough
 }
 
-func (k Kind) EndOfWord() bool {
-	return k == TokBlank || k == TokAnd ||
-		k == TokOr || k == TokSemicolon ||
-		k == TokPipe || k == TokBackground ||
-		k == TokEndGroup || k == TokBegGroup ||
-		k == TokSerie || k == TokRange || k == TokEndBrace
-}
-
 func (k Kind) EndOfCommand() bool {
 	return k == TokSemicolon || k == TokEOF
 }
@@ -200,6 +192,10 @@ func (k Kind) String() string {
 		str = "length"
 	case TokBegBrace, TokEndBrace:
 		str = "brace"
+	case TokSerie:
+		str = "serie"
+	case TokRange:
+		str = "range"
 	default:
 		str = "unknown"
 	}
@@ -216,6 +212,10 @@ type Token struct {
 	Type    Kind
 	Quoted  bool
 	Position
+}
+
+func createType(k Kind) Token {
+	return createQuotedToken("", false, k)
 }
 
 func createToken(lit string, k Kind) Token {
@@ -253,7 +253,7 @@ func (t Token) isKeyword() bool {
 
 func (t Token) isSimple() bool {
 	switch t.Type {
-	case TokLiteral, TokVariable, TokBegArith, TokBegExp:
+	case TokLiteral, TokVariable, TokBegArith, TokBegExp, TokBegBrace:
 		return true
 	default:
 		return false

@@ -911,7 +911,7 @@ func scanBlank(s *Scanner) ScanFunc {
 		return nil
 	}
 	s.skip(isSpace)
-	if s.isDone() || isComment(s.char) || isControl(s.char) {
+	if s.isDone() || isComment(s.char) || (isControl(s.char) && !isGroup(s.char)) {
 		return nil
 	}
 	s.emitType(TokBlank)

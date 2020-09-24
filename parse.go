@@ -312,7 +312,7 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
 		return nil, fmt.Errorf("range(incr): unexpected token %s, want 'number|variable'", p.curr)
 	}
-	r.last = p.curr
+	r.incr = p.curr
 
 	p.next()
 	if p.curr.Type != TokEndBrace {
@@ -449,12 +449,9 @@ func (p *Parser) parseAssign(name Token) (Assign, error) {
 
 func (p *Parser) parseWord() (Word, error) {
 	var ws WordList
-	for !p.isDone() && !p.curr.Type.EndOfWord() {
-		if !p.curr.Quoted && p.curr.Type == TokKeyword {
-			return nil, fmt.Errorf("word: unexpected keyword %s", p.curr)
-		}
+	for !p.isDone() {
 		var (
-			w   Word
+			w Word
 			err error
 		)
 		switch p.curr.Type {
@@ -462,12 +459,14 @@ func (p *Parser) parseWord() (Word, error) {
 			w = Literal{token: p.curr}
 		case TokBegArith:
 			w, err = p.parseArithmetic()
-		case TokBegExp:
-			w, err = p.parseExpansion()
 		case TokBegBrace:
 			w, err = p.parseBraces(ws.asWord())
+		case TokBegExp:
+			w, err = p.parseExpansion()
+		case TokKeyword:
+			return nil, fmt.Errorf("word: unexpected keyword %s", p.curr)
 		default:
-			return nil, fmt.Errorf("word: unexpected token %s", p.curr)
+			return ws.asWord(), nil
 		}
 		if err != nil {
 			return nil, err

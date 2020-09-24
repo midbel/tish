@@ -436,11 +436,11 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
+						createLiteral(createToken("echo", TokLiteral)),
 						Serie{
 							words: []Word{
-								Literal{token: Token{Literal: "foo", Type: TokLiteral}},
-								Literal{token: Token{Literal: "bar", Type: TokLiteral}},
+								createLiteral(createToken("foo", TokLiteral)),
+								createLiteral(createToken("bar", TokLiteral)),
 							},
 						},
 					},
@@ -452,11 +452,11 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
+						createLiteral(createToken("echo", TokLiteral)),
 						Range{
-							first: Token{Literal: "1", Type: TokNumber},
-							last:  Token{Literal: "10", Type: TokNumber},
-							incr:  Token{Literal: "1", Type: TokNumber},
+							first: createToken("1", TokNumber),
+							last:  createToken("10", TokNumber),
+							incr:  createToken("1", TokNumber),
 						},
 					},
 				},
@@ -467,11 +467,11 @@ func TestParser(t *testing.T) {
 			Cmds: []Command{
 				Simple{
 					words: []Word{
-						Literal{token: Token{Literal: "echo", Type: TokLiteral}},
+						createLiteral(createToken("echo", TokLiteral)),
 						Range{
-							first: Token{Literal: "1", Type: TokNumber},
-							last:  Token{Literal: "10", Type: TokNumber},
-							incr:  Token{Literal: "2", Type: TokNumber},
+							first: createToken("1", TokNumber),
+							last:  createToken("10", TokNumber),
+							incr:  createToken("2", TokNumber),
 						},
 					},
 				},
