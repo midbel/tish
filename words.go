@@ -437,9 +437,9 @@ func (s Serie) Equal(other Command) bool {
 type Range struct {
 	prefix Word
 	suffix Word
-	first  Token
-	last   Token
-	incr   Token
+	first  Word
+	last   Word
+	incr   Word
 }
 
 func (r Range) Expand(env Environment) string {

@@ -472,9 +472,9 @@ func TestParser(t *testing.T) {
 					words: []Word{
 						createLiteral(createToken("echo", TokLiteral)),
 						Range{
-							first: createToken("1", TokNumber),
-							last:  createToken("10", TokNumber),
-							incr:  createToken("1", TokNumber),
+							first: createLiteral(createToken("1", TokNumber)),
+							last:  createLiteral(createToken("10", TokNumber)),
+							incr:  createLiteral(createToken("1", TokNumber)),
 						},
 					},
 				},
@@ -487,9 +487,9 @@ func TestParser(t *testing.T) {
 					words: []Word{
 						createLiteral(createToken("echo", TokLiteral)),
 						Range{
-							first: createToken("1", TokNumber),
-							last:  createToken("10", TokNumber),
-							incr:  createToken("2", TokNumber),
+							first: createLiteral(createToken("1", TokNumber)),
+							last:  createLiteral(createToken("10", TokNumber)),
+							incr:  createLiteral(createToken("2", TokNumber)),
 						},
 					},
 				},
@@ -522,9 +522,9 @@ func TestParser(t *testing.T) {
 						Range{
 							prefix: createLiteral(createToken("foo-", TokLiteral)),
 							suffix: createLiteral(createToken("-bar", TokLiteral)),
-							first:  createToken("1", TokNumber),
-							last:   createToken("10", TokNumber),
-							incr:   createToken("1", TokNumber),
+							first:  createLiteral(createToken("1", TokNumber)),
+							last:   createLiteral(createToken("10", TokNumber)),
+							incr:   createLiteral(createToken("1", TokNumber)),
 						},
 					},
 				},
@@ -540,15 +540,15 @@ func TestParser(t *testing.T) {
 							words: []Word{
 								Range{
 									prefix: createLiteral(createToken("foo-", TokLiteral)),
-									first:  createToken("1", TokNumber),
-									last:   createToken("10", TokNumber),
-									incr:   createToken("1", TokNumber),
+									first:  createLiteral(createToken("1", TokNumber)),
+									last:   createLiteral(createToken("10", TokNumber)),
+									incr:   createLiteral(createToken("1", TokNumber)),
 								},
 								Range{
 									prefix: createLiteral(createToken("bar-", TokLiteral)),
-									first:  createToken("1", TokNumber),
-									last:   createToken("10", TokNumber),
-									incr:   createToken("1", TokNumber),
+									first:  createLiteral(createToken("1", TokNumber)),
+									last:   createLiteral(createToken("10", TokNumber)),
+									incr:   createLiteral(createToken("1", TokNumber)),
 								},
 							},
 						},
@@ -565,14 +565,14 @@ func TestParser(t *testing.T) {
 						Serie{
 							words: []Word{
 								Range{
-									first: createToken("1", TokNumber),
-									last:  createToken("10", TokNumber),
-									incr:  createToken("1", TokNumber),
+									first: createLiteral(createToken("1", TokNumber)),
+									last:  createLiteral(createToken("10", TokNumber)),
+									incr:  createLiteral(createToken("1", TokNumber)),
 								},
 								Range{
-									first: createToken("10", TokNumber),
-									last:  createToken("100", TokNumber),
-									incr:  createToken("1", TokNumber),
+									first: createLiteral(createToken("10", TokNumber)),
+									last:  createLiteral(createToken("100", TokNumber)),
+									incr:  createLiteral(createToken("1", TokNumber)),
 								},
 							},
 						},
@@ -588,9 +588,9 @@ func TestParser(t *testing.T) {
 						createLiteral(createToken("echo", TokLiteral)),
 						Range{
 							prefix: Range{
-								first: createToken("1", TokNumber),
-								last:  createToken("10", TokNumber),
-								incr:  createToken("1", TokNumber),
+								first: createLiteral(createToken("1", TokNumber)),
+								last:  createLiteral(createToken("10", TokNumber)),
+								incr:  createLiteral(createToken("1", TokNumber)),
 							},
 							suffix: Serie{
 								words: []Word{
@@ -598,9 +598,9 @@ func TestParser(t *testing.T) {
 									createLiteral(createToken("bar", TokLiteral)),
 								},
 							},
-							first: createToken("100", TokNumber),
-							last:  createToken("1000", TokNumber),
-							incr:  createToken("10", TokNumber),
+							first: createLiteral(createToken("100", TokNumber)),
+							last:  createLiteral(createToken("1000", TokNumber)),
+							incr:  createLiteral(createToken("10", TokNumber)),
 						},
 					},
 				},

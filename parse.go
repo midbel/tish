@@ -270,7 +270,7 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
 		return nil, fmt.Errorf("range(first): unexpected token %s, want 'number|variable'", p.curr)
 	}
-	r.first = p.curr
+	r.first = Literal{token: p.curr}
 	p.next()
 	if p.curr.Type != TokRange {
 		return nil, fmt.Errorf("range: unexpected token %s, want 'range'", p.curr)
@@ -279,8 +279,8 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
 		return nil, fmt.Errorf("range(last): unexpected token %s, want 'number|variable'", p.curr)
 	}
-	r.last = p.curr
-	r.incr = Token{Literal: "1", Type: TokNumber}
+	r.last = Literal{token: p.curr}
+	r.incr = Literal{token: Token{Literal: "1", Type: TokNumber}}
 	p.next()
 	if p.curr.Type == TokRange {
 		p.next()
@@ -288,7 +288,7 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 		if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
 			return nil, fmt.Errorf("range(incr): unexpected token %s, want 'number|variable'", p.curr)
 		}
-		r.incr = p.curr
+		r.incr = Literal{token: p.curr}
 
 		p.next()
 	}
