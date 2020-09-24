@@ -312,7 +312,6 @@ func (p *Parser) parseSerie(s Serie) (Word, error) {
 		}
 		s.words = append(s.words, w)
 		if p.curr.Type == TokEndBrace {
-			p.next()
 			break
 		}
 		if p.curr.Type != TokSerie {
@@ -320,6 +319,11 @@ func (p *Parser) parseSerie(s Serie) (Word, error) {
 		}
 		p.next()
 	}
+	if p.curr.Type != TokEndBrace {
+		return nil, fmt.Errorf("serie: unexpected token %s, want 'brace'", p.curr)
+	}
+	p.next()
+
 	suffix, err := p.parseWord()
 	if err == nil && suffix != nil {
 		s.suffix = suffix

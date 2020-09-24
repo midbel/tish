@@ -558,21 +558,21 @@ func TestParser(t *testing.T) {
 		},
 		{
 			Input: "echo {{1..10},{10..100}}",
-			Cmds:  []Command{
+			Cmds: []Command{
 				Simple{
 					words: []Word{
 						createLiteral(createToken("echo", TokLiteral)),
 						Serie{
 							words: []Word{
 								Range{
-									first:  createToken("1", TokNumber),
-									last:   createToken("10", TokNumber),
-									incr:   createToken("1", TokNumber),
+									first: createToken("1", TokNumber),
+									last:  createToken("10", TokNumber),
+									incr:  createToken("1", TokNumber),
 								},
 								Range{
-									first:  createToken("10", TokNumber),
-									last:   createToken("100", TokNumber),
-									incr:   createToken("1", TokNumber),
+									first: createToken("10", TokNumber),
+									last:  createToken("100", TokNumber),
+									incr:  createToken("1", TokNumber),
 								},
 							},
 						},
