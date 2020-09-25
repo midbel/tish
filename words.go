@@ -3,7 +3,6 @@ package tish
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -25,46 +24,6 @@ type Evaluator interface {
 	fmt.Stringer
 	Eval(Environment) (int, error)
 	Equal(Evaluator) bool
-}
-
-type StringList interface {
-	Fields() []string
-	Split(string) []string
-}
-
-type Unquoted string
-
-func (u Unquoted) Fields() []string {
-	return u.Split(" \t\n")
-}
-
-func (u Unquoted) Split(cutset string) []string {
-	return splitString(string(u), []rune(cutset))
-}
-
-type Quoted string
-
-func (q Quoted) Fields() []string {
-	return q.Split("")
-}
-
-func (q Quoted) Split(cutset string) []string {
-	return splitString(string(q), []rune(cutset))
-}
-
-func splitString(str string, cutset []rune) []string {
-	if len(cutset) == 0 || str == "" {
-		return []string{str}
-	}
-	sort.Slice(cutset, func(i, j int) bool {
-		return cutset[i] < cutset[j]
-	})
-	return strings.FieldsFunc(str, func(r rune) bool {
-		x := sort.Search(len(cutset), func(i int) bool {
-			return cutset[i] >= r
-		})
-		return x < len(cutset) && cutset[x] == r
-	})
 }
 
 type WordList struct {
