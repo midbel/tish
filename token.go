@@ -247,13 +247,18 @@ func (t Token) String() string {
 	}
 }
 
+func (t Token) isValue() bool {
+	k := t.Type
+	return k == TokLiteral || k == TokNumber || k == TokVariable
+}
+
 func (t Token) isKeyword() bool {
 	return t.Type == TokKeyword
 }
 
 func (t Token) isSimple() bool {
 	switch t.Type {
-	case TokLiteral, TokVariable, TokBegArith, TokBegExp, TokBegBrace:
+	case TokLiteral, TokVariable, TokNumber, TokBegArith, TokBegExp, TokBegBrace:
 		return true
 	default:
 		return false

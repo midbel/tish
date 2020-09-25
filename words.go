@@ -398,23 +398,10 @@ func (e Length) expand(env Environment) string {
 	return strconv.Itoa(len(str))
 }
 
-type Brace interface {
-	setSuffix(Word)
-	setPrefix(Word)
-}
-
 type Serie struct {
 	prefix Word
 	suffix Word
 	words  []Word
-}
-
-func (s Serie) setPrefix(w Word) {
-	s.prefix = w
-}
-
-func (s Serie) setSuffix(w Word) {
-	s.suffix = w
 }
 
 func (s Serie) Expand(env Environment) []string {
@@ -495,14 +482,6 @@ type Range struct {
 	incr   Word
 }
 
-func (r Range) setPrefix(w Word) {
-	r.prefix = w
-}
-
-func (r Range) setSuffix(w Word) {
-	r.suffix = w
-}
-
 func (r Range) Expand(env Environment) []string {
 	return r.expand(env)
 }
@@ -519,9 +498,16 @@ func (r Range) expand(env Environment) []string {
 	} else {
 		isLess = func(fst, lst int) bool { return fst <= lst }
 	}
-	vs := make([]string, 0, 10)
+	var (
+		vs  = make([]string, 0, 10)
+		pad = r.computePadding(env)
+	)
 	for isLess(first, last) {
-		vs = append(vs, strconv.Itoa(first))
+		str := strconv.Itoa(first)
+		if n := len(str); n < pad {
+			str = strings.Repeat("0", pad-n) + str
+		}
+		vs = append(vs, str)
 		first += incr
 	}
 	vs = r.expandPrefix(vs, env)
@@ -570,6 +556,22 @@ func (r Range) expandLimits(env Environment) (int, int, int) {
 		return v
 	}
 	return convert(r.first), convert(r.last), convert(r.incr)
+}
+
+func (r Range) computePadding(env Environment) int {
+	es := r.first.Expand(env)
+	if len(es) != 1 {
+		return 0
+	}
+	str := es[0]
+	if len(str) <= 1 {
+		return 0
+	}
+	var pad int
+	for pad < len(str)-1 && str[pad] == '0' {
+		pad++
+	}
+	return pad
 }
 
 func (r Range) String() string {

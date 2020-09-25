@@ -80,6 +80,14 @@ func testRanges(t *testing.T) {
 		},
 		{
 			Word: Range{
+				first: createLiteral(createToken("0005", TokNumber)),
+				last:  createLiteral(createToken("10", TokNumber)),
+				incr:  createLiteral(createToken("1", TokNumber)),
+			},
+			Want: "005 006 007 008 009 010",
+		},
+		{
+			Word: Range{
 				first: createLiteral(createToken("5", TokNumber)),
 				last:  createLiteral(createToken("0", TokNumber)),
 				incr:  createLiteral(createToken("1", TokNumber)),
