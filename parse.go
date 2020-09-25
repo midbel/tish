@@ -268,15 +268,6 @@ func (p *Parser) parseExpansion() (Word, error) {
 
 func (p *Parser) parseRange(r Range) (Word, error) {
 	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
-		return nil, fmt.Errorf("range(first): unexpected token %s, want 'number|variable'", p.curr)
-	}
-	r.first = Literal{token: p.curr}
-	p.next()
-	if p.curr.Type != TokRange {
-		return nil, fmt.Errorf("range: unexpected token %s, want 'range'", p.curr)
-	}
-	p.next()
-	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
 		return nil, fmt.Errorf("range(last): unexpected token %s, want 'number|variable'", p.curr)
 	}
 	r.last = Literal{token: p.curr}
@@ -297,11 +288,14 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 	}
 	p.next()
 
-	suffix, err := p.parseWord()
-	if err == nil && suffix != nil {
+	if p.curr.Type != TokSerie && p.curr.Type != TokRange {
+		suffix, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
 		r.suffix = suffix
 	}
-	return r, err
+	return r, nil
 }
 
 func (p *Parser) parseSerie(s Serie) (Word, error) {
@@ -324,21 +318,36 @@ func (p *Parser) parseSerie(s Serie) (Word, error) {
 	}
 	p.next()
 
-	suffix, err := p.parseWord()
-	if err == nil && suffix != nil {
+	if p.curr.Type != TokSerie && p.curr.Type != TokRange {
+		suffix, err := p.parseWord()
+		if err != nil {
+			return nil, err
+		}
 		s.suffix = suffix
 	}
-	return s, err
+	return s, nil
 }
 
 func (p *Parser) parseBraces(prefix Word) (Word, error) {
 	p.next()
-	switch p.peek.Type {
+	first, err := p.parseWord()
+	if err != nil {
+		return nil, err
+	}
+	switch p.curr.Type {
 	case TokSerie:
-		s := Serie{prefix: prefix}
+		p.next()
+		s := Serie{
+			prefix: prefix,
+			words:  []Word{first},
+		}
 		return p.parseSerie(s)
 	case TokRange:
-		r := Range{prefix: prefix}
+		p.next()
+		r := Range{
+			prefix: prefix,
+			first:  first,
+		}
 		return p.parseRange(r)
 	default:
 		return nil, fmt.Errorf("brace: unexpected token %s, want 'serie|range'", p.peek)
@@ -469,7 +478,10 @@ func (p *Parser) parseWord() (Word, error) {
 			w, err = p.parseArithmetic()
 		case TokBegBrace:
 			w, err = p.parseBraces(ws.asWord())
-			ws.words = ws.words[:0]
+			if err == nil {
+				ws = WordList{words: []Word{w}}
+				continue
+			}
 		case TokBegExp:
 			w, err = p.parseExpansion()
 		case TokKeyword:

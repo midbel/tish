@@ -14,6 +14,13 @@ type Word interface {
 	Expand(Environment) string
 }
 
+func CompareWords(fst, snd Word) bool {
+	if fst == nil && snd == nil {
+		return true
+	}
+	return fst != nil && snd != nil && fst.Equal(snd)
+}
+
 type Evaluator interface {
 	fmt.Stringer
 	Eval(Environment) (int, error)
@@ -123,7 +130,7 @@ func createLiteral(tok Token) Word {
 func (i Literal) Expand(env Environment) string {
 	var str string
 	switch i.token.Type {
-	case TokLiteral:
+	case TokLiteral, TokNumber:
 		str = i.token.Literal
 	case TokVariable:
 		str = env.Resolve(i.token.Literal)
@@ -428,10 +435,7 @@ func (s Serie) Equal(other Command) bool {
 			return false
 		}
 	}
-	if (s.prefix != nil && c.prefix != nil) && (s.suffix != nil && c.suffix != nil) {
-		return s.prefix.Equal(c.prefix) && s.suffix.Equal(c.suffix)
-	}
-	return (s.prefix == nil && c.prefix == nil) && (s.suffix == nil && c.suffix == nil)
+	return CompareWords(s.prefix, c.prefix) && CompareWords(s.suffix, c.suffix)
 }
 
 type Range struct {
@@ -459,10 +463,7 @@ func (r Range) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	if (r.prefix != nil && c.prefix != nil) && (r.suffix != nil && c.suffix != nil) {
-		return r.prefix.Equal(c.prefix) && r.suffix.Equal(c.suffix)
-	}
-	return (r.prefix == nil && c.prefix == nil) && (r.suffix == nil && c.suffix == nil)
+	return CompareWords(r.prefix, c.prefix) && CompareWords(r.suffix, c.suffix)
 }
 
 type Expr struct {
