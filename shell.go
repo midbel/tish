@@ -252,13 +252,6 @@ func (s *Shell) executeIf(cmd If) {
 }
 
 func (s *Shell) executeCase(cmd Case) {
-	str := cmd.word.Expand(s.vars)
-	for _, c := range cmd.clauses {
-		if c.Match(str, s.vars) {
-			s.execute(c.body)
-			break
-		}
-	}
 }
 
 func (s *Shell) executeList(cmd List) {

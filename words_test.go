@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -267,7 +268,7 @@ func testWordCase(t *testing.T, data []WordCase) {
 	e := makeEnv()
 	for _, d := range data {
 		got := d.Word.Expand(e)
-		if got != d.Want {
+		if strings.Join(got, " ") != d.Want {
 			t.Errorf("%s: length mismatched! want %s, got %s", d.Word, d.Want, got)
 		}
 	}

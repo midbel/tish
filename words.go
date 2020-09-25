@@ -10,7 +10,7 @@ import (
 
 type Word interface {
 	Command
-	Expand(Environment) string
+	Expand(Environment) []string
 }
 
 func CompareWords(fst, snd Word) bool {
@@ -34,11 +34,16 @@ func createList(ws ...Word) Word {
 	return WordList{ws}
 }
 
-func (w WordList) Expand(env Environment) string {
+func (w WordList) Expand(env Environment) []string {
+	str := w.expand(env)
+	return []string{str}
+}
+
+func (w WordList) expand(env Environment) string {
 	ws := make([]string, 0, len(w.words))
 	for _, w := range w.words {
 		str := w.Expand(env)
-		ws = append(ws, str)
+		ws = append(ws, str...)
 	}
 	return strings.Join(ws, "")
 }
@@ -86,7 +91,12 @@ func createLiteral(tok Token) Word {
 	return Literal{tok}
 }
 
-func (i Literal) Expand(env Environment) string {
+func (i Literal) Expand(env Environment) []string {
+	str := i.expand(env)
+	return []string{str}
+}
+
+func (i Literal) expand(env Environment) string {
 	var str string
 	switch i.token.Type {
 	case TokLiteral, TokNumber:
@@ -128,7 +138,12 @@ func (s Slice) Equal(other Command) bool {
 	return Compare(s.ident, c.ident) && Compare(s.offset, c.offset) && Compare(s.length, c.length)
 }
 
-func (s Slice) Expand(env Environment) string {
+func (s Slice) Expand(env Environment) []string {
+	str := s.expand(env)
+	return []string{str}
+}
+
+func (s Slice) expand(env Environment) string {
 	str := env.Resolve(s.ident.Literal)
 	if str == "" {
 		return str
@@ -183,7 +198,12 @@ func (t Trim) Equal(other Command) bool {
 	return Compare(t.ident, c.ident) && Compare(t.str, c.str) && Compare(t.part, c.part)
 }
 
-func (t Trim) Expand(env Environment) string {
+func (t Trim) Expand(env Environment) []string {
+	str := t.expand(env)
+	return []string{str}
+}
+
+func (t Trim) expand(env Environment) string {
 	str := env.Resolve(t.ident.Literal)
 	if str == "" {
 		return str
@@ -242,7 +262,12 @@ func (r Replace) Equal(other Command) bool {
 	return Compare(r.ident, c.ident) && Compare(r.src, c.src) && Compare(r.dst, c.dst) && Compare(r.op, c.op)
 }
 
-func (r Replace) Expand(env Environment) string {
+func (r Replace) Expand(env Environment) []string {
+	str := r.expand(env)
+	return []string{str}
+}
+
+func (r Replace) expand(env Environment) string {
 	str := env.Resolve(r.ident.Literal)
 	if str == "" {
 		return str
@@ -284,7 +309,12 @@ func (t Transform) Equal(other Command) bool {
 	return Compare(t.ident, c.ident) && Compare(t.op, c.op)
 }
 
-func (t Transform) Expand(env Environment) string {
+func (t Transform) Expand(env Environment) []string {
+	str := t.expand(env)
+	return []string{str}
+}
+
+func (t Transform) expand(env Environment) string {
 	str := env.Resolve(t.ident.Literal)
 	if str == "" {
 		return str
@@ -358,7 +388,12 @@ func (e Length) Equal(other Command) bool {
 	return Compare(e.ident, c.ident)
 }
 
-func (e Length) Expand(env Environment) string {
+func (e Length) Expand(env Environment) []string {
+	str := e.expand(env)
+	return []string{str}
+}
+
+func (e Length) expand(env Environment) string {
 	str := env.Resolve(e.ident.Literal)
 	return strconv.Itoa(len(str))
 }
@@ -369,8 +404,8 @@ type Serie struct {
 	words  []Word
 }
 
-func (s Serie) Expand(env Environment) string {
-	return ""
+func (s Serie) Expand(env Environment) []string {
+	return nil
 }
 
 func (s Serie) String() string {
@@ -405,8 +440,8 @@ type Range struct {
 	incr   Word
 }
 
-func (r Range) Expand(env Environment) string {
-	return ""
+func (r Range) Expand(env Environment) []string {
+	return nil
 }
 
 func (r Range) String() string {
@@ -436,7 +471,12 @@ func createExpr(es ...Evaluator) Word {
 	return Expr{EvalList{es}}
 }
 
-func (e Expr) Expand(env Environment) string {
+func (e Expr) Expand(env Environment) []string {
+	str := e.expand(env)
+	return []string{str}
+}
+
+func (e Expr) expand(env Environment) string {
 	r, err := e.eval.Eval(env)
 	if err != nil {
 		return ""

@@ -155,11 +155,6 @@ type Clause struct {
 }
 
 func (c Clause) Match(str string, env Environment) bool {
-	for _, w := range c.pattern {
-		if str == w.Expand(env) {
-			return true
-		}
-	}
 	return false
 }
 
