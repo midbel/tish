@@ -557,6 +557,34 @@ func TestParser(t *testing.T) {
 			},
 		},
 		{
+			Input: "echo {foo-{1..10}-bar,bar-{1..10}-foo}",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Serie{
+							words: []Word{
+								Range{
+									prefix: createLiteral(createToken("foo-", TokLiteral)),
+									suffix: createLiteral(createToken("-bar", TokLiteral)),
+									first:  createLiteral(createToken("1", TokNumber)),
+									last:   createLiteral(createToken("10", TokNumber)),
+									incr:   createLiteral(createToken("1", TokNumber)),
+								},
+								Range{
+									prefix: createLiteral(createToken("bar-", TokLiteral)),
+									suffix: createLiteral(createToken("-foo", TokLiteral)),
+									first:  createLiteral(createToken("1", TokNumber)),
+									last:   createLiteral(createToken("10", TokNumber)),
+									incr:   createLiteral(createToken("1", TokNumber)),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			Input: "echo {{1..10},{10..100}}",
 			Cmds: []Command{
 				Simple{

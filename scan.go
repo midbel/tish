@@ -104,6 +104,19 @@ const (
 type ScannerState struct {
 	simple int
 	quoted int
+	braced int
+}
+
+func (s *ScannerState) enterBraces() {
+	s.braced++
+}
+
+func (s *ScannerState) leaveBraces() {
+	s.braced++
+}
+
+func (s *ScannerState) isBrace() bool {
+	return s.braced > 0
 }
 
 func (s *ScannerState) enterQuote() {
@@ -146,6 +159,7 @@ func (s *ScannerState) canAssign() bool {
 func (s *ScannerState) reset() {
 	s.simple = stateFstBlank
 	s.quoted = 0
+	s.braced = 0
 }
 
 type Scanner struct {
@@ -308,6 +322,9 @@ func scanUntil(s *Scanner, fn func(rune) bool) {
 
 func scanLiteral(s *Scanner) ScanFunc {
 	isDelim := func(r rune) bool {
+		if s.isBrace() {
+			return r == comma || (r == dot && r == s.nextRune())
+		}
 		return isBlank(r) || isComment(r) || isQuote(r) || isControl(r) || isVar(r)
 	}
 	var buf bytes.Buffer
@@ -453,6 +470,9 @@ func scanComment(s *Scanner) ScanFunc {
 }
 
 func scanBraces(s *Scanner) ScanFunc {
+	s.enterBraces()
+	defer s.leaveBraces()
+
 	s.emitType(TokBegBrace)
 	for !s.isDone() {
 		switch {
@@ -460,7 +480,7 @@ func scanBraces(s *Scanner) ScanFunc {
 			s.skip(isSpace)
 		case isVar(s.char):
 			scanDollar(s)(s)
-		case isLetter(s.char):
+		case s.char == minus || isLetter(s.char):
 			scanUntil(s, func(r rune) bool {
 				return r == comma || r == lcurly || r == rcurly || (r == dot && s.nextRune() == dot)
 			})

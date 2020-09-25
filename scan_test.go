@@ -747,6 +747,28 @@ func TestScanner(t *testing.T) {
 				{Literal: "post", Type: TokLiteral},
 			},
 		},
+		{
+			Input: "{foo-{1..5}-bar,bar-{5..10}-foo}",
+			Tokens: []Token{
+				{Type: TokBegBrace},
+				{Literal: "foo-", Type: TokLiteral},
+				{Type: TokBegBrace},
+				{Literal: "1", Type: TokNumber},
+				{Type: TokRange},
+				{Literal: "5", Type: TokNumber},
+				{Type: TokEndBrace},
+				{Literal: "-bar", Type: TokLiteral},
+				{Type: TokSerie},
+				{Literal: "bar-", Type: TokLiteral},
+				{Type: TokBegBrace},
+				{Literal: "5", Type: TokNumber},
+				{Type: TokRange},
+				{Literal: "10", Type: TokNumber},
+				{Type: TokEndBrace},
+				{Literal: "-foo", Type: TokLiteral},
+				{Type: TokEndBrace},
+			},
+		},
 	}
 	testTokens(t, data)
 }
