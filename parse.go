@@ -270,18 +270,16 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 	if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
 		return nil, fmt.Errorf("range(last): unexpected token %s, want 'number|variable'", p.curr)
 	}
-	r.last = Literal{token: p.curr}
-	r.incr = Literal{token: Token{Literal: "1", Type: TokNumber}}
-	p.next()
+	r.last, _ = p.parseWord()
 	if p.curr.Type == TokRange {
 		p.next()
 
 		if p.curr.Type != TokNumber && p.curr.Type != TokVariable {
 			return nil, fmt.Errorf("range(incr): unexpected token %s, want 'number|variable'", p.curr)
 		}
-		r.incr = Literal{token: p.curr}
-
-		p.next()
+		r.incr, _ = p.parseWord()
+	} else {
+		r.incr = Literal{token: Token{Literal: "1", Type: TokNumber}}
 	}
 	if p.curr.Type != TokEndBrace {
 		return nil, fmt.Errorf("range: unexpected token %s, want 'brace'", p.curr)
@@ -687,9 +685,7 @@ func (p *Parser) parseFor() (Command, error) {
 	)
 	cmd.ident = p.curr
 	p.next()
-	for p.curr.Type == TokBlank {
-		p.next()
-	}
+	p.skipBlanks()
 
 	if err := p.parseKeyword(kwIn, true); err != nil {
 		return nil, err
@@ -720,10 +716,7 @@ func (p *Parser) parseFor() (Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.parseKeyword(kwDone, true); err != nil {
-		return nil, err
-	}
-	return cmd, nil
+	return cmd, p.parseKeyword(kwDone, true)
 }
 
 func (p *Parser) parseWhile() (Command, error) {
@@ -812,7 +805,7 @@ func (p *Parser) skipBlanks() {
 }
 
 func (p *Parser) next() {
-	if p.curr.Type == TokEOF {
+	if p.isDone() {
 		return
 	}
 	p.curr = p.peek

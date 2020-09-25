@@ -75,6 +75,13 @@ func (i List) Equal(other Command) bool {
 	return true
 }
 
+func (i List) asCommand() Command {
+	if len(i.cmds) == 1 {
+		return i.cmds[0]
+	}
+	return i
+}
+
 type And struct {
 	left  Command
 	right Command
