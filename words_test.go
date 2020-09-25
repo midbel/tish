@@ -17,6 +17,111 @@ func TestExpand(t *testing.T) {
 	t.Run("transform", testTransform)
 	t.Run("slice", testSlice)
 	t.Run("expr", testExpr)
+	t.Run("series", testSeries)
+	t.Run("ranges", testRanges)
+}
+
+func testSeries(t *testing.T) {
+	data := []WordCase{
+		{
+			Word: Serie{
+				words: []Word{
+					createLiteral(createToken("foo", TokLiteral)),
+					createLiteral(createToken("bar", TokLiteral)),
+				},
+			},
+			Want: "foo bar",
+		},
+		{
+			Word: Serie{
+				prefix: createLiteral(createToken("prefix-", TokLiteral)),
+				suffix: createLiteral(createToken("-suffix", TokLiteral)),
+				words: []Word{
+					createLiteral(createToken("foo", TokLiteral)),
+					createLiteral(createToken("bar", TokLiteral)),
+				},
+			},
+			Want: "prefix-foo-suffix prefix-bar-suffix",
+		},
+		{
+			Word: Serie{
+				words: []Word{
+					Serie{
+						words: []Word{
+							createLiteral(createToken("A", TokLiteral)),
+							createLiteral(createToken("B", TokLiteral)),
+							createLiteral(createToken("C", TokLiteral)),
+						},
+					},
+					Serie{
+						words: []Word{
+							createLiteral(createToken("a", TokLiteral)),
+							createLiteral(createToken("b", TokLiteral)),
+							createLiteral(createToken("c", TokLiteral)),
+						},
+					},
+				},
+			},
+			Want: "A B C a b c",
+		},
+	}
+	testWordCase(t, data)
+}
+
+func testRanges(t *testing.T) {
+	data := []WordCase{
+		{
+			Word: Range{
+				first: createLiteral(createToken("0", TokNumber)),
+				last:  createLiteral(createToken("5", TokNumber)),
+				incr:  createLiteral(createToken("1", TokNumber)),
+			},
+			Want: "0 1 2 3 4 5",
+		},
+		{
+			Word: Range{
+				first: createLiteral(createToken("5", TokNumber)),
+				last:  createLiteral(createToken("0", TokNumber)),
+				incr:  createLiteral(createToken("1", TokNumber)),
+			},
+			Want: "5 4 3 2 1 0",
+		},
+		{
+			Word: Range{
+				first: createLiteral(createToken("0", TokNumber)),
+				last:  createLiteral(createToken("10", TokNumber)),
+				incr:  createLiteral(createToken("2", TokNumber)),
+			},
+			Want: "0 2 4 6 8 10",
+		},
+		{
+			Word: Range{
+				first: createLiteral(createToken("5", TokNumber)),
+				last:  createLiteral(createToken("5", TokNumber)),
+				incr:  createLiteral(createToken("2", TokNumber)),
+			},
+			Want: "5",
+		},
+		{
+			Word: Range{
+				first: createLiteral(createToken("0", TokNumber)),
+				last:  createLiteral(createToken("0", TokNumber)),
+				incr:  createLiteral(createToken("2", TokNumber)),
+			},
+			Want: "0",
+		},
+		{
+			Word: Range{
+				prefix: createLiteral(createToken("foo-", TokLiteral)),
+				suffix: createLiteral(createToken("-bar", TokLiteral)),
+				first:  createLiteral(createToken("0", TokNumber)),
+				last:   createLiteral(createToken("10", TokNumber)),
+				incr:   createLiteral(createToken("2", TokNumber)),
+			},
+			Want: "foo-0-bar foo-2-bar foo-4-bar foo-6-bar foo-8-bar foo-10-bar",
+		},
+	}
+	testWordCase(t, data)
 }
 
 func testExpr(t *testing.T) {

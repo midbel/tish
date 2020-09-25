@@ -405,7 +405,49 @@ type Serie struct {
 }
 
 func (s Serie) Expand(env Environment) []string {
-	return nil
+	return s.expand(env)
+}
+
+func (s Serie) expand(env Environment) []string {
+	ws := make([]string, 0, len(s.words))
+	for i := range s.words {
+		str := s.words[i].Expand(env)
+		ws = append(ws, str...)
+	}
+	ws = s.expandPrefix(ws, env)
+	return s.expandSuffix(ws, env)
+}
+
+func (s Serie) expandPrefix(ws []string, env Environment) []string {
+	if s.prefix == nil {
+		return ws
+	}
+	var (
+		ps = s.prefix.Expand(env)
+		vs = make([]string, 0, len(ps)*len(ws))
+	)
+	for i := range ws {
+		for j := range ps {
+			vs = append(vs, ps[j]+ws[i])
+		}
+	}
+	return vs
+}
+
+func (s Serie) expandSuffix(ws []string, env Environment) []string {
+	if s.suffix == nil {
+		return ws
+	}
+	var (
+		ps = s.suffix.Expand(env)
+		vs = make([]string, 0, len(ps)*len(ws))
+	)
+	for i := range ws {
+		for j := range ps {
+			vs = append(vs, ws[i]+ps[j])
+		}
+	}
+	return vs
 }
 
 func (s Serie) String() string {
@@ -441,7 +483,72 @@ type Range struct {
 }
 
 func (r Range) Expand(env Environment) []string {
-	return nil
+	return r.expand(env)
+}
+
+func (r Range) expand(env Environment) []string {
+	first, last, incr := r.expandLimits(env)
+	if incr == 0 {
+		return nil
+	}
+	var isLess func(int, int) bool
+	if last < first {
+		incr = -incr
+		isLess = func(fst, lst int) bool { return fst >= lst }
+	} else {
+		isLess = func(fst, lst int) bool { return fst <= lst }
+	}
+	vs := make([]string, 0, 10)
+	for isLess(first, last) {
+		vs = append(vs, strconv.Itoa(first))
+		first += incr
+	}
+	vs = r.expandPrefix(vs, env)
+	return r.expandSuffix(vs, env)
+}
+
+func (r Range) expandPrefix(ws []string, env Environment) []string {
+	if r.prefix == nil {
+		return ws
+	}
+	var (
+		ps = r.prefix.Expand(env)
+		vs = make([]string, 0, len(ps)*len(ws))
+	)
+	for i := range ws {
+		for j := range ps {
+			vs = append(vs, ps[j]+ws[i])
+		}
+	}
+	return vs
+}
+
+func (r Range) expandSuffix(ws []string, env Environment) []string {
+	if r.suffix == nil {
+		return ws
+	}
+	var (
+		ps = r.suffix.Expand(env)
+		vs = make([]string, 0, len(ps)*len(ws))
+	)
+	for i := range ws {
+		for j := range ps {
+			vs = append(vs, ws[i]+ps[j])
+		}
+	}
+	return vs
+}
+
+func (r Range) expandLimits(env Environment) (int, int, int) {
+	convert := func(w Word) int {
+		is := w.Expand(env)
+		if len(is) != 1 {
+			return 0
+		}
+		v, _ := strconv.Atoi(is[0])
+		return v
+	}
+	return convert(r.first), convert(r.last), convert(r.incr)
 }
 
 func (r Range) String() string {
