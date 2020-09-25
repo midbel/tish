@@ -398,10 +398,23 @@ func (e Length) expand(env Environment) string {
 	return strconv.Itoa(len(str))
 }
 
+type Brace interface {
+	setSuffix(Word)
+	setPrefix(Word)
+}
+
 type Serie struct {
 	prefix Word
 	suffix Word
 	words  []Word
+}
+
+func (s Serie) setPrefix(w Word) {
+	s.prefix = w
+}
+
+func (s Serie) setSuffix(w Word) {
+	s.suffix = w
 }
 
 func (s Serie) Expand(env Environment) []string {
@@ -480,6 +493,14 @@ type Range struct {
 	first  Word
 	last   Word
 	incr   Word
+}
+
+func (r Range) setPrefix(w Word) {
+	r.prefix = w
+}
+
+func (r Range) setSuffix(w Word) {
+	r.suffix = w
 }
 
 func (r Range) Expand(env Environment) []string {

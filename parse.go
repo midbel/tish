@@ -285,14 +285,6 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 		return nil, fmt.Errorf("range: unexpected token %s, want 'brace'", p.curr)
 	}
 	p.next()
-
-	if p.curr.Type != TokSerie && p.curr.Type != TokRange {
-		suffix, err := p.parseWord()
-		if err != nil {
-			return nil, err
-		}
-		r.suffix = suffix
-	}
 	return r, nil
 }
 
@@ -315,18 +307,10 @@ func (p *Parser) parseSerie(s Serie) (Word, error) {
 		return nil, fmt.Errorf("serie: unexpected token %s, want 'brace'", p.curr)
 	}
 	p.next()
-
-	if p.curr.Type != TokSerie && p.curr.Type != TokRange {
-		suffix, err := p.parseWord()
-		if err != nil {
-			return nil, err
-		}
-		s.suffix = suffix
-	}
 	return s, nil
 }
 
-func (p *Parser) parseBraces(prefix Word) (Word, error) {
+func (p *Parser) parseBraces() (Word, error) {
 	p.next()
 	first, err := p.parseWord()
 	if err != nil {
@@ -335,17 +319,11 @@ func (p *Parser) parseBraces(prefix Word) (Word, error) {
 	switch p.curr.Type {
 	case TokSerie:
 		p.next()
-		s := Serie{
-			prefix: prefix,
-			words:  []Word{first},
-		}
+		s := Serie{words: []Word{first}}
 		return p.parseSerie(s)
 	case TokRange:
 		p.next()
-		r := Range{
-			prefix: prefix,
-			first:  first,
-		}
+		r := Range{first: first}
 		return p.parseRange(r)
 	default:
 		return nil, fmt.Errorf("brace: unexpected token %s, want 'serie|range'", p.peek)
@@ -475,11 +453,21 @@ func (p *Parser) parseWord() (Word, error) {
 		case TokBegArith:
 			w, err = p.parseArithmetic()
 		case TokBegBrace:
-			w, err = p.parseBraces(ws.asWord())
-			if err == nil {
-				ws = WordList{words: []Word{w}}
-				continue
+			w, err = p.parseBraces()
+			if err != nil {
+				return nil, err
 			}
+			switch x := w.(type) {
+			case Serie:
+				x.prefix = ws.asWord()
+				x.suffix, err = p.parseWord()
+				w = x
+			case Range:
+				x.prefix = ws.asWord()
+				x.suffix, err = p.parseWord()
+				w = x
+			}
+			return w, err
 		case TokBegExp:
 			w, err = p.parseExpansion()
 		case TokKeyword:
