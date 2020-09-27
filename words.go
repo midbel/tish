@@ -504,7 +504,7 @@ func (r Range) expand(env Environment) []string {
 	)
 	for isLess(first, last) {
 		str := strconv.Itoa(first)
-		if n := len(str); n < pad {
+		if n := len(str); pad > 0 && n < pad {
 			str = strings.Repeat("0", pad-n) + str
 		}
 		vs = append(vs, str)
@@ -571,7 +571,7 @@ func (r Range) computePadding(env Environment) int {
 	for pad < len(str)-1 && str[pad] == '0' {
 		pad++
 	}
-	return pad
+	return pad+1
 }
 
 func (r Range) String() string {

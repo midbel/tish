@@ -64,6 +64,40 @@ func testSeries(t *testing.T) {
 			},
 			Want: "A B C a b c",
 		},
+		// {
+		// 	Word: Serie{
+		// 		words: []Word{
+		// 			Range{
+		// 				first: createLiteral(createToken("A", TokLiteral)),
+		// 				last:  createLiteral(createToken("D", TokLiteral)),
+		// 				incr:  createLiteral(createToken("1", TokNumber)),
+		// 			},
+		// 			Range{
+		// 				first: createLiteral(createToken("a", TokLiteral)),
+		// 				last:  createLiteral(createToken("d", TokLiteral)),
+		// 				incr:  createLiteral(createToken("1", TokNumber)),
+		// 			},
+		// 		},
+		// 	},
+		// 	Want: "A B C D a b c d",
+		// },
+		{
+			Word: Serie{
+				words: []Word{
+					createLiteral(createToken("A", TokLiteral)),
+					createLiteral(createToken("B", TokLiteral)),
+					createLiteral(createToken("C", TokLiteral)),
+				},
+				suffix: Serie{
+					words: []Word{
+						createLiteral(createToken("1", TokLiteral)),
+						createLiteral(createToken("2", TokLiteral)),
+						createLiteral(createToken("3", TokLiteral)),
+					},
+				},
+			},
+			Want: "A1 A2 A3 B1 B2 B3 C1 C2 C3",
+		},
 	}
 	testWordCase(t, data)
 }
@@ -80,7 +114,7 @@ func testRanges(t *testing.T) {
 		},
 		{
 			Word: Range{
-				first: createLiteral(createToken("0005", TokNumber)),
+				first: createLiteral(createToken("005", TokNumber)),
 				last:  createLiteral(createToken("10", TokNumber)),
 				incr:  createLiteral(createToken("1", TokNumber)),
 			},
@@ -127,40 +161,6 @@ func testRanges(t *testing.T) {
 				incr:   createLiteral(createToken("2", TokNumber)),
 			},
 			Want: "foo-0-bar foo-2-bar foo-4-bar foo-6-bar foo-8-bar foo-10-bar",
-		},
-		{
-			Word: Serie{
-				words: []Word{
-					Range{
-						first: createLiteral(createToken("A", TokLiteral)),
-						last:  createLiteral(createToken("D", TokLiteral)),
-						incr:  createLiteral(createToken("1", TokNumber)),
-					},
-					Range{
-						first: createLiteral(createToken("a", TokLiteral)),
-						last:  createLiteral(createToken("d", TokLiteral)),
-						incr:  createLiteral(createToken("1", TokNumber)),
-					},
-				},
-			},
-			Want: "A B C D a b c d",
-		},
-		{
-			Word: Serie{
-				words: []Word{
-					createLiteral(createToken("A", TokLiteral)),
-					createLiteral(createToken("B", TokLiteral)),
-					createLiteral(createToken("C", TokLiteral)),
-				},
-				suffix: Serie{
-					words: []Word{
-						createLiteral(createToken("1", TokLiteral)),
-						createLiteral(createToken("2", TokLiteral)),
-						createLiteral(createToken("3", TokLiteral)),
-					},
-				},
-			},
-			Want: "A1 A2 A3 B1 B2 B3 C1 C2 C3",
 		},
 	}
 	testWordCase(t, data)
