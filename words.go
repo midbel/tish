@@ -3,6 +3,7 @@ package tish
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -11,6 +12,27 @@ import (
 type Word interface {
 	Command
 	Expand(Environment) []string
+}
+
+func Split(ws []string, delims string) []string {
+	if len(delims) == 0 {
+		return ws
+	}
+	var (
+		cs = []rune(delims)
+		vs = make([]string, 0, len(ws))
+	)
+	sort.Slice(cs, func(i, j int) bool { return cs[i] < cs[j] })
+	for _, w := range ws {
+		xs := strings.FieldsFunc(w, func(r rune) bool {
+			i := sort.Search(len(cs), func(i int) bool {
+				return r <= cs[i]
+			})
+			return i < len(cs) && r == cs[i]
+		})
+		vs = append(vs, xs...)
+	}
+	return vs
 }
 
 func CompareWords(fst, snd Word) bool {
@@ -65,7 +87,7 @@ func (w WordList) Equal(other Command) bool {
 		return false
 	}
 	for i := range w.words {
-		if !w.words[i].Equal(c.words[i]) {
+		if !CompareWords(w.words[i], c.words[i]) {
 			return false
 		}
 	}
@@ -467,7 +489,7 @@ func (s Serie) Equal(other Command) bool {
 		return false
 	}
 	for i := range s.words {
-		if !s.words[i].Equal(c.words[i]) {
+		if !CompareWords(s.words[i], c.words[i]) {
 			return false
 		}
 	}
@@ -571,7 +593,7 @@ func (r Range) computePadding(env Environment) int {
 	for pad < len(str)-1 && str[pad] == '0' {
 		pad++
 	}
-	return pad+1
+	return pad + 1
 }
 
 func (r Range) String() string {
@@ -583,7 +605,7 @@ func (r Range) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	ok = r.first.Equal(c.first) && r.last.Equal(c.last) && r.incr.Equal(c.incr)
+	ok = CompareWords(r.first, c.first) && CompareWords(r.last, c.last) && CompareWords(r.incr, c.incr)
 	if !ok {
 		return ok
 	}

@@ -40,7 +40,7 @@ func (s Simple) Equal(other Command) bool {
 		return false
 	}
 	for i := range s.words {
-		if !s.words[i].Equal(c.words[i]) {
+		if !CompareWords(s.words[i], c.words[i]) {
 			return false
 		}
 	}
@@ -134,7 +134,7 @@ func (c Case) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	if !c.word.Equal(x.word) {
+	if !CompareWords(c.word, x.word) {
 		return false
 	}
 	if len(c.clauses) != len(x.clauses) {
@@ -170,6 +170,14 @@ func (c Clause) Equal(other Command) bool {
 	x, ok := other.(Clause)
 	if !ok {
 		return ok
+	}
+	if len(c.pattern) != len(x.pattern) {
+		return false
+	}
+	for i := range c.pattern {
+		if !CompareWords(c.pattern[i], x.pattern[i]) {
+			return false
+		}
 	}
 	ok = Compare(c.op, x.op)
 	if c.body != nil && x.body != nil {
@@ -276,7 +284,7 @@ func (f For) Equal(other Command) bool {
 		return false
 	}
 	for i := range f.words {
-		if !f.words[i].Equal(c.words[i]) {
+		if !CompareWords(f.words[i], c.words[i]) {
 			return false
 		}
 	}
@@ -323,8 +331,5 @@ func (a Assign) Equal(other Command) bool {
 		return ok
 	}
 	ok = Compare(a.ident, c.ident)
-	if a.word != nil && c.word != nil {
-		return ok && a.word.Equal(c.word)
-	}
-	return ok && (a.word == nil && c.word == nil)
+	return ok && CompareWords(a.word, c.word)
 }
