@@ -3,7 +3,6 @@ package tish
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -12,27 +11,6 @@ import (
 type Word interface {
 	Command
 	Expand(Environment) []string
-}
-
-func Split(ws []string, delims string) []string {
-	if len(delims) == 0 {
-		return ws
-	}
-	var (
-		cs = []rune(delims)
-		vs = make([]string, 0, len(ws))
-	)
-	sort.Slice(cs, func(i, j int) bool { return cs[i] < cs[j] })
-	for _, w := range ws {
-		xs := strings.FieldsFunc(w, func(r rune) bool {
-			i := sort.Search(len(cs), func(i int) bool {
-				return r <= cs[i]
-			})
-			return i < len(cs) && r == cs[i]
-		})
-		vs = append(vs, xs...)
-	}
-	return vs
 }
 
 func CompareWords(fst, snd Word) bool {

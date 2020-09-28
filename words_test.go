@@ -64,23 +64,6 @@ func testSeries(t *testing.T) {
 			},
 			Want: "A B C a b c",
 		},
-		// {
-		// 	Word: Serie{
-		// 		words: []Word{
-		// 			Range{
-		// 				first: createLiteral(createToken("A", TokLiteral)),
-		// 				last:  createLiteral(createToken("D", TokLiteral)),
-		// 				incr:  createLiteral(createToken("1", TokNumber)),
-		// 			},
-		// 			Range{
-		// 				first: createLiteral(createToken("a", TokLiteral)),
-		// 				last:  createLiteral(createToken("d", TokLiteral)),
-		// 				incr:  createLiteral(createToken("1", TokNumber)),
-		// 			},
-		// 		},
-		// 	},
-		// 	Want: "A B C D a b c d",
-		// },
 		{
 			Word: Serie{
 				words: []Word{
@@ -164,59 +147,6 @@ func testRanges(t *testing.T) {
 		},
 	}
 	testWordCase(t, data)
-}
-
-func testExpr(t *testing.T) {
-	data := []struct {
-		Eval Evaluator
-		Want int
-	}{
-		{
-			Eval: Prefix{
-				op:    TokSub,
-				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
-			},
-			Want: -1,
-		},
-		{
-			Eval: Prefix{
-				op:    TokBinNot,
-				right: Number{ident: Token{Literal: "2", Type: TokNumber}},
-			},
-			Want: -3,
-		},
-		{
-			Eval: Infix{
-				op:   TokAdd,
-				left: Number{ident: Token{Literal: "1", Type: TokNumber}},
-				right: Prefix{
-					op:    TokSub,
-					right: Number{ident: Token{Literal: "1", Type: TokNumber}},
-				},
-			},
-			Want: 0,
-		},
-		{
-			Eval: Infix{
-				op:    TokSub,
-				left:  Identifier{ident: Token{Literal: "VAR", Type: TokVariable}},
-				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
-			},
-			Want: 0,
-		},
-	}
-	env := EmptyEnv()
-	env.Define("VAR", "1")
-	for _, d := range data {
-		got, err := d.Eval.Eval(env)
-		if err != nil {
-			t.Errorf("%s: unexpected error: %s", d.Eval, err)
-			continue
-		}
-		if got != d.Want {
-			t.Errorf("%s: result mismatched! want %d, got %d", d.Eval, d.Want, got)
-		}
-	}
 }
 
 func testLength(t *testing.T) {
@@ -417,6 +347,59 @@ func testWordCase(t *testing.T, data []WordCase) {
 		got := d.Word.Expand(e)
 		if strings.Join(got, " ") != d.Want {
 			t.Errorf("%s: length mismatched! want %s, got %s", d.Word, d.Want, got)
+		}
+	}
+}
+
+func testExpr(t *testing.T) {
+	data := []struct {
+		Eval Evaluator
+		Want int
+	}{
+		{
+			Eval: Prefix{
+				op:    TokSub,
+				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+			},
+			Want: -1,
+		},
+		{
+			Eval: Prefix{
+				op:    TokBinNot,
+				right: Number{ident: Token{Literal: "2", Type: TokNumber}},
+			},
+			Want: -3,
+		},
+		{
+			Eval: Infix{
+				op:   TokAdd,
+				left: Number{ident: Token{Literal: "1", Type: TokNumber}},
+				right: Prefix{
+					op:    TokSub,
+					right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+				},
+			},
+			Want: 0,
+		},
+		{
+			Eval: Infix{
+				op:    TokSub,
+				left:  Identifier{ident: Token{Literal: "VAR", Type: TokVariable}},
+				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+			},
+			Want: 0,
+		},
+	}
+	env := EmptyEnv()
+	env.Define("VAR", "1")
+	for _, d := range data {
+		got, err := d.Eval.Eval(env)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %s", d.Eval, err)
+			continue
+		}
+		if got != d.Want {
+			t.Errorf("%s: result mismatched! want %d, got %d", d.Eval, d.Want, got)
 		}
 	}
 }
