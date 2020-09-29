@@ -152,15 +152,15 @@ func testRanges(t *testing.T) {
 func testLength(t *testing.T) {
 	data := []WordCase{
 		{
-			Word: Length{ident: makeIdent("VAR")},
+			Word: Length{ident: createToken("VAR", TokVariable)},
 			Want: "6",
 		},
 		{
-			Word: Length{ident: makeIdent("TEST")},
+			Word: Length{ident: createToken("TEST", TokVariable)},
 			Want: "0",
 		},
 		{
-			Word: Length{ident: makeIdent("EMPTY")},
+			Word: Length{ident: createToken("EMPTY", TokVariable)},
 			Want: "0",
 		},
 	}
@@ -171,49 +171,49 @@ func testTrim(t *testing.T) {
 	data := []WordCase{
 		{
 			Word: Trim{
-				ident: makeIdent("VAR"),
-				str:   makeIdent("bar"),
-				part:  makeType(TokTrimSuffix),
+				ident: createToken("VAR", TokVariable),
+				str:   createToken("bar", TokLiteral),
+				part:  createType(TokTrimSuffix),
 			},
 			Want: "foo",
 		},
 		{
 			Word: Trim{
-				ident: makeIdent("VAR"),
-				str:   makeIdent("test"),
-				part:  makeType(TokTrimSuffix),
+				ident: createToken("VAR", TokVariable),
+				str:   createToken("test", TokLiteral),
+				part:  createType(TokTrimSuffix),
 			},
 			Want: "foobar",
 		},
 		{
 			Word: Trim{
-				ident: makeIdent("VAR"),
-				str:   makeIdent("test"),
-				part:  makeType(TokTrimSuffixLong),
+				ident: createToken("VAR", TokVariable),
+				str:   createToken("test", TokLiteral),
+				part:  createType(TokTrimSuffixLong),
 			},
 			Want: "foobar",
 		},
 		{
 			Word: Trim{
-				ident: makeIdent("VAR"),
-				str:   makeIdent("foo"),
-				part:  makeType(TokTrimPrefix),
+				ident: createToken("VAR", TokVariable),
+				str:   createToken("foo", TokLiteral),
+				part:  createType(TokTrimPrefix),
 			},
 			Want: "bar",
 		},
 		{
 			Word: Trim{
-				ident: makeIdent("VAR"),
-				str:   makeIdent("test"),
-				part:  makeType(TokTrimPrefix),
+				ident: createToken("VAR", TokVariable),
+				str:   createToken("test", TokLiteral),
+				part:  createType(TokTrimPrefix),
 			},
 			Want: "foobar",
 		},
 		{
 			Word: Trim{
-				ident: makeIdent("VAR"),
-				str:   makeIdent("test"),
-				part:  makeType(TokTrimPrefixLong),
+				ident: createToken("VAR", TokVariable),
+				str:   createToken("test", TokLiteral),
+				part:  createType(TokTrimPrefixLong),
 			},
 			Want: "foobar",
 		},
@@ -224,27 +224,45 @@ func testTrim(t *testing.T) {
 func testTransform(t *testing.T) {
 	data := []WordCase{
 		{
-			Word: Transform{ident: makeIdent("VAR"), op: makeType(TokLower)},
+			Word: Transform{
+				ident: createToken("VAR", TokVariable),
+				op:    createType(TokLower),
+			},
 			Want: "foobar",
 		},
 		{
-			Word: Transform{ident: makeIdent("VAR"), op: makeType(TokLowerAll)},
+			Word: Transform{
+				ident: createToken("VAR", TokVariable),
+				op:    createType(TokLowerAll),
+			},
 			Want: "foobar",
 		},
 		{
-			Word: Transform{ident: makeIdent("VAR"), op: makeType(TokUpper)},
+			Word: Transform{
+				ident: createToken("VAR", TokVariable),
+				op:    createType(TokUpper),
+			},
 			Want: "Foobar",
 		},
 		{
-			Word: Transform{ident: makeIdent("VAR"), op: makeType(TokUpperAll)},
+			Word: Transform{
+				ident: createToken("VAR", TokVariable),
+				op:    createType(TokUpperAll),
+			},
 			Want: "FOOBAR",
 		},
 		{
-			Word: Transform{ident: makeIdent("VAR"), op: makeType(TokReverse)},
+			Word: Transform{
+				ident: createToken("VAR", TokVariable),
+				op:    createType(TokReverse),
+			},
 			Want: "Foobar",
 		},
 		{
-			Word: Transform{ident: makeIdent("VAR"), op: makeType(TokReverseAll)},
+			Word: Transform{
+				ident: createToken("VAR", TokVariable),
+				op:    createType(TokReverseAll),
+			},
 			Want: "FOOBAR",
 		},
 	}
@@ -255,55 +273,55 @@ func testReplace(t *testing.T) {
 	data := []WordCase{
 		{
 			Word: Replace{
-				ident: makeIdent("VAR"),
-				src:   makeIdent("o"),
-				dst:   makeIdent("-"),
-				op:    makeType(TokReplace),
+				ident: createToken("VAR", TokVariable),
+				src:   createToken("o", TokLiteral),
+				dst:   createToken("-", TokLiteral),
+				op:    createType(TokReplace),
 			},
 			Want: "f-obar",
 		},
 		{
 			Word: Replace{
-				ident: makeIdent("VAR"),
-				src:   makeIdent("o"),
-				dst:   makeIdent("-"),
-				op:    makeType(TokReplaceAll),
+				ident: createToken("VAR", TokVariable),
+				src:   createToken("o", TokLiteral),
+				dst:   createToken("-", TokLiteral),
+				op:    createType(TokReplaceAll),
 			},
 			Want: "f--bar",
 		},
 		{
 			Word: Replace{
-				ident: makeIdent("VAR"),
-				src:   makeIdent("bar"),
-				dst:   makeIdent("foo"),
-				op:    makeType(TokReplaceSuffix),
+				ident: createToken("VAR", TokVariable),
+				src:   createToken("bar", TokLiteral),
+				dst:   createToken("foo", TokLiteral),
+				op:    createType(TokReplaceSuffix),
 			},
 			Want: "foofoo",
 		},
 		{
 			Word: Replace{
-				ident: makeIdent("VAR"),
-				src:   makeIdent("---"),
-				dst:   makeIdent("foo"),
-				op:    makeType(TokReplaceSuffix),
+				ident: createToken("VAR", TokVariable),
+				src:   createToken("---", TokLiteral),
+				dst:   createToken("foo", TokLiteral),
+				op:    createType(TokReplaceSuffix),
 			},
 			Want: "foobar",
 		},
 		{
 			Word: Replace{
-				ident: makeIdent("VAR"),
-				src:   makeIdent("foo"),
-				dst:   makeIdent("bar"),
-				op:    makeType(TokReplacePrefix),
+				ident: createToken("VAR", TokVariable),
+				src:   createToken("foo", TokLiteral),
+				dst:   createToken("bar", TokLiteral),
+				op:    createType(TokReplacePrefix),
 			},
 			Want: "barbar",
 		},
 		{
 			Word: Replace{
-				ident: makeIdent("VAR"),
-				src:   makeIdent("---"),
-				dst:   makeIdent("bar"),
-				op:    makeType(TokReplacePrefix),
+				ident: createToken("VAR", TokVariable),
+				src:   createToken("---", TokLiteral),
+				dst:   createToken("bar", TokLiteral),
+				op:    createType(TokReplacePrefix),
 			},
 			Want: "foobar",
 		},
@@ -315,25 +333,25 @@ func testSlice(t *testing.T) {
 	data := []WordCase{
 		{
 			Word: Slice{
-				ident:  makeIdent("VAR"),
-				offset: Token{Literal: "1", Type: TokNumber},
-				length: Token{Literal: "3", Type: TokNumber},
+				ident:  createToken("VAR", TokVariable),
+				offset: createToken("1", TokNumber),
+				length: createToken("3", TokNumber),
 			},
 			Want: "oob",
 		},
 		{
 			Word: Slice{
-				ident:  makeIdent("VAR"),
-				offset: Token{Literal: "0", Type: TokNumber},
-				length: Token{Literal: "3", Type: TokNumber},
+				ident:  createToken("VAR", TokVariable),
+				offset: createToken("0", TokNumber),
+				length: createToken("3", TokNumber),
 			},
 			Want: "foo",
 		},
 		{
 			Word: Slice{
-				ident:  makeIdent("VAR"),
-				offset: Token{Literal: "1", Type: TokNumber},
-				length: Token{Literal: "0", Type: TokNumber},
+				ident:  createToken("VAR", TokVariable),
+				offset: createToken("1", TokNumber),
+				length: createToken("0", TokNumber),
 			},
 			Want: "oobar",
 		},
@@ -359,24 +377,24 @@ func testExpr(t *testing.T) {
 		{
 			Eval: Prefix{
 				op:    TokSub,
-				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+				right: createNumber(createToken("1", TokNumber)),
 			},
 			Want: -1,
 		},
 		{
 			Eval: Prefix{
 				op:    TokBinNot,
-				right: Number{ident: Token{Literal: "2", Type: TokNumber}},
+				right: createNumber(createToken("2", TokNumber)),
 			},
 			Want: -3,
 		},
 		{
 			Eval: Infix{
 				op:   TokAdd,
-				left: Number{ident: Token{Literal: "1", Type: TokNumber}},
+				left: createNumber(createToken("1", TokNumber)),
 				right: Prefix{
 					op:    TokSub,
-					right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+					right: createNumber(createToken("1", TokNumber)),
 				},
 			},
 			Want: 0,
@@ -384,8 +402,8 @@ func testExpr(t *testing.T) {
 		{
 			Eval: Infix{
 				op:    TokSub,
-				left:  Identifier{ident: Token{Literal: "VAR", Type: TokVariable}},
-				right: Number{ident: Token{Literal: "1", Type: TokNumber}},
+				left:  createIdentifier(createToken("VAR", TokVariable)),
+				right: createNumber(createToken("1", TokNumber)),
 			},
 			Want: 0,
 		},
@@ -402,19 +420,6 @@ func testExpr(t *testing.T) {
 			t.Errorf("%s: result mismatched! want %d, got %d", d.Eval, d.Want, got)
 		}
 	}
-}
-
-func makeIdent(str string) Token {
-	return Token{
-		Literal: str,
-		Type:    TokVariable,
-	}
-}
-
-func makeType(k Kind) Token {
-	tok := makeIdent("")
-	tok.Type = k
-	return tok
 }
 
 func makeEnv() Environment {
