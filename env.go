@@ -3,6 +3,8 @@ package tish
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 )
 
 var ErrReadOnly = errors.New("read only")
@@ -22,6 +24,22 @@ type variable struct {
 type Env struct {
 	parent Environment
 	vars   map[string]variable
+}
+
+func Environ() Environment {
+	vars := make(map[string]variable)
+	for _, e := range os.Environ() {
+		x := strings.IndexByte(e, '=')
+		if x <= 0 {
+			continue
+		}
+		k, v := e[:x], e[x+1:]
+		vars[k] = variable{
+			ro:   true,
+			word: v,
+		}
+	}
+	return &Env{vars: vars}
 }
 
 func EmptyEnv() Environment {
