@@ -83,6 +83,28 @@ func TestSplit(t *testing.T) {
 			},
 			Want: []string{"foo bar-test"},
 		},
+		{
+			Word: Serie{
+				prefix: createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+				suffix: createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+				words: []Word{
+					createLiteral(createQuotedToken("-fst-", true, TokLiteral)),
+					createLiteral(createQuotedToken("-snd-", true, TokLiteral)),
+				},
+			},
+			Want: []string{"foo bar-fst-foo bar", "foo bar-snd-foo bar"},
+		},
+		{
+			Word: Serie{
+				prefix: createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+				suffix: createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+				words: []Word{
+					createLiteral(createQuotedToken("-fst-", true, TokLiteral)),
+					createLiteral(createQuotedToken("-snd-", true, TokLiteral)),
+				},
+			},
+			Want: []string{"foo", "bar-fst-foo", "bar", "foo", "bar-snd-foo", "bar"},
+		},
 	}
 	testWordCase(t, data)
 }
