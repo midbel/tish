@@ -137,6 +137,10 @@ func (s *Shell) UnregisterAlias(is ...string) {
 	}
 }
 
+func (s *Shell) Has(id string) bool {
+	return s.vars.Has(id)
+}
+
 func (s *Shell) Define(id, value string) error {
 	return s.vars.Define(id, value)
 }

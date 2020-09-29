@@ -3,6 +3,7 @@ package tish
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -11,6 +12,20 @@ import (
 type Word interface {
 	Command
 	Expand(Environment) []string
+}
+
+func splitWords(word string, env Environment) []string {
+	if !env.Has(IFS) {
+		return []string{word}
+	}
+	cs := []rune(env.Resolve(IFS))
+	sort.Slice(cs, func(i, j int) bool { return cs[i] < cs[j] })
+	return strings.FieldsFunc(word, func(r rune) bool {
+		i := sort.Search(len(cs), func(i int) bool {
+			return r <= cs[i]
+		})
+		return i < len(cs) && r == cs[i]
+	})
 }
 
 func CompareWords(fst, snd Word) bool {
@@ -35,17 +50,29 @@ func createList(ws ...Word) Word {
 }
 
 func (w WordList) Expand(env Environment) []string {
-	str := w.expand(env)
-	return []string{str}
+	if len(w.words) == 0 {
+		return []string{}
+	}
+	return w.expand(env)
 }
 
-func (w WordList) expand(env Environment) string {
-	ws := make([]string, 0, len(w.words))
+func (w WordList) expand(env Environment) []string {
+	var (
+		ws   = make([]string, 0, len(w.words))
+		last string
+	)
 	for _, w := range w.words {
-		str := w.Expand(env)
-		ws = append(ws, str...)
+		xs := w.Expand(env)
+		if n := len(xs); n >= 1 {
+			xs[0] = last + xs[0]
+			last, xs = xs[n-1], xs[:n-1]
+		}
+		ws = append(ws, xs...)
 	}
-	return strings.Join(ws, "")
+	if last != "" {
+		ws = append(ws, last)
+	}
+	return ws
 }
 
 func (w WordList) String() string {
@@ -93,7 +120,10 @@ func createLiteral(tok Token) Word {
 
 func (i Literal) Expand(env Environment) []string {
 	str := i.expand(env)
-	return []string{str}
+	if i.token.Quoted {
+		return []string{str}
+	}
+	return splitWords(str, env)
 }
 
 func (i Literal) expand(env Environment) string {
@@ -140,7 +170,10 @@ func (s Slice) Equal(other Command) bool {
 
 func (s Slice) Expand(env Environment) []string {
 	str := s.expand(env)
-	return []string{str}
+	if s.ident.Quoted {
+		return []string{str}
+	}
+	return splitWords(str, env)
 }
 
 func (s Slice) expand(env Environment) string {
@@ -200,7 +233,10 @@ func (t Trim) Equal(other Command) bool {
 
 func (t Trim) Expand(env Environment) []string {
 	str := t.expand(env)
-	return []string{str}
+	if t.ident.Quoted {
+		return []string{str}
+	}
+	return splitWords(str, env)
 }
 
 func (t Trim) expand(env Environment) string {
@@ -264,7 +300,10 @@ func (r Replace) Equal(other Command) bool {
 
 func (r Replace) Expand(env Environment) []string {
 	str := r.expand(env)
-	return []string{str}
+	if r.ident.Quoted {
+		return []string{str}
+	}
+	return splitWords(str, env)
 }
 
 func (r Replace) expand(env Environment) string {
@@ -311,7 +350,10 @@ func (t Transform) Equal(other Command) bool {
 
 func (t Transform) Expand(env Environment) []string {
 	str := t.expand(env)
-	return []string{str}
+	if t.ident.Quoted {
+		return []string{str}
+	}
+	return splitWords(str, env)
 }
 
 func (t Transform) expand(env Environment) string {

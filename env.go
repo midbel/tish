@@ -9,8 +9,21 @@ import (
 
 var ErrReadOnly = errors.New("read only")
 
+const (
+	HOME    = "HOME"
+	IFS     = "IFS"
+	PATH    = "PATH"
+	PWD     = "PWD"
+	TISH    = "TISH"
+	VERSION = "VERSION"
+	OS      = "OS"
+	HOST    = "HOST"
+	RANDOM  = "RANDOM"
+)
+
 type Environment interface {
 	Define(string, string) error
+	Has(string) bool
 	Resolve(string) string
 	Delete(string) error
 	Environ() []string
@@ -52,6 +65,14 @@ func EnclosedEnv(env Environment) Environment {
 		vars:   make(map[string]variable),
 	}
 	return &e
+}
+
+func (e *Env) Has(id string) bool {
+	_, ok := e.vars[id]
+	if !ok && e.parent != nil {
+		return e.parent.Has(id)
+	}
+	return ok
 }
 
 func (e *Env) Define(id string, value string) error {

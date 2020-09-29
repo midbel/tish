@@ -1,13 +1,90 @@
 package tish
 
 import (
-	"strings"
+	"reflect"
 	"testing"
 )
 
 type WordCase struct {
 	Word
-	Want string
+	Want []string
+}
+
+func TestSplit(t *testing.T) {
+	data := []WordCase{
+		{
+			Word: createLiteral(createQuotedToken("<foo bar>", false, TokLiteral)),
+			Want: []string{"<foo", "bar>"},
+		},
+		{
+			Word: createLiteral(createQuotedToken("-foo bar-", true, TokLiteral)),
+			Want: []string{"-foo bar-"},
+		},
+		{
+			Word: createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+			Want: []string{"foo", "bar"},
+		},
+		{
+			Word: createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+			Want: []string{"foo bar"},
+		},
+		{
+			Word: Transform{
+				ident: createQuotedToken("SPACE", true, TokVariable),
+				op:    createType(TokReverse),
+			},
+			Want: []string{"Foo bar"},
+		},
+		{
+			Word: Transform{
+				ident: createQuotedToken("SPACE", false, TokVariable),
+				op:    createType(TokReverseAll),
+			},
+			Want: []string{"FOO", "BAR"},
+		},
+		{
+			Word: WordList{
+				words: []Word{
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+					createLiteral(createQuotedToken("-test-", true, TokLiteral)),
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+				},
+			},
+			Want: []string{"foo", "bar-test-foo", "bar"},
+		},
+		{
+			Word: WordList{
+				words: []Word{
+					createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+					createLiteral(createQuotedToken("-test-", true, TokLiteral)),
+					createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+				},
+			},
+			Want: []string{"foo bar-test-foo bar"},
+		},
+		{
+			Word: WordList{
+				words: []Word{
+					createLiteral(createQuotedToken("<begin> ", true, TokLiteral)),
+					createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+					createLiteral(createQuotedToken("-test-", true, TokLiteral)),
+					createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+					createLiteral(createQuotedToken(" <end>", true, TokLiteral)),
+				},
+			},
+			Want: []string{"<begin> foo bar-test-foo bar <end>"},
+		},
+		{
+			Word: WordList{
+				words: []Word{
+					createLiteral(createQuotedToken("SPACE", true, TokVariable)),
+					createLiteral(createQuotedToken("-test", true, TokLiteral)),
+				},
+			},
+			Want: []string{"foo bar-test"},
+		},
+	}
+	testWordCase(t, data)
 }
 
 func TestExpand(t *testing.T) {
@@ -30,7 +107,7 @@ func testSeries(t *testing.T) {
 					createLiteral(createToken("bar", TokLiteral)),
 				},
 			},
-			Want: "foo bar",
+			Want: []string{"foo", "bar"},
 		},
 		{
 			Word: Serie{
@@ -41,7 +118,7 @@ func testSeries(t *testing.T) {
 					createLiteral(createToken("bar", TokLiteral)),
 				},
 			},
-			Want: "prefix-foo-suffix prefix-bar-suffix",
+			Want: []string{"prefix-foo-suffix", "prefix-bar-suffix"},
 		},
 		{
 			Word: Serie{
@@ -62,7 +139,7 @@ func testSeries(t *testing.T) {
 					},
 				},
 			},
-			Want: "A B C a b c",
+			Want: []string{"A", "B", "C", "a", "b", "c"},
 		},
 		{
 			Word: Serie{
@@ -79,7 +156,7 @@ func testSeries(t *testing.T) {
 					},
 				},
 			},
-			Want: "A1 A2 A3 B1 B2 B3 C1 C2 C3",
+			Want: []string{"A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"},
 		},
 	}
 	testWordCase(t, data)
@@ -93,7 +170,7 @@ func testRanges(t *testing.T) {
 				last:  createLiteral(createToken("5", TokNumber)),
 				incr:  createLiteral(createToken("1", TokNumber)),
 			},
-			Want: "0 1 2 3 4 5",
+			Want: []string{"0", "1", "2", "3", "4", "5"},
 		},
 		{
 			Word: Range{
@@ -101,7 +178,7 @@ func testRanges(t *testing.T) {
 				last:  createLiteral(createToken("10", TokNumber)),
 				incr:  createLiteral(createToken("1", TokNumber)),
 			},
-			Want: "005 006 007 008 009 010",
+			Want: []string{"005", "006", "007", "008", "009", "010"},
 		},
 		{
 			Word: Range{
@@ -109,7 +186,7 @@ func testRanges(t *testing.T) {
 				last:  createLiteral(createToken("0", TokNumber)),
 				incr:  createLiteral(createToken("1", TokNumber)),
 			},
-			Want: "5 4 3 2 1 0",
+			Want: []string{"5", "4", "3", "2", "1", "0"},
 		},
 		{
 			Word: Range{
@@ -117,7 +194,7 @@ func testRanges(t *testing.T) {
 				last:  createLiteral(createToken("10", TokNumber)),
 				incr:  createLiteral(createToken("2", TokNumber)),
 			},
-			Want: "0 2 4 6 8 10",
+			Want: []string{"0", "2", "4", "6", "8", "10"},
 		},
 		{
 			Word: Range{
@@ -125,7 +202,7 @@ func testRanges(t *testing.T) {
 				last:  createLiteral(createToken("5", TokNumber)),
 				incr:  createLiteral(createToken("2", TokNumber)),
 			},
-			Want: "5",
+			Want: []string{"5"},
 		},
 		{
 			Word: Range{
@@ -133,7 +210,7 @@ func testRanges(t *testing.T) {
 				last:  createLiteral(createToken("0", TokNumber)),
 				incr:  createLiteral(createToken("2", TokNumber)),
 			},
-			Want: "0",
+			Want: []string{"0"},
 		},
 		{
 			Word: Range{
@@ -143,7 +220,7 @@ func testRanges(t *testing.T) {
 				last:   createLiteral(createToken("10", TokNumber)),
 				incr:   createLiteral(createToken("2", TokNumber)),
 			},
-			Want: "foo-0-bar foo-2-bar foo-4-bar foo-6-bar foo-8-bar foo-10-bar",
+			Want: []string{"foo-0-bar", "foo-2-bar", "foo-4-bar", "foo-6-bar", "foo-8-bar", "foo-10-bar"},
 		},
 	}
 	testWordCase(t, data)
@@ -153,15 +230,15 @@ func testLength(t *testing.T) {
 	data := []WordCase{
 		{
 			Word: Length{ident: createToken("VAR", TokVariable)},
-			Want: "6",
+			Want: []string{"6"},
 		},
 		{
 			Word: Length{ident: createToken("TEST", TokVariable)},
-			Want: "0",
+			Want: []string{"0"},
 		},
 		{
 			Word: Length{ident: createToken("EMPTY", TokVariable)},
-			Want: "0",
+			Want: []string{"0"},
 		},
 	}
 	testWordCase(t, data)
@@ -175,7 +252,7 @@ func testTrim(t *testing.T) {
 				str:   createToken("bar", TokLiteral),
 				part:  createType(TokTrimSuffix),
 			},
-			Want: "foo",
+			Want: []string{"foo"},
 		},
 		{
 			Word: Trim{
@@ -183,7 +260,7 @@ func testTrim(t *testing.T) {
 				str:   createToken("test", TokLiteral),
 				part:  createType(TokTrimSuffix),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 		{
 			Word: Trim{
@@ -191,7 +268,7 @@ func testTrim(t *testing.T) {
 				str:   createToken("test", TokLiteral),
 				part:  createType(TokTrimSuffixLong),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 		{
 			Word: Trim{
@@ -199,7 +276,7 @@ func testTrim(t *testing.T) {
 				str:   createToken("foo", TokLiteral),
 				part:  createType(TokTrimPrefix),
 			},
-			Want: "bar",
+			Want: []string{"bar"},
 		},
 		{
 			Word: Trim{
@@ -207,7 +284,7 @@ func testTrim(t *testing.T) {
 				str:   createToken("test", TokLiteral),
 				part:  createType(TokTrimPrefix),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 		{
 			Word: Trim{
@@ -215,7 +292,7 @@ func testTrim(t *testing.T) {
 				str:   createToken("test", TokLiteral),
 				part:  createType(TokTrimPrefixLong),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 	}
 	testWordCase(t, data)
@@ -228,42 +305,42 @@ func testTransform(t *testing.T) {
 				ident: createToken("VAR", TokVariable),
 				op:    createType(TokLower),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 		{
 			Word: Transform{
 				ident: createToken("VAR", TokVariable),
 				op:    createType(TokLowerAll),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 		{
 			Word: Transform{
 				ident: createToken("VAR", TokVariable),
 				op:    createType(TokUpper),
 			},
-			Want: "Foobar",
+			Want: []string{"Foobar"},
 		},
 		{
 			Word: Transform{
 				ident: createToken("VAR", TokVariable),
 				op:    createType(TokUpperAll),
 			},
-			Want: "FOOBAR",
+			Want: []string{"FOOBAR"},
 		},
 		{
 			Word: Transform{
 				ident: createToken("VAR", TokVariable),
 				op:    createType(TokReverse),
 			},
-			Want: "Foobar",
+			Want: []string{"Foobar"},
 		},
 		{
 			Word: Transform{
 				ident: createToken("VAR", TokVariable),
 				op:    createType(TokReverseAll),
 			},
-			Want: "FOOBAR",
+			Want: []string{"FOOBAR"},
 		},
 	}
 	testWordCase(t, data)
@@ -278,7 +355,7 @@ func testReplace(t *testing.T) {
 				dst:   createToken("-", TokLiteral),
 				op:    createType(TokReplace),
 			},
-			Want: "f-obar",
+			Want: []string{"f-obar"},
 		},
 		{
 			Word: Replace{
@@ -287,7 +364,7 @@ func testReplace(t *testing.T) {
 				dst:   createToken("-", TokLiteral),
 				op:    createType(TokReplaceAll),
 			},
-			Want: "f--bar",
+			Want: []string{"f--bar"},
 		},
 		{
 			Word: Replace{
@@ -296,7 +373,7 @@ func testReplace(t *testing.T) {
 				dst:   createToken("foo", TokLiteral),
 				op:    createType(TokReplaceSuffix),
 			},
-			Want: "foofoo",
+			Want: []string{"foofoo"},
 		},
 		{
 			Word: Replace{
@@ -305,7 +382,7 @@ func testReplace(t *testing.T) {
 				dst:   createToken("foo", TokLiteral),
 				op:    createType(TokReplaceSuffix),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 		{
 			Word: Replace{
@@ -314,7 +391,7 @@ func testReplace(t *testing.T) {
 				dst:   createToken("bar", TokLiteral),
 				op:    createType(TokReplacePrefix),
 			},
-			Want: "barbar",
+			Want: []string{"barbar"},
 		},
 		{
 			Word: Replace{
@@ -323,7 +400,7 @@ func testReplace(t *testing.T) {
 				dst:   createToken("bar", TokLiteral),
 				op:    createType(TokReplacePrefix),
 			},
-			Want: "foobar",
+			Want: []string{"foobar"},
 		},
 	}
 	testWordCase(t, data)
@@ -337,7 +414,7 @@ func testSlice(t *testing.T) {
 				offset: createToken("1", TokNumber),
 				length: createToken("3", TokNumber),
 			},
-			Want: "oob",
+			Want: []string{"oob"},
 		},
 		{
 			Word: Slice{
@@ -345,7 +422,7 @@ func testSlice(t *testing.T) {
 				offset: createToken("0", TokNumber),
 				length: createToken("3", TokNumber),
 			},
-			Want: "foo",
+			Want: []string{"foo"},
 		},
 		{
 			Word: Slice{
@@ -353,7 +430,7 @@ func testSlice(t *testing.T) {
 				offset: createToken("1", TokNumber),
 				length: createToken("0", TokNumber),
 			},
-			Want: "oobar",
+			Want: []string{"oobar"},
 		},
 	}
 	testWordCase(t, data)
@@ -363,8 +440,8 @@ func testWordCase(t *testing.T, data []WordCase) {
 	e := makeEnv()
 	for _, d := range data {
 		got := d.Word.Expand(e)
-		if strings.Join(got, " ") != d.Want {
-			t.Errorf("%s: length mismatched! want %s, got %s", d.Word, d.Want, got)
+		if !reflect.DeepEqual(d.Want, got) {
+			t.Errorf("%s: words mismatched! want %q, got %q", d.Word, d.Want, got)
 		}
 	}
 }
@@ -424,7 +501,9 @@ func testExpr(t *testing.T) {
 
 func makeEnv() Environment {
 	e := EmptyEnv()
+	e.Define(IFS, " \t")
 	e.Define("VAR", "foobar")
+	e.Define("SPACE", "foo bar")
 	e.Define("EMPTY", "")
 	return e
 }
