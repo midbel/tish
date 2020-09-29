@@ -769,6 +769,26 @@ func TestScanner(t *testing.T) {
 				{Type: TokEndBrace},
 			},
 		},
+		{
+			Input: "echo pre-{1..10..1}-post; echo foobar",
+			Tokens: []Token{
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "pre-", Type: TokLiteral},
+				{Type: TokBegBrace},
+				{Literal: "1", Type: TokNumber},
+				{Type: TokRange},
+				{Literal: "10", Type: TokNumber},
+				{Type: TokRange},
+				{Literal: "1", Type: TokNumber},
+				{Type: TokEndBrace},
+				{Literal: "-post", Type: TokLiteral},
+				{Type: TokSemicolon},
+				{Literal: "echo", Type: TokLiteral},
+				blank,
+				{Literal: "foobar", Type: TokLiteral},
+			},
+		},
 	}
 	testTokens(t, data)
 }

@@ -112,7 +112,7 @@ func (s *ScannerState) enterBraces() {
 }
 
 func (s *ScannerState) leaveBraces() {
-	s.braced++
+	s.braced--
 }
 
 func (s *ScannerState) isBrace() bool {

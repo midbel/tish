@@ -634,6 +634,29 @@ func TestParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			Input: "echo pre-{1..10..1}-post; echo foobar",
+			Cmds: []Command{
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						Range{
+							prefix: createLiteral(createToken("pre-", TokLiteral)),
+							suffix: createLiteral(createToken("-post", TokLiteral)),
+							first:  createLiteral(createToken("1", TokNumber)),
+							last:   createLiteral(createToken("10", TokNumber)),
+							incr:   createLiteral(createToken("1", TokNumber)),
+						},
+					},
+				},
+				Simple{
+					words: []Word{
+						createLiteral(createToken("echo", TokLiteral)),
+						createLiteral(createToken("foobar", TokLiteral)),
+					},
+				},
+			},
+		},
 	}
 	for _, d := range data {
 		testParser(t, d)
