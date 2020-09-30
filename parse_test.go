@@ -501,12 +501,16 @@ func TestParser(t *testing.T) {
 				Simple{
 					words: []Word{
 						createLiteral(createToken("echo", TokLiteral)),
-						Serie{
-							prefix: createLiteral(createToken("foo-", TokLiteral)),
-							suffix: createLiteral(createToken("-bar", TokLiteral)),
+						WordList{
 							words: []Word{
-								createLiteral(createToken("foo", TokLiteral)),
-								createLiteral(createToken("bar", TokLiteral)),
+								createLiteral(createToken("foo-", TokLiteral)),
+								Serie{
+									words: []Word{
+										createLiteral(createToken("foo", TokLiteral)),
+										createLiteral(createToken("bar", TokLiteral)),
+									},
+								},
+								createLiteral(createToken("-bar", TokLiteral)),
 							},
 						},
 					},
@@ -519,37 +523,15 @@ func TestParser(t *testing.T) {
 				Simple{
 					words: []Word{
 						createLiteral(createToken("echo", TokLiteral)),
-						Range{
-							prefix: createLiteral(createToken("foo-", TokLiteral)),
-							suffix: createLiteral(createToken("-bar", TokLiteral)),
-							first:  createLiteral(createToken("1", TokNumber)),
-							last:   createLiteral(createToken("10", TokNumber)),
-							incr:   createLiteral(createToken("1", TokNumber)),
-						},
-					},
-				},
-			},
-		},
-		{
-			Input: "echo {foo-{1..10},bar-{1..10}}",
-			Cmds: []Command{
-				Simple{
-					words: []Word{
-						createLiteral(createToken("echo", TokLiteral)),
-						Serie{
+						WordList{
 							words: []Word{
+								createLiteral(createToken("foo-", TokLiteral)),
 								Range{
-									prefix: createLiteral(createToken("foo-", TokLiteral)),
-									first:  createLiteral(createToken("1", TokNumber)),
-									last:   createLiteral(createToken("10", TokNumber)),
-									incr:   createLiteral(createToken("1", TokNumber)),
+									first: createLiteral(createToken("1", TokNumber)),
+									last:  createLiteral(createToken("10", TokNumber)),
+									incr:  createLiteral(createToken("1", TokNumber)),
 								},
-								Range{
-									prefix: createLiteral(createToken("bar-", TokLiteral)),
-									first:  createLiteral(createToken("1", TokNumber)),
-									last:   createLiteral(createToken("10", TokNumber)),
-									incr:   createLiteral(createToken("1", TokNumber)),
-								},
+								createLiteral(createToken("-bar", TokLiteral)),
 							},
 						},
 					},
@@ -564,19 +546,27 @@ func TestParser(t *testing.T) {
 						createLiteral(createToken("echo", TokLiteral)),
 						Serie{
 							words: []Word{
-								Range{
-									prefix: createLiteral(createToken("foo-", TokLiteral)),
-									suffix: createLiteral(createToken("-bar", TokLiteral)),
-									first:  createLiteral(createToken("1", TokNumber)),
-									last:   createLiteral(createToken("10", TokNumber)),
-									incr:   createLiteral(createToken("1", TokNumber)),
+								WordList{
+									words: []Word{
+										createLiteral(createToken("foo-", TokLiteral)),
+										Range{
+											first: createLiteral(createToken("1", TokNumber)),
+											last:  createLiteral(createToken("10", TokNumber)),
+											incr:  createLiteral(createToken("1", TokNumber)),
+										},
+										createLiteral(createToken("-bar", TokLiteral)),
+									},
 								},
-								Range{
-									prefix: createLiteral(createToken("bar-", TokLiteral)),
-									suffix: createLiteral(createToken("-foo", TokLiteral)),
-									first:  createLiteral(createToken("1", TokNumber)),
-									last:   createLiteral(createToken("10", TokNumber)),
-									incr:   createLiteral(createToken("1", TokNumber)),
+								WordList{
+									words: []Word{
+										createLiteral(createToken("bar-", TokLiteral)),
+										Range{
+											first: createLiteral(createToken("1", TokNumber)),
+											last:  createLiteral(createToken("10", TokNumber)),
+											incr:  createLiteral(createToken("1", TokNumber)),
+										},
+										createLiteral(createToken("-foo", TokLiteral)),
+									},
 								},
 							},
 						},
@@ -614,15 +604,19 @@ func TestParser(t *testing.T) {
 				Simple{
 					words: []Word{
 						createLiteral(createToken("echo", TokLiteral)),
-						Range{
-							first: createLiteral(createToken("1", TokNumber)),
-							last:  createLiteral(createToken("10", TokNumber)),
-							incr:  createLiteral(createToken("1", TokNumber)),
-							suffix: Range{
-								first: createLiteral(createToken("100", TokNumber)),
-								last:  createLiteral(createToken("1000", TokNumber)),
-								incr:  createLiteral(createToken("10", TokNumber)),
-								suffix: Serie{
+						WordList{
+							words: []Word{
+								Range{
+									first: createLiteral(createToken("1", TokNumber)),
+									last:  createLiteral(createToken("10", TokNumber)),
+									incr:  createLiteral(createToken("1", TokNumber)),
+								},
+								Range{
+									first: createLiteral(createToken("100", TokNumber)),
+									last:  createLiteral(createToken("1000", TokNumber)),
+									incr:  createLiteral(createToken("10", TokNumber)),
+								},
+								Serie{
 									words: []Word{
 										createLiteral(createToken("foo", TokLiteral)),
 										createLiteral(createToken("bar", TokLiteral)),
@@ -640,12 +634,16 @@ func TestParser(t *testing.T) {
 				Simple{
 					words: []Word{
 						createLiteral(createToken("echo", TokLiteral)),
-						Range{
-							prefix: createLiteral(createToken("pre-", TokLiteral)),
-							suffix: createLiteral(createToken("-post", TokLiteral)),
-							first:  createLiteral(createToken("1", TokNumber)),
-							last:   createLiteral(createToken("10", TokNumber)),
-							incr:   createLiteral(createToken("1", TokNumber)),
+						WordList{
+							words: []Word{
+								createLiteral(createToken("pre-", TokLiteral)),
+								Range{
+									first: createLiteral(createToken("1", TokNumber)),
+									last:  createLiteral(createToken("10", TokNumber)),
+									incr:  createLiteral(createToken("1", TokNumber)),
+								},
+								createLiteral(createToken("-post", TokLiteral)),
+							},
 						},
 					},
 				},

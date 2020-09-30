@@ -441,9 +441,7 @@ func (e Length) expand(env Environment) string {
 }
 
 type Serie struct {
-	prefix Word
-	suffix Word
-	words  []Word
+	words []Word
 }
 
 func (s Serie) Expand(env Environment) []string {
@@ -456,40 +454,7 @@ func (s Serie) expand(env Environment) []string {
 		str := s.words[i].Expand(env)
 		ws = append(ws, str...)
 	}
-	ws = s.expandPrefix(ws, env)
-	return s.expandSuffix(ws, env)
-}
-
-func (s Serie) expandPrefix(ws []string, env Environment) []string {
-	if s.prefix == nil {
-		return ws
-	}
-	var (
-		ps = s.prefix.Expand(env)
-		vs = make([]string, 0, len(ps)*len(ws))
-	)
-	for i := range ws {
-		for j := range ps {
-			vs = append(vs, ps[j]+ws[i])
-		}
-	}
-	return vs
-}
-
-func (s Serie) expandSuffix(ws []string, env Environment) []string {
-	if s.suffix == nil {
-		return ws
-	}
-	var (
-		ps = s.suffix.Expand(env)
-		vs = make([]string, 0, len(ps)*len(ws))
-	)
-	for i := range ws {
-		for j := range ps {
-			vs = append(vs, ws[i]+ps[j])
-		}
-	}
-	return vs
+	return ws
 }
 
 func (s Serie) String() string {
@@ -497,7 +462,7 @@ func (s Serie) String() string {
 	for i := range s.words {
 		ws[i] = s.words[i].String()
 	}
-	return fmt.Sprintf("serie(words: %s, prefix: %v, suffix: %v)", strings.Join(ws, ", "), s.prefix, s.suffix)
+	return fmt.Sprintf("serie(words: %s)", strings.Join(ws, ", "))
 }
 
 func (s Serie) Equal(other Command) bool {
@@ -513,15 +478,13 @@ func (s Serie) Equal(other Command) bool {
 			return false
 		}
 	}
-	return CompareWords(s.prefix, c.prefix) && CompareWords(s.suffix, c.suffix)
+	return true
 }
 
 type Range struct {
-	prefix Word
-	suffix Word
-	first  Word
-	last   Word
-	incr   Word
+	first Word
+	last  Word
+	incr  Word
 }
 
 func (r Range) Expand(env Environment) []string {
@@ -551,39 +514,6 @@ func (r Range) expand(env Environment) []string {
 		}
 		vs = append(vs, str)
 		first += incr
-	}
-	vs = r.expandPrefix(vs, env)
-	return r.expandSuffix(vs, env)
-}
-
-func (r Range) expandPrefix(ws []string, env Environment) []string {
-	if r.prefix == nil {
-		return ws
-	}
-	var (
-		ps = r.prefix.Expand(env)
-		vs = make([]string, 0, len(ps)*len(ws))
-	)
-	for i := range ws {
-		for j := range ps {
-			vs = append(vs, ps[j]+ws[i])
-		}
-	}
-	return vs
-}
-
-func (r Range) expandSuffix(ws []string, env Environment) []string {
-	if r.suffix == nil {
-		return ws
-	}
-	var (
-		ps = r.suffix.Expand(env)
-		vs = make([]string, 0, len(ps)*len(ws))
-	)
-	for i := range ws {
-		for j := range ps {
-			vs = append(vs, ws[i]+ps[j])
-		}
 	}
 	return vs
 }
@@ -617,7 +547,7 @@ func (r Range) computePadding(env Environment) int {
 }
 
 func (r Range) String() string {
-	return fmt.Sprintf("range(first: %s, last: %s, incr: %s, prefix: %v, suffix: %v)", r.first, r.last, r.incr, r.prefix, r.suffix)
+	return fmt.Sprintf("range(first: %s, last: %s, incr: %s)", r.first, r.last, r.incr)
 }
 
 func (r Range) Equal(other Command) bool {
@@ -625,11 +555,7 @@ func (r Range) Equal(other Command) bool {
 	if !ok {
 		return ok
 	}
-	ok = CompareWords(r.first, c.first) && CompareWords(r.last, c.last) && CompareWords(r.incr, c.incr)
-	if !ok {
-		return ok
-	}
-	return CompareWords(r.prefix, c.prefix) && CompareWords(r.suffix, c.suffix)
+	return CompareWords(r.first, c.first) && CompareWords(r.last, c.last) && CompareWords(r.incr, c.incr)
 }
 
 type Expr struct {

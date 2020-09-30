@@ -281,10 +281,6 @@ func (p *Parser) parseRange(r Range) (Word, error) {
 	} else {
 		r.incr = Literal{token: Token{Literal: "1", Type: TokNumber}}
 	}
-	if p.curr.Type != TokEndBrace {
-		return nil, fmt.Errorf("range: unexpected token %s, want 'brace'", p.curr)
-	}
-	p.next()
 	return r, nil
 }
 
@@ -303,16 +299,12 @@ func (p *Parser) parseSerie(s Serie) (Word, error) {
 		}
 		p.next()
 	}
-	if p.curr.Type != TokEndBrace {
-		return nil, fmt.Errorf("serie: unexpected token %s, want 'brace'", p.curr)
-	}
-	p.next()
 	return s, nil
 }
 
-func (p *Parser) parseBraces(prefix Word) (Word, error) {
+func (p *Parser) parseBraces() (Word, error) {
 	p.next()
-	first, err := p.parseWord()
+	word, err := p.parseWord()
 	if err != nil {
 		return nil, err
 	}
@@ -320,20 +312,25 @@ func (p *Parser) parseBraces(prefix Word) (Word, error) {
 	case TokSerie:
 		p.next()
 		s := Serie{
-			prefix: prefix,
-			words:  []Word{first},
+			words: []Word{word},
 		}
-		return p.parseSerie(s)
+		word, err = p.parseSerie(s)
 	case TokRange:
 		p.next()
 		r := Range{
-			prefix: prefix,
-			first:  first,
+			first: word,
 		}
-		return p.parseRange(r)
+		word, err = p.parseRange(r)
 	default:
-		return nil, fmt.Errorf("brace: unexpected token %s, want 'serie|range'", p.peek)
+		err = fmt.Errorf("brace: unexpected token %s, want 'serie|range'", p.peek)
 	}
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type != TokEndBrace {
+		return nil, fmt.Errorf("range: unexpected token %s, want 'brace'", p.curr)
+	}
+	return word, err
 }
 
 func (p *Parser) parseArithmetic() (Word, error) {
@@ -459,19 +456,7 @@ func (p *Parser) parseWord() (Word, error) {
 		case TokBegArith:
 			w, err = p.parseArithmetic()
 		case TokBegBrace:
-			w, err = p.parseBraces(ws.asWord())
-			if err != nil {
-				return nil, err
-			}
-			switch x := w.(type) {
-			case Serie:
-				x.suffix, err = p.parseWord()
-				w = x
-			case Range:
-				x.suffix, err = p.parseWord()
-				w = x
-			}
-			return w, err
+			w, err = p.parseBraces()
 		case TokBegExp:
 			w, err = p.parseExpansion()
 		case TokKeyword:

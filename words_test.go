@@ -10,6 +10,42 @@ type WordCase struct {
 	Want []string
 }
 
+func TestWord(t *testing.T) {
+	data := []WordCase{
+		{
+			Word: WordList{
+				words: []Word{
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+				},
+			},
+			Want: []string{"foo", "barfoo", "bar"},
+		},
+		{
+			Word: WordList{
+				words: []Word{
+					Serie{
+						words: []Word{
+							createLiteral(createQuotedToken("A", false, TokLiteral)),
+							createLiteral(createQuotedToken("B", false, TokLiteral)),
+							createLiteral(createQuotedToken("C", false, TokLiteral)),
+						},
+					},
+					Serie{
+						words: []Word{
+							createLiteral(createQuotedToken("1", false, TokLiteral)),
+							createLiteral(createQuotedToken("2", false, TokLiteral)),
+							createLiteral(createQuotedToken("3", false, TokLiteral)),
+						},
+					},
+				},
+			},
+			Want: []string{"A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"},
+		},
+	}
+	testWordCase(t, data)
+}
+
 func TestSplit(t *testing.T) {
 	data := []WordCase{
 		{
@@ -83,28 +119,6 @@ func TestSplit(t *testing.T) {
 			},
 			Want: []string{"foo bar-test"},
 		},
-		{
-			Word: Serie{
-				prefix: createLiteral(createQuotedToken("SPACE", true, TokVariable)),
-				suffix: createLiteral(createQuotedToken("SPACE", true, TokVariable)),
-				words: []Word{
-					createLiteral(createQuotedToken("-fst-", true, TokLiteral)),
-					createLiteral(createQuotedToken("-snd-", true, TokLiteral)),
-				},
-			},
-			Want: []string{"foo bar-fst-foo bar", "foo bar-snd-foo bar"},
-		},
-		{
-			Word: Serie{
-				prefix: createLiteral(createQuotedToken("SPACE", false, TokVariable)),
-				suffix: createLiteral(createQuotedToken("SPACE", false, TokVariable)),
-				words: []Word{
-					createLiteral(createQuotedToken("-fst-", true, TokLiteral)),
-					createLiteral(createQuotedToken("-snd-", true, TokLiteral)),
-				},
-			},
-			Want: []string{"foo", "bar-fst-foo", "bar", "foo", "bar-snd-foo", "bar"},
-		},
 	}
 	testWordCase(t, data)
 }
@@ -121,130 +135,12 @@ func TestExpand(t *testing.T) {
 }
 
 func testSeries(t *testing.T) {
-	data := []WordCase{
-		{
-			Word: Serie{
-				words: []Word{
-					createLiteral(createToken("foo", TokLiteral)),
-					createLiteral(createToken("bar", TokLiteral)),
-				},
-			},
-			Want: []string{"foo", "bar"},
-		},
-		{
-			Word: Serie{
-				prefix: createLiteral(createToken("prefix-", TokLiteral)),
-				suffix: createLiteral(createToken("-suffix", TokLiteral)),
-				words: []Word{
-					createLiteral(createToken("foo", TokLiteral)),
-					createLiteral(createToken("bar", TokLiteral)),
-				},
-			},
-			Want: []string{"prefix-foo-suffix", "prefix-bar-suffix"},
-		},
-		{
-			Word: Serie{
-				words: []Word{
-					Serie{
-						words: []Word{
-							createLiteral(createToken("A", TokLiteral)),
-							createLiteral(createToken("B", TokLiteral)),
-							createLiteral(createToken("C", TokLiteral)),
-						},
-					},
-					Serie{
-						words: []Word{
-							createLiteral(createToken("a", TokLiteral)),
-							createLiteral(createToken("b", TokLiteral)),
-							createLiteral(createToken("c", TokLiteral)),
-						},
-					},
-				},
-			},
-			Want: []string{"A", "B", "C", "a", "b", "c"},
-		},
-		{
-			Word: Serie{
-				words: []Word{
-					createLiteral(createToken("A", TokLiteral)),
-					createLiteral(createToken("B", TokLiteral)),
-					createLiteral(createToken("C", TokLiteral)),
-				},
-				suffix: Serie{
-					words: []Word{
-						createLiteral(createToken("1", TokLiteral)),
-						createLiteral(createToken("2", TokLiteral)),
-						createLiteral(createToken("3", TokLiteral)),
-					},
-				},
-			},
-			Want: []string{"A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"},
-		},
-	}
+	data := []WordCase{}
 	testWordCase(t, data)
 }
 
 func testRanges(t *testing.T) {
-	data := []WordCase{
-		{
-			Word: Range{
-				first: createLiteral(createToken("0", TokNumber)),
-				last:  createLiteral(createToken("5", TokNumber)),
-				incr:  createLiteral(createToken("1", TokNumber)),
-			},
-			Want: []string{"0", "1", "2", "3", "4", "5"},
-		},
-		{
-			Word: Range{
-				first: createLiteral(createToken("005", TokNumber)),
-				last:  createLiteral(createToken("10", TokNumber)),
-				incr:  createLiteral(createToken("1", TokNumber)),
-			},
-			Want: []string{"005", "006", "007", "008", "009", "010"},
-		},
-		{
-			Word: Range{
-				first: createLiteral(createToken("5", TokNumber)),
-				last:  createLiteral(createToken("0", TokNumber)),
-				incr:  createLiteral(createToken("1", TokNumber)),
-			},
-			Want: []string{"5", "4", "3", "2", "1", "0"},
-		},
-		{
-			Word: Range{
-				first: createLiteral(createToken("0", TokNumber)),
-				last:  createLiteral(createToken("10", TokNumber)),
-				incr:  createLiteral(createToken("2", TokNumber)),
-			},
-			Want: []string{"0", "2", "4", "6", "8", "10"},
-		},
-		{
-			Word: Range{
-				first: createLiteral(createToken("5", TokNumber)),
-				last:  createLiteral(createToken("5", TokNumber)),
-				incr:  createLiteral(createToken("2", TokNumber)),
-			},
-			Want: []string{"5"},
-		},
-		{
-			Word: Range{
-				first: createLiteral(createToken("0", TokNumber)),
-				last:  createLiteral(createToken("0", TokNumber)),
-				incr:  createLiteral(createToken("2", TokNumber)),
-			},
-			Want: []string{"0"},
-		},
-		{
-			Word: Range{
-				prefix: createLiteral(createToken("foo-", TokLiteral)),
-				suffix: createLiteral(createToken("-bar", TokLiteral)),
-				first:  createLiteral(createToken("0", TokNumber)),
-				last:   createLiteral(createToken("10", TokNumber)),
-				incr:   createLiteral(createToken("2", TokNumber)),
-			},
-			Want: []string{"foo-0-bar", "foo-2-bar", "foo-4-bar", "foo-6-bar", "foo-8-bar", "foo-10-bar"},
-		},
-	}
+	data := []WordCase{}
 	testWordCase(t, data)
 }
 
