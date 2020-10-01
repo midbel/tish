@@ -31,6 +31,9 @@ func splitWords(word string, env Environment) []string {
 		return []string{word}
 	}
 	cs := []rune(env.Resolve(IFS))
+	if len(cs) == 0 {
+		return []string{word}
+	}
 	sort.Slice(cs, func(i, j int) bool { return cs[i] < cs[j] })
 	return strings.FieldsFunc(word, func(r rune) bool {
 		i := sort.Search(len(cs), func(i int) bool {

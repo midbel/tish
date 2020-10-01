@@ -90,6 +90,60 @@ func TestWord(t *testing.T) {
 			},
 			Want: []string{"A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"},
 		},
+		{
+			Word: WordList{
+				words: []Word{
+					Serie{
+						words: []Word{
+							createLiteral(createQuotedToken("A", false, TokLiteral)),
+							createLiteral(createQuotedToken("B", false, TokLiteral)),
+							createLiteral(createQuotedToken("C", false, TokLiteral)),
+						},
+					},
+					Range{
+						first: createLiteral(createQuotedToken("1", false, TokNumber)),
+						last:  createLiteral(createQuotedToken("3", false, TokNumber)),
+						incr:  createLiteral(createQuotedToken("1", false, TokNumber)),
+					},
+				},
+			},
+			Want: []string{"A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"},
+		},
+		{
+			Word: WordList{
+				words: []Word{
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+					createLiteral(createQuotedToken("-", false, TokLiteral)),
+					Serie{
+						words: []Word{
+							createLiteral(createQuotedToken("A", false, TokLiteral)),
+							createLiteral(createQuotedToken("B", false, TokLiteral)),
+							createLiteral(createQuotedToken("C", false, TokLiteral)),
+						},
+					},
+					Serie{
+						words: []Word{
+							createLiteral(createQuotedToken("1", false, TokLiteral)),
+							createLiteral(createQuotedToken("2", false, TokLiteral)),
+							createLiteral(createQuotedToken("3", false, TokLiteral)),
+						},
+					},
+					createLiteral(createQuotedToken("-", false, TokLiteral)),
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+				},
+			},
+			Want: []string{
+				"foo", "bar-A1-foo", "bar",
+				"foo", "bar-A2-foo", "bar",
+				"foo", "bar-A3-foo", "bar",
+				"foo", "bar-B1-foo", "bar",
+				"foo", "bar-B2-foo", "bar",
+				"foo", "bar-B3-foo", "bar",
+				"foo", "bar-C1-foo", "bar",
+				"foo", "bar-C2-foo", "bar",
+				"foo", "bar-C3-foo", "bar",
+			},
+		},
 	}
 	testWordCase(t, data)
 }
@@ -101,18 +155,6 @@ func TestExpand(t *testing.T) {
 	t.Run("transform", testTransform)
 	t.Run("slice", testSlice)
 	t.Run("expr", testExpr)
-	t.Run("series", testSeries)
-	t.Run("ranges", testRanges)
-}
-
-func testSeries(t *testing.T) {
-	data := []WordCase{}
-	testWordCase(t, data)
-}
-
-func testRanges(t *testing.T) {
-	data := []WordCase{}
-	testWordCase(t, data)
 }
 
 func testLength(t *testing.T) {
