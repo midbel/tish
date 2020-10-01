@@ -9,9 +9,13 @@ import (
 	"unicode"
 )
 
+type Expander interface {
+	Expand(Environment) []string
+}
+
 type Word interface {
 	Command
-	Expand(Environment) []string
+	expand(Environment) []string
 }
 
 func splitWords(word string, env Environment) []string {
@@ -50,29 +54,11 @@ func createList(ws ...Word) Word {
 }
 
 func (w WordList) Expand(env Environment) []string {
-	if len(w.words) == 0 {
-		return []string{}
-	}
-	return w.expand(env)
+	return nil
 }
 
 func (w WordList) expand(env Environment) []string {
-	var (
-		ws   = make([]string, 0, len(w.words))
-		last string
-	)
-	for _, w := range w.words {
-		xs := w.Expand(env)
-		if n := len(xs); n >= 1 {
-			xs[0] = last + xs[0]
-			last, xs = xs[n-1], xs[:n-1]
-		}
-		ws = append(ws, xs...)
-	}
-	if last != "" {
-		ws = append(ws, last)
-	}
-	return ws
+	return nil
 }
 
 func (w WordList) String() string {
@@ -118,15 +104,12 @@ func createLiteral(tok Token) Word {
 	return Literal{tok}
 }
 
-func (i Literal) Expand(env Environment) []string {
-	str := i.expand(env)
-	if i.token.Quoted {
-		return []string{str}
-	}
-	return splitWords(str, env)
+func (i Literal) expand(env Environment) []string {
+	str := i.expandToken(env)
+	return []string{str}
 }
 
-func (i Literal) expand(env Environment) string {
+func (i Literal) expandToken(env Environment) string {
 	var str string
 	switch i.token.Type {
 	case TokLiteral, TokNumber:
@@ -168,15 +151,12 @@ func (s Slice) Equal(other Command) bool {
 	return Compare(s.ident, c.ident) && Compare(s.offset, c.offset) && Compare(s.length, c.length)
 }
 
-func (s Slice) Expand(env Environment) []string {
-	str := s.expand(env)
-	if s.ident.Quoted {
-		return []string{str}
-	}
-	return splitWords(str, env)
+func (s Slice) expand(env Environment) []string {
+	str := s.expandIdent(env)
+	return []string{str}
 }
 
-func (s Slice) expand(env Environment) string {
+func (s Slice) expandIdent(env Environment) string {
 	str := env.Resolve(s.ident.Literal)
 	if str == "" {
 		return str
@@ -231,15 +211,12 @@ func (t Trim) Equal(other Command) bool {
 	return Compare(t.ident, c.ident) && Compare(t.str, c.str) && Compare(t.part, c.part)
 }
 
-func (t Trim) Expand(env Environment) []string {
-	str := t.expand(env)
-	if t.ident.Quoted {
-		return []string{str}
-	}
-	return splitWords(str, env)
+func (t Trim) expand(env Environment) []string {
+	str := t.expandIdent(env)
+	return []string{str}
 }
 
-func (t Trim) expand(env Environment) string {
+func (t Trim) expandIdent(env Environment) string {
 	str := env.Resolve(t.ident.Literal)
 	if str == "" {
 		return str
@@ -298,15 +275,12 @@ func (r Replace) Equal(other Command) bool {
 	return Compare(r.ident, c.ident) && Compare(r.src, c.src) && Compare(r.dst, c.dst) && Compare(r.op, c.op)
 }
 
-func (r Replace) Expand(env Environment) []string {
-	str := r.expand(env)
-	if r.ident.Quoted {
-		return []string{str}
-	}
-	return splitWords(str, env)
+func (r Replace) expand(env Environment) []string {
+	str := r.expandIdent(env)
+	return []string{str}
 }
 
-func (r Replace) expand(env Environment) string {
+func (r Replace) expandIdent(env Environment) string {
 	str := env.Resolve(r.ident.Literal)
 	if str == "" {
 		return str
@@ -348,15 +322,12 @@ func (t Transform) Equal(other Command) bool {
 	return Compare(t.ident, c.ident) && Compare(t.op, c.op)
 }
 
-func (t Transform) Expand(env Environment) []string {
-	str := t.expand(env)
-	if t.ident.Quoted {
-		return []string{str}
-	}
-	return splitWords(str, env)
+func (t Transform) expand(env Environment) []string {
+	str := t.expandIdent(env)
+	return []string{str}
 }
 
-func (t Transform) expand(env Environment) string {
+func (t Transform) expandIdent(env Environment) string {
 	str := env.Resolve(t.ident.Literal)
 	if str == "" {
 		return str
@@ -430,12 +401,12 @@ func (e Length) Equal(other Command) bool {
 	return Compare(e.ident, c.ident)
 }
 
-func (e Length) Expand(env Environment) []string {
-	str := e.expand(env)
+func (e Length) expand(env Environment) []string {
+	str := e.expandIdent(env)
 	return []string{str}
 }
 
-func (e Length) expand(env Environment) string {
+func (e Length) expandIdent(env Environment) string {
 	str := env.Resolve(e.ident.Literal)
 	return strconv.Itoa(len(str))
 }
@@ -444,14 +415,14 @@ type Serie struct {
 	words []Word
 }
 
-func (s Serie) Expand(env Environment) []string {
-	return s.expand(env)
+func (s Serie) expand(env Environment) []string {
+	return s.expandSerie(env)
 }
 
-func (s Serie) expand(env Environment) []string {
+func (s Serie) expandSerie(env Environment) []string {
 	ws := make([]string, 0, len(s.words))
 	for i := range s.words {
-		str := s.words[i].Expand(env)
+		str := s.words[i].expand(env)
 		ws = append(ws, str...)
 	}
 	return ws
@@ -487,11 +458,11 @@ type Range struct {
 	incr  Word
 }
 
-func (r Range) Expand(env Environment) []string {
-	return r.expand(env)
+func (r Range) expand(env Environment) []string {
+	return r.expandRange(env)
 }
 
-func (r Range) expand(env Environment) []string {
+func (r Range) expandRange(env Environment) []string {
 	first, last, incr := r.expandLimits(env)
 	if incr == 0 {
 		return nil
@@ -520,7 +491,7 @@ func (r Range) expand(env Environment) []string {
 
 func (r Range) expandLimits(env Environment) (int, int, int) {
 	convert := func(w Word) int {
-		is := w.Expand(env)
+		is := w.expand(env)
 		if len(is) != 1 {
 			return 0
 		}
@@ -531,7 +502,7 @@ func (r Range) expandLimits(env Environment) (int, int, int) {
 }
 
 func (r Range) computePadding(env Environment) int {
-	es := r.first.Expand(env)
+	es := r.first.expand(env)
 	if len(es) != 1 {
 		return 0
 	}
@@ -569,12 +540,12 @@ func createExpr(es ...Evaluator) Word {
 	return Expr{EvalList{es}}
 }
 
-func (e Expr) Expand(env Environment) []string {
-	str := e.expand(env)
+func (e Expr) expand(env Environment) []string {
+	str := e.expandEval(env)
 	return []string{str}
 }
 
-func (e Expr) expand(env Environment) string {
+func (e Expr) expandEval(env Environment) string {
 	r, err := e.eval.Eval(env)
 	if err != nil {
 		return ""

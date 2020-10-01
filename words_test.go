@@ -357,7 +357,7 @@ func testSlice(t *testing.T) {
 func testWordCase(t *testing.T, data []WordCase) {
 	e := makeEnv()
 	for _, d := range data {
-		got := d.Word.Expand(e)
+		got := d.Word.expand(e)
 		if !reflect.DeepEqual(d.Want, got) {
 			t.Errorf("%s: words mismatched! want %q, got %q", d.Word, d.Want, got)
 		}
