@@ -76,23 +76,28 @@ func (w WordList) expand(env Environment) []string {
 	for i := range w.words {
 		ws = append(ws, w.words[i].expand(env))
 	}
-	fmt.Println(ws, w.combineWords(ws))
-	var (
-		words = make([]string, 0, len(ws))
-		curr  int
-	)
-	words = append(words, "")
-	for _, ws := range w.combineWords(ws) {
+	return w.splitWords(ws, env)
+}
+
+func (w WordList) splitWords(fields [][]string, env Environment) []string {
+	words := make([]string, 0, len(fields))
+	for _, ws := range w.combineWords(fields) {
+		var (
+			xs   = make([]string, 0, len(ws))
+			curr int
+		)
+		xs = append(xs, "")
 		for i := range ws {
 			if isQuoted(ws[i]) {
-				words[curr] += strings.Trim(ws[i], "\"")
+				xs[curr] += strings.Trim(ws[i], "\"")
 				continue
 			}
 			vs := splitWords(ws[i], env)
-			words[curr] += vs[0]
-			words = append(words, vs[1:]...)
-			curr = len(words) - 1
+			xs[curr] += vs[0]
+			xs = append(xs, vs[1:]...)
+			curr = len(xs) - 1
 		}
+		words = append(words, xs...)
 	}
 	return words
 }
