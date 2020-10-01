@@ -69,11 +69,28 @@ func WithStderr(w io.Writer) Option {
 	}
 }
 
+func WithVerbose(verbose bool) Option {
+	return func(s *Shell) error {
+		s.verbose = verbose
+		return nil
+	}
+}
+
+func WithDry(dry bool) Option {
+	return func(s *Shell) error {
+		s.dry = dry
+		return nil
+	}
+}
+
 type Shell struct {
 	psr *Parser
 
 	args  []string
 	depth int
+
+	verbose bool
+	dry     bool
 
 	now time.Time
 	pid int
