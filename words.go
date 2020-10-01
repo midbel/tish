@@ -7,10 +7,18 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 type Expander interface {
 	Expand(Environment) []string
+}
+
+func createExpander(w Word) Expander {
+	if e, ok := w.(WordList); ok {
+		return e
+	}
+	return WordList{words: []Word{w}}
 }
 
 type Word interface {
@@ -30,6 +38,12 @@ func splitWords(word string, env Environment) []string {
 		})
 		return i < len(cs) && r == cs[i]
 	})
+}
+
+func isQuoted(word string) bool {
+	fst, _ := utf8.DecodeRuneInString(word)
+	lst, _ := utf8.DecodeLastRuneInString(word)
+	return fst == dquote && lst == dquote
 }
 
 func CompareWords(fst, snd Word) bool {
@@ -54,11 +68,55 @@ func createList(ws ...Word) Word {
 }
 
 func (w WordList) Expand(env Environment) []string {
-	return nil
+	return w.expand(env)
 }
 
 func (w WordList) expand(env Environment) []string {
-	return nil
+	ws := make([][]string, 0, len(w.words))
+	for i := range w.words {
+		ws = append(ws, w.words[i].expand(env))
+	}
+	fmt.Println(ws, w.combineWords(ws))
+	var (
+		words = make([]string, 0, len(ws))
+		curr  int
+	)
+	words = append(words, "")
+	for _, ws := range w.combineWords(ws) {
+		for i := range ws {
+			if isQuoted(ws[i]) {
+				words[curr] += strings.Trim(ws[i], "\"")
+				continue
+			}
+			vs := splitWords(ws[i], env)
+			words[curr] += vs[0]
+			words = append(words, vs[1:]...)
+			curr = len(words) - 1
+		}
+	}
+	return words
+}
+
+func (w WordList) combineWords(fields [][]string) [][]string {
+	var words [][]string
+	for _, fs := range fields {
+		if len(words) == 0 {
+			for _, f := range fs {
+				words = append(words, []string{f})
+			}
+			continue
+		}
+		xs := make([][]string, 0, len(fs)*len(words))
+		for _, e := range words {
+			x := make([]string, len(e))
+			copy(x, e)
+			for _, f := range fs {
+				xs = append(xs, append(x, f))
+			}
+		}
+		words = xs
+	}
+	return words
 }
 
 func (w WordList) String() string {
@@ -106,6 +164,9 @@ func createLiteral(tok Token) Word {
 
 func (i Literal) expand(env Environment) []string {
 	str := i.expandToken(env)
+	if i.token.Quoted {
+		str = "\"" + str + "\""
+	}
 	return []string{str}
 }
 

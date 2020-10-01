@@ -13,42 +13,6 @@ type WordCase struct {
 func TestWord(t *testing.T) {
 	data := []WordCase{
 		{
-			Word: WordList{
-				words: []Word{
-					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
-					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
-				},
-			},
-			Want: []string{"foo", "barfoo", "bar"},
-		},
-		{
-			Word: WordList{
-				words: []Word{
-					Serie{
-						words: []Word{
-							createLiteral(createQuotedToken("A", false, TokLiteral)),
-							createLiteral(createQuotedToken("B", false, TokLiteral)),
-							createLiteral(createQuotedToken("C", false, TokLiteral)),
-						},
-					},
-					Serie{
-						words: []Word{
-							createLiteral(createQuotedToken("1", false, TokLiteral)),
-							createLiteral(createQuotedToken("2", false, TokLiteral)),
-							createLiteral(createQuotedToken("3", false, TokLiteral)),
-						},
-					},
-				},
-			},
-			Want: []string{"A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"},
-		},
-	}
-	testWordCase(t, data)
-}
-
-func TestSplit(t *testing.T) {
-	data := []WordCase{
-		{
 			Word: createLiteral(createQuotedToken("<foo bar>", false, TokLiteral)),
 			Want: []string{"<foo", "bar>"},
 		},
@@ -63,20 +27,6 @@ func TestSplit(t *testing.T) {
 		{
 			Word: createLiteral(createQuotedToken("SPACE", true, TokVariable)),
 			Want: []string{"foo bar"},
-		},
-		{
-			Word: Transform{
-				ident: createQuotedToken("SPACE", true, TokVariable),
-				op:    createType(TokReverse),
-			},
-			Want: []string{"Foo bar"},
-		},
-		{
-			Word: Transform{
-				ident: createQuotedToken("SPACE", false, TokVariable),
-				op:    createType(TokReverseAll),
-			},
-			Want: []string{"FOO", "BAR"},
 		},
 		{
 			Word: WordList{
@@ -113,11 +63,32 @@ func TestSplit(t *testing.T) {
 		{
 			Word: WordList{
 				words: []Word{
-					createLiteral(createQuotedToken("SPACE", true, TokVariable)),
-					createLiteral(createQuotedToken("-test", true, TokLiteral)),
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
+					createLiteral(createQuotedToken("SPACE", false, TokVariable)),
 				},
 			},
-			Want: []string{"foo bar-test"},
+			Want: []string{"foo", "barfoo", "bar"},
+		},
+		{
+			Word: WordList{
+				words: []Word{
+					Serie{
+						words: []Word{
+							createLiteral(createQuotedToken("A", false, TokLiteral)),
+							createLiteral(createQuotedToken("B", false, TokLiteral)),
+							createLiteral(createQuotedToken("C", false, TokLiteral)),
+						},
+					},
+					Serie{
+						words: []Word{
+							createLiteral(createQuotedToken("1", false, TokLiteral)),
+							createLiteral(createQuotedToken("2", false, TokLiteral)),
+							createLiteral(createQuotedToken("3", false, TokLiteral)),
+						},
+					},
+				},
+			},
+			Want: []string{"A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"},
 		},
 	}
 	testWordCase(t, data)
@@ -355,9 +326,10 @@ func testSlice(t *testing.T) {
 }
 
 func testWordCase(t *testing.T, data []WordCase) {
-	e := makeEnv()
+	env := makeEnv()
 	for _, d := range data {
-		got := d.Word.expand(e)
+		ex := createExpander(d.Word)
+		got := ex.Expand(env)
 		if !reflect.DeepEqual(d.Want, got) {
 			t.Errorf("%s: words mismatched! want %q, got %q", d.Word, d.Want, got)
 		}
