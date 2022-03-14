@@ -1,39 +1,17 @@
-package tish
+package words
 
 import (
 	"errors"
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/midbel/tish/internal/token"
 )
 
 // ErrTest is the error value that Tester should returns when the
 // tested criteria are not met
 var ErrTest = errors.New("test")
-
-var testops = map[string]rune{
-	// binary operators
-	"-eq": Eq,
-	"-ne": Ne,
-	"-lt": Lt,
-	"-le": Le,
-	"-gt": Gt,
-	"-ge": Ge,
-	"-nt": NewerThan,
-	"-ot": OlderThan,
-	"-ef": SameFile,
-	// unary operators
-	"-e": FileExists,
-	"-r": FileRead,
-	"-h": FileLink,
-	"-d": FileDir,
-	"-w": FileWrite,
-	"-s": FileSize,
-	"-f": FileRegular,
-	"-x": FileExec,
-	"-z": StrNotEmpty,
-	"-n": StrEmpty,
-}
 
 type Tester interface {
 	Expander
@@ -65,32 +43,32 @@ func (t UnaryTest) IsQuoted() bool {
 
 func (t UnaryTest) Test(env Environment) (bool, error) {
 	switch t.Op {
-	case Not:
+	case token.Not:
 		ok, err := testExpander(t.Right, env)
 		return !ok, err
-	case FileExists:
+	case token.FileExists:
 		return t.fileExists(env)
-	case FileSize:
+	case token.FileSize:
 		return t.fileSize(env)
-	case FileRead:
+	case token.FileRead:
 		return t.fileReadable(env)
-	case FileWrite:
+	case token.FileWrite:
 		return t.fileWritable(env)
-	case FileRegular:
+	case token.FileRegular:
 		return t.fileRegular(env)
-	case FileLink:
+	case token.FileLink:
 		return t.fileLink(env)
-	case FileExec:
+	case token.FileExec:
 		return t.fileExec(env)
-	case FileDir:
+	case token.FileDir:
 		return t.fileDirectory(env)
-	case StrNotEmpty:
+	case token.StrNotEmpty:
 		str, err := expandSingle(t.Right, env)
 		if err != nil {
 			return false, err
 		}
 		return str != "", nil
-	case StrEmpty:
+	case token.StrEmpty:
 		str, err := expandSingle(t.Right, env)
 		if err != nil {
 			return false, err
@@ -184,13 +162,13 @@ func (t BinaryTest) IsQuoted() bool {
 
 func (t BinaryTest) Test(env Environment) (bool, error) {
 	switch t.Op {
-	case And:
+	case token.And:
 		ok, err := testExpander(t.Left, env)
 		if err != nil || !ok {
 			return ok, err
 		}
 		return testExpander(t.Right, env)
-	case Or:
+	case token.Or:
 		ok, err := testExpander(t.Left, env)
 		if err == nil && ok {
 			return ok, err
@@ -199,35 +177,35 @@ func (t BinaryTest) Test(env Environment) (bool, error) {
 			return false, err
 		}
 		return testExpander(t.Right, env)
-	case Eq:
+	case token.Eq:
 		return t.compare(env, func(left, right string) bool {
 			return left == right
 		})
-	case Ne:
+	case token.Ne:
 		return t.compare(env, func(left, right string) bool {
 			return left != right
 		})
-	case Lt:
+	case token.Lt:
 		return t.compare(env, func(left, right string) bool {
 			return left < right
 		})
-	case Le:
+	case token.Le:
 		return t.compare(env, func(left, right string) bool {
 			return left <= right
 		})
-	case Gt:
+	case token.Gt:
 		return t.compare(env, func(left, right string) bool {
 			return left > right
 		})
-	case Ge:
+	case token.Ge:
 		return t.compare(env, func(left, right string) bool {
 			return left >= right
 		})
-	case SameFile:
+	case token.SameFile:
 		return t.sameFile(env)
-	case OlderThan:
+	case token.OlderThan:
 		return t.olderThan(env)
-	case NewerThan:
+	case token.NewerThan:
 		return t.newerThan(env)
 	default:
 		return false, fmt.Errorf("unknown/unsupported unary test operator")

@@ -1,10 +1,51 @@
-package tish
+package parser
 
 import (
 	"bytes"
 	"io"
 	"unicode/utf8"
+
+	"github.com/midbel/tish/internal/token"
 )
+
+var colonOps = map[rune]rune{
+	minus:    token.ValIfUnset,
+	plus:     token.ValIfSet,
+	equal:    token.SetValIfUnset,
+	question: token.ExitIfUnset,
+	langle:   token.PadLeft,
+	rangle:   token.PadRight,
+}
+
+var slashOps = map[rune]rune{
+	slash:   token.ReplaceAll,
+	percent: token.ReplaceSuffix,
+	pound:   token.ReplacePrefix,
+}
+
+var testops = map[string]rune{
+	// binary operators
+	"-eq": token.Eq,
+	"-ne": token.Ne,
+	"-lt": token.Lt,
+	"-le": token.Le,
+	"-gt": token.Gt,
+	"-ge": token.Ge,
+	"-nt": token.NewerThan,
+	"-ot": token.OlderThan,
+	"-ef": token.SameFile,
+	// unary operators
+	"-e": token.FileExists,
+	"-r": token.FileRead,
+	"-h": token.FileLink,
+	"-d": token.FileDir,
+	"-w": token.FileWrite,
+	"-s": token.FileSize,
+	"-f": token.FileRegular,
+	"-x": token.FileExec,
+	"-z": token.StrNotEmpty,
+	"-n": token.StrEmpty,
+}
 
 const (
 	zero       = 0
@@ -65,11 +106,11 @@ func Scan(r io.Reader) *Scanner {
 	return &s
 }
 
-func (s *Scanner) Scan() Token {
+func (s *Scanner) Scan() token.Token {
 	s.reset()
-	var tok Token
+	var tok token.Token
 	if s.char == zero || s.char == utf8.RuneError {
-		tok.Type = EOF
+		tok.Type = token.EOF
 		return tok
 	}
 	if s.state.Arithmetic() {
@@ -88,7 +129,7 @@ func (s *Scanner) Scan() Token {
 	case isOperator(s.char) && s.state.Expansion():
 		s.scanOperator(&tok)
 	case isBlank(s.char) && !s.state.Quoted():
-		tok.Type = Blank
+		tok.Type = token.Blank
 		s.skipBlank()
 	case isSequence(s.char) && !s.state.Quoted():
 		s.scanSequence(&tok)
@@ -112,50 +153,50 @@ func (s *Scanner) Scan() Token {
 	return tok
 }
 
-func (s *Scanner) scanTest(tok *Token) {
-	tok.Type = Invalid
+func (s *Scanner) scanTest(tok *token.Token) {
+	tok.Type = token.Invalid
 	var skip bool
 	switch k := s.peek(); {
 	case s.char == lsquare && s.char == k:
 		s.read()
-		tok.Type = BegTest
+		tok.Type = token.BegTest
 		s.state.EnterTest()
 	case s.char == rsquare && s.char == k:
 		s.read()
-		tok.Type = EndTest
+		tok.Type = token.EndTest
 		s.state.LeaveTest()
 	case s.char == lparen:
-		tok.Type = BegMath
+		tok.Type = token.BegMath
 	case s.char == rparen:
-		tok.Type = EndMath
+		tok.Type = token.EndMath
 	case s.char == ampersand && k == s.char:
-		tok.Type = And
+		tok.Type = token.And
 		s.read()
 	case s.char == pipe && k == s.char:
-		tok.Type = Or
+		tok.Type = token.Or
 		s.read()
 	case s.char == equal && k == s.char:
-		tok.Type = Eq
+		tok.Type = token.Eq
 		s.read()
 	case s.char == bang && k == equal:
-		tok.Type = Ne
+		tok.Type = token.Ne
 		s.read()
 	case s.char == langle:
-		tok.Type = Lt
+		tok.Type = token.Lt
 		if k == equal {
 			s.read()
-			tok.Type = Le
+			tok.Type = token.Le
 		}
 	case s.char == rangle:
-		tok.Type = Gt
+		tok.Type = token.Gt
 		if k == equal {
 			s.read()
-			tok.Type = Ge
+			tok.Type = token.Ge
 		}
 	case s.char == bang:
-		tok.Type = Not
+		tok.Type = token.Not
 	case isDouble(s.char):
-		tok.Type = Quote
+		tok.Type = token.Quote
 		s.state.ToggleQuote()
 	case isSingle(s.char):
 		s.scanString(tok)
@@ -164,7 +205,7 @@ func (s *Scanner) scanTest(tok *Token) {
 		s.scanDollar(tok)
 		skip = true
 	case isBlank(s.char):
-		tok.Type = Blank
+		tok.Type = token.Blank
 	default:
 		s.scanLiteral(tok)
 		skip = true
@@ -181,7 +222,7 @@ func (s *Scanner) scanTest(tok *Token) {
 	}
 }
 
-func (s *Scanner) scanArithmetic(tok *Token) {
+func (s *Scanner) scanArithmetic(tok *token.Token) {
 	s.skipBlank()
 	switch {
 	case isMath(s.char):
@@ -191,12 +232,12 @@ func (s *Scanner) scanArithmetic(tok *Token) {
 	case isLetter(s.char):
 		s.scanVariable(tok)
 	default:
-		tok.Type = Invalid
+		tok.Type = token.Invalid
 	}
 }
 
-func (s *Scanner) scanVariable(tok *Token) {
-	tok.Type = Variable
+func (s *Scanner) scanVariable(tok *token.Token) {
+	tok.Type = token.Variable
 	switch {
 	case s.char == dollar:
 		tok.Literal = "$"
@@ -224,7 +265,7 @@ func (s *Scanner) scanVariable(tok *Token) {
 		tok.Literal = s.string()
 	default:
 		if !isLetter(s.char) {
-			tok.Type = Invalid
+			tok.Type = token.Invalid
 			return
 		}
 		for isIdent(s.char) {
@@ -235,7 +276,7 @@ func (s *Scanner) scanVariable(tok *Token) {
 	}
 }
 
-func (s *Scanner) scanDigit(tok *Token) {
+func (s *Scanner) scanDigit(tok *token.Token) {
 	for isDigit(s.char) {
 		s.write()
 		s.read()
@@ -249,106 +290,106 @@ func (s *Scanner) scanDigit(tok *Token) {
 		}
 	}
 	tok.Literal = s.string()
-	tok.Type = Numeric
+	tok.Type = token.Numeric
 }
 
-func (s *Scanner) scanMath(tok *Token) {
+func (s *Scanner) scanMath(tok *token.Token) {
 	switch s.char {
 	case semicolon:
-		tok.Type = List
+		tok.Type = token.List
 	case caret:
-		tok.Type = BitXor
+		tok.Type = token.BitXor
 	case tilde:
-		tok.Type = BitNot
+		tok.Type = token.BitNot
 	case bang:
-		tok.Type = Not
+		tok.Type = token.Not
 		if s.peek() == equal {
-			tok.Type = Ne
+			tok.Type = token.Ne
 			s.read()
 		}
 	case plus:
-		tok.Type = Add
+		tok.Type = token.Add
 		if s.peek() == s.char {
-			tok.Type = Inc
+			tok.Type = token.Inc
 			s.read()
 		}
 	case minus:
-		tok.Type = Sub
+		tok.Type = token.Sub
 		if s.peek() == s.char {
-			tok.Type = Dec
+			tok.Type = token.Dec
 			s.read()
 		}
 	case star:
-		tok.Type = Mul
+		tok.Type = token.Mul
 		if s.peek() == s.char {
-			tok.Type = Pow
+			tok.Type = token.Pow
 			s.read()
 		}
 	case slash:
-		tok.Type = Div
+		tok.Type = token.Div
 	case percent:
-		tok.Type = Mod
+		tok.Type = token.Mod
 	case lparen:
-		tok.Type = BegMath
+		tok.Type = token.BegMath
 		s.state.EnterArithmetic()
 	case rparen:
-		tok.Type = EndMath
+		tok.Type = token.EndMath
 		s.state.LeaveArithmetic()
 		if s.state.Depth() == 0 && s.peek() == s.char {
 			s.read()
 		}
 	case pipe:
-		tok.Type = BitOr
+		tok.Type = token.BitOr
 		if s.peek() == s.char {
-			tok.Type = Or
+			tok.Type = token.Or
 			s.read()
 		}
 	case ampersand:
-		tok.Type = BitAnd
+		tok.Type = token.BitAnd
 		if s.peek() == s.char {
-			tok.Type = And
+			tok.Type = token.And
 			s.read()
 		}
 	case equal:
-		tok.Type = Assign
+		tok.Type = token.Assign
 		if s.peek() == s.char {
 			s.read()
-			tok.Type = Eq
+			tok.Type = token.Eq
 		}
 	case langle:
-		tok.Type = Lt
+		tok.Type = token.Lt
 		if s.peek() == equal {
 			s.read()
-			tok.Type = Le
+			tok.Type = token.Le
 			break
 		}
 		if s.peek() == s.char {
 			s.read()
-			tok.Type = LeftShift
+			tok.Type = token.LeftShift
 		}
 	case rangle:
-		tok.Type = Gt
+		tok.Type = token.Gt
 		if s.peek() == equal {
 			s.read()
-			tok.Type = Ge
+			tok.Type = token.Ge
 			break
 		}
 		if s.peek() == s.char {
 			s.read()
-			tok.Type = RightShift
+			tok.Type = token.RightShift
 		}
 	case question:
-		tok.Type = Cond
+		tok.Type = token.Cond
 	case colon:
-		tok.Type = Alt
+		tok.Type = token.Alt
 	default:
-		tok.Type = Invalid
+		tok.Type = token.Invalid
 	}
 	s.read()
 }
 
-func (s *Scanner) scanQuote(tok *Token) {
-	tok.Type = Quote
+func (s *Scanner) scanQuote(tok *token.Token) {
+	tok.Type = token.Quote
 	s.read()
 	s.state.ToggleQuote()
 	if s.state.Quoted() {
@@ -359,13 +400,13 @@ func (s *Scanner) scanQuote(tok *Token) {
 	})
 }
 
-func (s *Scanner) scanBraces(tok *Token) {
+func (s *Scanner) scanBraces(tok *token.Token) {
 	switch k := s.peek(); {
 	case s.char == rcurly:
-		tok.Type = EndBrace
+		tok.Type = token.EndBrace
 		s.state.LeaveBrace()
 	case s.char == lcurly && k != rcurly:
-		tok.Type = BegBrace
+		tok.Type = token.BegBrace
 		s.state.EnterBrace()
 	default:
 		s.scanLiteral(tok)
@@ -375,177 +416,177 @@ func (s *Scanner) scanBraces(tok *Token) {
 	s.skipBlank()
 }
 
-func (s *Scanner) scanList(tok *Token) {
+func (s *Scanner) scanList(tok *token.Token) {
 	switch k := s.peek(); {
 	case s.char == comma:
-		tok.Type = Seq
+		tok.Type = token.Seq
 	case s.char == dot && k == s.char:
-		tok.Type = Range
+		tok.Type = token.Range
 		s.read()
 	default:
 	}
-	if tok.Type == Invalid {
+	if tok.Type == token.Invalid {
 		return
 	}
 	s.read()
 	s.skipBlank()
 }
 
-func (s *Scanner) scanAssignment(tok *Token) {
-	tok.Type = Assign
+func (s *Scanner) scanAssignment(tok *token.Token) {
+	tok.Type = token.Assign
 	s.read()
 	s.skipBlank()
 }
 
-func (s *Scanner) scanRedirect(tok *Token) {
+func (s *Scanner) scanRedirect(tok *token.Token) {
 	switch s.char {
 	case langle:
-		tok.Type = RedirectIn
+		tok.Type = token.RedirectIn
 	case rangle:
-		tok.Type = RedirectOut
+		tok.Type = token.RedirectOut
 		if k := s.peek(); k == s.char {
-			tok.Type = AppendOut
+			tok.Type = token.AppendOut
 			s.read()
 		}
 	case ampersand:
 		s.read()
 		if s.char == rangle && s.peek() == s.char {
 			s.read()
-			tok.Type = AppendBoth
+			tok.Type = token.AppendBoth
 		} else if s.char == rangle {
-			tok.Type = RedirectBoth
+			tok.Type = token.RedirectBoth
 		} else {
-			tok.Type = Invalid
+			tok.Type = token.Invalid
 		}
 	case '0':
 		s.read()
 		if s.char != langle {
-			tok.Type = Invalid
+			tok.Type = token.Invalid
 			break
 		}
-		tok.Type = RedirectIn
+		tok.Type = token.RedirectIn
 	case '1':
 		s.read()
 		if s.char == rangle && s.peek() == s.char {
 			s.read()
-			tok.Type = AppendOut
+			tok.Type = token.AppendOut
 		} else if s.char == rangle {
-			tok.Type = RedirectOut
+			tok.Type = token.RedirectOut
 		} else {
-			tok.Type = Invalid
+			tok.Type = token.Invalid
 		}
 	case '2':
 		s.read()
 		if s.char == rangle && s.peek() == s.char {
 			s.read()
-			tok.Type = AppendErr
+			tok.Type = token.AppendErr
 		} else if s.char == rangle {
-			tok.Type = RedirectErr
+			tok.Type = token.RedirectErr
 		} else {
-			tok.Type = Invalid
+			tok.Type = token.Invalid
 		}
 	default:
-		tok.Type = Invalid
+		tok.Type = token.Invalid
 	}
 	s.read()
 	s.skipBlank()
 }
 
-func (s *Scanner) scanSequence(tok *Token) {
+func (s *Scanner) scanSequence(tok *token.Token) {
 	switch k := s.peek(); {
 	case s.char == semicolon:
-		tok.Type = List
+		tok.Type = token.List
 	case s.char == nl:
-		tok.Type = List
+		tok.Type = token.List
 		s.skipNL()
 		return
 	case s.char == ampersand && k == s.char:
-		tok.Type = And
+		tok.Type = token.And
 		s.read()
 	case s.char == ampersand && isRedirect(k):
 		s.scanRedirect(tok)
 		return
 	case s.char == pipe && k == s.char:
-		tok.Type = Or
+		tok.Type = token.Or
 		s.read()
 	case s.char == pipe && k == ampersand:
-		tok.Type = PipeBoth
+		tok.Type = token.PipeBoth
 		s.read()
 	case s.char == pipe:
-		tok.Type = Pipe
+		tok.Type = token.Pipe
 	case s.char == rparen:
-		tok.Type = EndSub
+		tok.Type = token.EndSub
 		if s.state.Substitution() {
 			s.state.LeaveSubstitution()
 		}
 	case s.char == lparen:
-		tok.Type = BegSub
+		tok.Type = token.BegSub
 	case s.char == comma:
-		tok.Type = Comma
+		tok.Type = token.Comma
 	default:
-		tok.Type = Invalid
+		tok.Type = token.Invalid
 	}
 	s.read()
 	s.skipBlank()
 }
 
-func (s *Scanner) scanOperator(tok *Token) {
+func (s *Scanner) scanOperator(tok *token.Token) {
 	if k := s.prev(); s.char == pound && k == lcurly {
-		tok.Type = Length
+		tok.Type = token.Length
 		s.read()
 		return
 	}
 	switch s.char {
 	case rcurly:
-		tok.Type = EndExp
+		tok.Type = token.EndExp
 		s.state.LeaveExpansion()
 	case colon:
-		tok.Type = Slice
+		tok.Type = token.Slice
 		if t, ok := colonOps[s.peek()]; ok {
 			s.read()
 			tok.Type = t
 		}
 	case slash:
-		tok.Type = Replace
+		tok.Type = token.Replace
 		if t, ok := slashOps[s.peek()]; ok {
 			s.read()
 			tok.Type = t
 		}
 	case percent:
-		tok.Type = TrimSuffix
+		tok.Type = token.TrimSuffix
 		if k := s.peek(); k == percent {
-			tok.Type = TrimSuffixLong
+			tok.Type = token.TrimSuffixLong
 			s.read()
 		}
 	case pound:
-		tok.Type = TrimPrefix
+		tok.Type = token.TrimPrefix
 		if k := s.peek(); k == pound {
-			tok.Type = TrimPrefixLong
+			tok.Type = token.TrimPrefixLong
 			s.read()
 		}
 	case comma:
-		tok.Type = Lower
+		tok.Type = token.Lower
 		if k := s.peek(); k == comma {
-			tok.Type = LowerAll
+			tok.Type = token.LowerAll
 			s.read()
 		}
 	case caret:
-		tok.Type = Upper
+		tok.Type = token.Upper
 		if k := s.peek(); k == caret {
-			tok.Type = UpperAll
+			tok.Type = token.UpperAll
 			s.read()
 		}
 	default:
-		tok.Type = Invalid
+		tok.Type = token.Invalid
 	}
 	s.read()
 }
 
-func (s *Scanner) scanDollar(tok *Token) {
+func (s *Scanner) scanDollar(tok *token.Token) {
 	s.read()
 	if !s.state.Test() {
 		if s.char == lcurly {
-			tok.Type = BegExp
+			tok.Type = token.BegExp
 			s.state.EnterExpansion()
 			s.read()
 			return
@@ -553,12 +594,12 @@ func (s *Scanner) scanDollar(tok *Token) {
 		if s.char == lparen && s.peek() == lparen {
 			s.read()
 			s.read()
-			tok.Type = BegMath
+			tok.Type = token.BegMath
 			s.state.EnterArithmetic()
 			return
 		}
 		if s.char == lparen {
-			tok.Type = BegSub
+			tok.Type = token.BegSub
 			s.state.EnterSubstitution()
 			s.read()
 			return
@@ -567,7 +608,7 @@ func (s *Scanner) scanDollar(tok *Token) {
 	s.scanVariable(tok)
 }
 
-func (s *Scanner) scanComment(tok *Token) {
+func (s *Scanner) scanComment(tok *token.Token) {
 	s.read()
 	s.skipBlank()
 	for !s.done() && !isNL(s.char) {
@@ -577,20 +618,20 @@ func (s *Scanner) scanComment(tok *Token) {
 	if isNL(s.char) {
 		s.read()
 	}
-	tok.Type = Comment
+	tok.Type = token.Comment
 	tok.Literal = s.string()
 }
 
-func (s *Scanner) scanString(tok *Token) {
+func (s *Scanner) scanString(tok *token.Token) {
 	s.read()
 	for !isSingle(s.char) && !s.done() {
 		s.write()
 		s.read()
 	}
-	tok.Type = Literal
+	tok.Type = token.Literal
 	tok.Literal = s.string()
 	if !isSingle(s.char) {
-		tok.Type = Invalid
+		tok.Type = token.Invalid
 	}
 	s.read()
 	if s.state.Test() {
@@ -601,7 +642,7 @@ func (s *Scanner) scanString(tok *Token) {
 	})
 }
 
-func (s *Scanner) scanLiteral(tok *Token) {
+func (s *Scanner) scanLiteral(tok *token.Token) {
 	if s.state.Quoted() {
 		s.scanQuotedLiteral(tok)
 		return
@@ -613,13 +654,11 @@ func (s *Scanner) scanLiteral(tok *Token) {
 		s.write()
 		s.read()
 	}
-	tok.Type = Literal
+	tok.Type = token.Literal
 	tok.Literal = s.string()
-	switch tok.Literal {
-	case kwFor, kwWhile, kwUntil, kwIf, kwCase, kwDo, kwDone, kwFi, kwThen, kwIn, kwElse, kwEsac, kwBreak, kwContinue:
-		tok.Type = Keyword
+	if token.IsKeyword(tok.Literal) {
+		tok.Type = token.Keyword
 		s.skipBlank()
-	default:
 	}
 	if s.state.Test() {
 		return
@@ -629,7 +668,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	})
 }
 
-func (s *Scanner) scanQuotedLiteral(tok *Token) {
+func (s *Scanner) scanQuotedLiteral(tok *token.Token) {
 	for !s.done() {
 		if isDouble(s.char) || isVariable(s.char) {
 			break
@@ -640,7 +679,7 @@ func (s *Scanner) scanQuotedLiteral(tok *Token) {
 		s.write()
 		s.read()
 	}
-	tok.Type = Literal
+	tok.Type = token.Literal
 	tok.Literal = s.string()
 }
 

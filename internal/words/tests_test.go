@@ -1,4 +1,4 @@
-package tish_test
+package words_test
 
 import (
 	"testing"

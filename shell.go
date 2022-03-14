@@ -15,7 +15,10 @@ import (
 
 	"github.com/midbel/rw"
 	"github.com/midbel/shlex"
+	"github.com/midbel/tish/internal/parser"
 	"github.com/midbel/tish/internal/stack"
+	"github.com/midbel/tish/internal/token"
+	"github.com/midbel/tish/internal/words"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -301,14 +304,14 @@ func (s *Shell) Delete(ident string) error {
 }
 
 func (s *Shell) Expand(str string, args []string) ([]string, error) {
-	return Expand(str, args, s)
+	return parser.Expand(str, args, s)
 }
 
 func (s *Shell) Dry(str, cmd string, args []string) error {
 	s.setContext(cmd, args)
 	defer s.clearContext()
 
-	return ExpandWith(str, args, s, func(str [][]string) {
+	return parser.ExpandWith(str, args, s, func(str [][]string) {
 		for i := range str {
 			io.WriteString(s.stdout, strings.Join(str[i], " "))
 			io.WriteString(s.stdout, "\n")
@@ -326,7 +329,7 @@ func (s *Shell) Run(ctx context.Context, r io.Reader, cmd string, args []string)
 	s.setContext(cmd, args)
 	defer s.clearContext()
 	var (
-		p   = NewParser(r)
+		p   = parser.NewParser(r)
 		ret error
 	)
 	for {
@@ -342,66 +345,51 @@ func (s *Shell) Run(ctx context.Context, r io.Reader, cmd string, args []string)
 }
 
 func (s *Shell) Execute(ctx context.Context, str, cmd string, args []string) error {
-	s.setContext(cmd, args)
-	defer s.clearContext()
-	var (
-		p   = NewParser(strings.NewReader(str))
-		ret error
-	)
-	for {
-		ex, err := p.Parse()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return ret
-			}
-			return err
-		}
-		ret = s.execute(ctx, ex)
-	}
+	return s.Run(ctx, strings.NewReader(str), cmd, args)
 }
 
-func (s *Shell) execute(ctx context.Context, ex Executer) error {
+func (s *Shell) execute(ctx context.Context, ex words.Executer) error {
 	var err error
 	switch ex := ex.(type) {
-	case ExecSimple:
+	case words.ExecSimple:
 		err = s.executeSingle(ctx, ex.Expander, ex.Redirect)
-	case ExecList:
+	case words.ExecList:
 		for i := range ex {
 			if err = s.execute(ctx, ex[i]); err != nil {
 				break
 			}
 		}
-	case ExecSubshell:
+	case words.ExecSubshell:
 		return s.executeSubshell(ctx, ex)
-	case ExecAssign:
+	case words.ExecAssign:
 		err = s.executeAssign(ex)
-	case ExecAnd:
+	case words.ExecAnd:
 		if err = s.execute(ctx, ex.Left); err != nil || s.context.code != 0 {
 			break
 		}
 		err = s.execute(ctx, ex.Right)
-	case ExecOr:
+	case words.ExecOr:
 		if err = s.execute(ctx, ex.Left); err == nil || s.context.code == 0 {
 			break
 		}
 		err = s.execute(ctx, ex.Right)
-	case ExecPipe:
+	case words.ExecPipe:
 		err = s.executePipe(ctx, ex)
-	case ExecFor:
+	case words.ExecFor:
 		err = s.executeFor(ctx, ex)
-	case ExecWhile:
+	case words.ExecWhile:
 		err = s.executeWhile(ctx, ex)
-	case ExecUntil:
+	case words.ExecUntil:
 		err = s.executeUntil(ctx, ex)
-	case ExecIf:
+	case words.ExecIf:
 		err = s.executeIf(ctx, ex)
-	case ExecCase:
+	case words.ExecCase:
 		err = s.executeCase(ctx, ex)
-	case ExecBreak:
-		err = ErrBreak
-	case ExecContinue:
-		err = ErrContinue
-	case ExecTest:
+	case words.ExecBreak:
+		err = words.ErrBreak
+	case words.ExecContinue:
+		err = words.ErrContinue
+	case words.ExecTest:
 		err = s.executeTest(ctx, ex)
 	default:
 		err = fmt.Errorf("unsupported executer type %T", ex)
@@ -409,7 +397,7 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 	return err
 }
 
-func (s *Shell) executeSubshell(ctx context.Context, ex ExecSubshell) error {
+func (s *Shell) executeSubshell(ctx context.Context, ex words.ExecSubshell) error {
 	sh, err := s.Subshell()
 	if err != nil {
 		return err
@@ -422,7 +410,7 @@ func (s *Shell) executeSubshell(ctx context.Context, ex ExecSubshell) error {
 	return nil
 }
 
-func (s *Shell) executeCase(ctx context.Context, ex ExecCase) error {
+func (s *Shell) executeCase(ctx context.Context, ex words.ExecCase) error {
 	word, err := ex.Word.Expand(s, false)
 	if err != nil {
 		return err
@@ -454,7 +442,7 @@ func (s *Shell) executeCase(ctx context.Context, ex ExecCase) error {
 	return nil
 }
 
-func (s *Shell) executeTest(_ context.Context, ex ExecTest) error {
+func (s *Shell) executeTest(_ context.Context, ex words.ExecTest) error {
 	ok, err := ex.Test(s)
 	if err != nil || !ok {
 		s.context.code = 1
@@ -464,7 +452,7 @@ func (s *Shell) executeTest(_ context.Context, ex ExecTest) error {
 	return err
 }
 
-func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
+func (s *Shell) executeFor(ctx context.Context, ex words.ExecFor) error {
 	list, err := ex.Expand(s, false)
 	if err != nil || len(list) == 0 {
 		return s.execute(ctx, ex.Alt)
@@ -474,10 +462,10 @@ func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 			return err
 		}
 		if err := s.execute(ctx, ex.Body); err != nil {
-			if errors.Is(err, ErrBreak) {
+			if errors.Is(err, words.ErrBreak) {
 				break
 			}
-			if errors.Is(err, ErrContinue) {
+			if errors.Is(err, words.ErrContinue) {
 				continue
 			}
 			return err
@@ -486,7 +474,7 @@ func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 	return nil
 }
 
-func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
+func (s *Shell) executeWhile(ctx context.Context, ex words.ExecWhile) error {
 	var it int
 	for {
 		err := s.execute(ctx, ex.Cond)
@@ -499,10 +487,10 @@ func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
 		it++
 		err = s.execute(ctx, ex.Body)
 		if err != nil {
-			if errors.Is(err, ErrBreak) {
+			if errors.Is(err, words.ErrBreak) {
 				break
 			}
-			if errors.Is(err, ErrContinue) {
+			if errors.Is(err, words.ErrContinue) {
 				continue
 			}
 			return err
@@ -514,7 +502,7 @@ func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
 	return nil
 }
 
-func (s *Shell) executeUntil(ctx context.Context, ex ExecUntil) error {
+func (s *Shell) executeUntil(ctx context.Context, ex words.ExecUntil) error {
 	var it int
 	for {
 		err := s.execute(ctx, ex.Cond)
@@ -527,10 +515,10 @@ func (s *Shell) executeUntil(ctx context.Context, ex ExecUntil) error {
 		it++
 		err = s.execute(ctx, ex.Body)
 		if err != nil {
-			if errors.Is(err, ErrBreak) {
+			if errors.Is(err, words.ErrBreak) {
 				break
 			}
-			if errors.Is(err, ErrContinue) {
+			if errors.Is(err, words.ErrContinue) {
 				continue
 			}
 			return err
@@ -542,7 +530,7 @@ func (s *Shell) executeUntil(ctx context.Context, ex ExecUntil) error {
 	return nil
 }
 
-func (s *Shell) executeIf(ctx context.Context, ex ExecIf) error {
+func (s *Shell) executeIf(ctx context.Context, ex words.ExecIf) error {
 	err := s.execute(ctx, ex.Cond)
 	if err != nil {
 		return err
@@ -553,7 +541,7 @@ func (s *Shell) executeIf(ctx context.Context, ex ExecIf) error {
 	return s.execute(ctx, ex.Alt)
 }
 
-func (s *Shell) executeSingle(ctx context.Context, ex Expander, redirect []ExpandRedirect) error {
+func (s *Shell) executeSingle(ctx context.Context, ex words.Expander, redirect []words.ExpandRedirect) error {
 	str, err := s.expand(ex)
 	if err != nil {
 		return err
@@ -576,10 +564,10 @@ func (s *Shell) executeSingle(ctx context.Context, ex Expander, redirect []Expan
 	return err
 }
 
-func (s *Shell) executePipe(ctx context.Context, ex ExecPipe) error {
+func (s *Shell) executePipe(ctx context.Context, ex words.ExecPipe) error {
 	var cs []Command
 	for i := range ex.List {
-		sex, ok := ex.List[i].Executer.(ExecSimple)
+		sex, ok := ex.List[i].Executer.(words.ExecSimple)
 		if !ok {
 			return fmt.Errorf("single command expected")
 		}
@@ -627,7 +615,7 @@ func (s *Shell) executePipe(ctx context.Context, ex ExecPipe) error {
 	return grp.Wait()
 }
 
-func (s *Shell) executeAssign(ex ExecAssign) error {
+func (s *Shell) executeAssign(ex words.ExecAssign) error {
 	str, err := ex.Expand(s, true)
 	if err != nil {
 		return err
@@ -635,7 +623,7 @@ func (s *Shell) executeAssign(ex ExecAssign) error {
 	return s.Define(ex.Ident, str)
 }
 
-func (s *Shell) expand(ex Expander) ([]string, error) {
+func (s *Shell) expand(ex words.Expander) ([]string, error) {
 	str, err := ex.Expand(s, true)
 	if err != nil {
 		return nil, err
@@ -797,7 +785,7 @@ func (r redirect) Close() error {
 	return nil
 }
 
-func (s *Shell) setupRedirect(rs []ExpandRedirect, pipe bool) (redirect, error) {
+func (s *Shell) setupRedirect(rs []words.ExpandRedirect, pipe bool) (redirect, error) {
 	var (
 		stdin  *os.File
 		stdout *os.File
@@ -810,34 +798,34 @@ func (s *Shell) setupRedirect(rs []ExpandRedirect, pipe bool) (redirect, error) 
 			return rd, err
 		}
 		switch file := str[0]; r.Type {
-		case RedirectIn:
+		case token.RedirectIn:
 			stdin, err = replaceFile(file, flagRead, stdin)
-		case RedirectOut:
+		case token.RedirectOut:
 			if stdout == stderr {
 				stdout = nil
 			}
 			stdout, err = replaceFile(file, flagWrite, stdout)
-		case RedirectErr:
+		case token.RedirectErr:
 			if stderr == stdout {
 				stderr = nil
 			}
 			stderr, err = replaceFile(file, flagWrite, stderr)
-		case RedirectBoth:
+		case token.RedirectBoth:
 			var fd *os.File
 			if fd, err = replaceFile(file, flagWrite, stdout, stderr); err == nil {
 				stdout, stderr = fd, fd
 			}
-		case AppendOut:
+		case token.AppendOut:
 			if stdout.Fd() == stderr.Fd() {
 				stdout = nil
 			}
 			stdout, err = replaceFile(file, flagAppend, stdout)
-		case AppendErr:
+		case token.AppendErr:
 			if stderr == stdout {
 				stderr = nil
 			}
 			stderr, err = replaceFile(file, flagAppend, stderr)
-		case AppendBoth:
+		case token.AppendBoth:
 			var fd *os.File
 			if fd, err = replaceFile(file, flagAppend, stdout, stderr); err == nil {
 				stdout, stderr = fd, fd

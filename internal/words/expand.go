@@ -1,261 +1,23 @@
-package tish
+package words
 
 import (
-	"bytes"
-	"context"
+	// "bytes"
+	// "context"
 	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/midbel/shlex"
+	// "github.com/midbel/shlex"
+	"github.com/midbel/tish/internal/token"
 )
 
 var ErrExpansion = errors.New("bad expansion")
 
-var (
-	ErrBreak    = errors.New(kwBreak)
-	ErrContinue = errors.New(kwContinue)
-)
-
-type Executer interface{}
-
 type Expander interface {
 	Expand(env Environment, top bool) ([]string, error)
 	IsQuoted() bool
-}
-
-func Expand(str string, args []string, env Environment) ([]string, error) {
-	var (
-		ret []string
-		err error
-	)
-	err = ExpandWith(str, args, env, func(str [][]string) {
-		var lines []string
-		for i := range str {
-			lines = append(lines, strings.Join(str[i], " "))
-		}
-		ret = append(ret, strings.Join(lines, "; "))
-	})
-	return ret, err
-}
-
-func ExpandWith(str string, args []string, env Environment, with func([][]string)) error {
-	psr := NewParser(strings.NewReader(str))
-	for {
-		ex, err := psr.Parse()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return err
-		}
-		str, err := expandExecuter(ex, env)
-		if err != nil {
-			continue
-		}
-		with(str)
-	}
-	return nil
-}
-
-func expandExecuter(ex Executer, env Environment) ([][]string, error) {
-	var (
-		str [][]string
-		err error
-	)
-	switch x := ex.(type) {
-	case ExecSimple:
-		xs, err1 := x.Expand(env, false)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		str = append(str, xs)
-	case ExecAnd:
-		left, err1 := expandExecuter(x.Left, env)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		right, err1 := expandExecuter(x.Right, env)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		str = append(str, left...)
-		str = append(str, right...)
-	case ExecOr:
-		left, err1 := expandExecuter(x.Left, env)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		right, err1 := expandExecuter(x.Right, env)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		str = append(str, left...)
-		str = append(str, right...)
-	case ExecPipe:
-		for i := range x.List {
-			xs, err1 := expandExecuter(x.List[i].Executer, env)
-			if err1 != nil {
-				err = err1
-				break
-			}
-			str = append(str, xs...)
-		}
-	default:
-		err = fmt.Errorf("unknown/unsupported executer type %T", ex)
-	}
-	return str, err
-}
-
-type ExecAssign struct {
-	Ident string
-	Expander
-}
-
-func createAssign(ident string, ex Expander) ExecAssign {
-	return ExecAssign{
-		Ident:    ident,
-		Expander: ex,
-	}
-}
-
-type ExecFor struct {
-	Ident string
-	List  []Expander
-	Body  Executer
-	Alt   Executer
-}
-
-func (e ExecFor) Expand(env Environment, _ bool) ([]string, error) {
-	var list []string
-	for i := range e.List {
-		str, err := e.List[i].Expand(env, false)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, str...)
-	}
-	return list, nil
-}
-
-type ExecBreak struct{}
-
-type ExecContinue struct{}
-
-type ExecWhile struct {
-	Cond Executer
-	Body Executer
-	Alt  Executer
-}
-
-type ExecUntil struct {
-	Cond Executer
-	Body Executer
-	Alt  Executer
-}
-
-type ExecIf struct {
-	Cond Executer
-	Csq  Executer
-	Alt  Executer
-}
-
-type ExecCase struct {
-	Word    Expander
-	List    []ExecClause
-	Default Executer
-}
-
-type ExecClause struct {
-	List []Expander
-	Body Executer
-}
-
-type ExecTest struct {
-	Tester
-}
-
-type ExecSubshell []Executer
-
-func (e ExecSubshell) Executer() Executer {
-	if len(e) == 1 {
-		return e[0]
-	}
-	return e
-}
-
-type ExecList []Executer
-
-func (e ExecList) Executer() Executer {
-	if len(e) == 1 {
-		return e[0]
-	}
-	return e
-}
-
-type ExecAnd struct {
-	Left  Executer
-	Right Executer
-}
-
-func createAnd(left, right Executer) ExecAnd {
-	return ExecAnd{
-		Left:  left,
-		Right: right,
-	}
-}
-
-type ExecOr struct {
-	Left  Executer
-	Right Executer
-}
-
-func createOr(left, right Executer) ExecOr {
-	return ExecOr{
-		Left:  left,
-		Right: right,
-	}
-}
-
-type ExecPipe struct {
-	List []pipeitem
-}
-
-func createPipe(list []pipeitem) ExecPipe {
-	return ExecPipe{
-		List: list,
-	}
-}
-
-type pipeitem struct {
-	Executer
-	Both bool
-}
-
-func createPipeItem(ex Executer, both bool) pipeitem {
-	return pipeitem{
-		Executer: ex,
-		Both:     both,
-	}
-}
-
-type ExecSimple struct {
-	Expander
-	Redirect []ExpandRedirect
-}
-
-func createSimple(ex Expander) ExecSimple {
-	return ExecSimple{
-		Expander: ex,
-	}
 }
 
 type ExpandSub struct {
@@ -268,23 +30,24 @@ func (e ExpandSub) IsQuoted() bool {
 }
 
 func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
-	sh, ok := env.(*Shell)
-	if !ok {
-		return nil, fmt.Errorf("substitution can not expanded")
-	}
-	var (
-		err error
-		buf bytes.Buffer
-	)
-	sh, _ = sh.Subshell()
-	sh.SetOut(&buf)
-
-	for i := range e.List {
-		if err = sh.execute(context.TODO(), e.List[i]); err != nil {
-			return nil, err
-		}
-	}
-	return shlex.Split(&buf)
+	// sh, ok := env.(*Shell)
+	// if !ok {
+	// 	return nil, fmt.Errorf("substitution can not expanded")
+	// }
+	// var (
+	// 	err error
+	// 	buf bytes.Buffer
+	// )
+	// sh, _ = sh.Subshell()
+	// sh.SetOut(&buf)
+	//
+	// for i := range e.List {
+	// 	if err = sh.execute(context.TODO(), e.List[i]); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+	// return shlex.Split(&buf)
+	return nil, fmt.Errorf("to be implemented")
 }
 
 type ExpandList struct {
@@ -394,7 +157,7 @@ type ExpandWord struct {
 	Quoted  bool
 }
 
-func createWord(str string, quoted bool) ExpandWord {
+func CreateWord(str string, quoted bool) ExpandWord {
 	return ExpandWord{
 		Literal: str,
 		Quoted:  quoted,
@@ -418,7 +181,7 @@ type ExpandRedirect struct {
 	Type   rune
 }
 
-func createRedirect(e Expander, kind rune) ExpandRedirect {
+func CreateRedirect(e Expander, kind rune) ExpandRedirect {
 	return ExpandRedirect{
 		Expander: e,
 		Type:     kind,
@@ -537,7 +300,7 @@ type ExpandVar struct {
 	Quoted bool
 }
 
-func createVariable(ident string, quoted bool) ExpandVar {
+func CreateVariable(ident string, quoted bool) ExpandVar {
 	return ExpandVar{
 		Ident:  ident,
 		Quoted: quoted,
@@ -612,13 +375,13 @@ func (v ExpandReplace) Expand(env Environment, _ bool) ([]string, error) {
 		return nil, err
 	}
 	switch v.What {
-	case Replace:
+	case token.Replace:
 		str = v.replace(str)
-	case ReplaceAll:
+	case token.ReplaceAll:
 		str = v.replaceAll(str)
-	case ReplacePrefix:
+	case token.ReplacePrefix:
 		str = v.replacePrefix(str)
-	case ReplaceSuffix:
+	case token.ReplaceSuffix:
 		str = v.replaceSuffix(str)
 	}
 	return str, nil
@@ -663,13 +426,13 @@ func (v ExpandTrim) Expand(env Environment, _ bool) ([]string, error) {
 		return nil, err
 	}
 	switch v.What {
-	case TrimSuffix:
+	case token.TrimSuffix:
 		str = v.trimSuffix(str)
-	case TrimSuffixLong:
+	case token.TrimSuffixLong:
 		str = v.trimSuffixLong(str)
-	case TrimPrefix:
+	case token.TrimPrefix:
 		str = v.trimPrefix(str)
-	case TrimPrefixLong:
+	case token.TrimPrefixLong:
 		str = v.trimPrefixLong(str)
 	}
 	return str, nil
@@ -802,7 +565,7 @@ func (v ExpandPad) Expand(env Environment, _ bool) ([]string, error) {
 			fill = strings.Repeat(v.With, diff)
 			ori  = str[i]
 		)
-		if v.What == PadRight {
+		if v.What == token.PadRight {
 			fill, ori = ori, fill
 		}
 		str[i] = fmt.Sprintf("%s%s", fill, ori)
@@ -912,7 +675,7 @@ type ExpandValIfUnset struct {
 	Quoted bool
 }
 
-func createValIfUnset(ident, value string, quoted bool) ExpandValIfUnset {
+func CreateValIfUnset(ident, value string, quoted bool) ExpandValIfUnset {
 	return ExpandValIfUnset{
 		Ident:  ident,
 		Value:  value,
@@ -938,7 +701,7 @@ type ExpandSetValIfUnset struct {
 	Quoted bool
 }
 
-func createSetValIfUnset(ident, value string, quoted bool) ExpandSetValIfUnset {
+func CreateSetValIfUnset(ident, value string, quoted bool) ExpandSetValIfUnset {
 	return ExpandSetValIfUnset{
 		Ident:  ident,
 		Value:  value,
@@ -965,7 +728,7 @@ type ExpandValIfSet struct {
 	Quoted bool
 }
 
-func createExpandValIfSet(ident, value string, quoted bool) ExpandValIfSet {
+func CreateExpandValIfSet(ident, value string, quoted bool) ExpandValIfSet {
 	return ExpandValIfSet{
 		Ident:  ident,
 		Value:  value,
@@ -991,7 +754,7 @@ type ExpandExitIfUnset struct {
 	Quoted bool
 }
 
-func createExpandExitIfUnset(ident, value string, quoted bool) ExpandExitIfUnset {
+func CreateExpandExitIfUnset(ident, value string, quoted bool) ExpandExitIfUnset {
 	return ExpandExitIfUnset{
 		Ident:  ident,
 		Value:  value,

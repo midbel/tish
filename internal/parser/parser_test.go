@@ -1,4 +1,4 @@
-package tish_test
+package parser_test
 
 import (
 	"errors"

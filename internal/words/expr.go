@@ -1,10 +1,12 @@
-package tish
+package words
 
 import (
 	"errors"
 	"fmt"
 	"math"
 	"strconv"
+
+	"github.com/midbel/tish/internal/token"
 )
 
 var ErrZero = errors.New("division by zero")
@@ -17,7 +19,7 @@ type Number struct {
 	Literal string
 }
 
-func createNumber(str string) Expr {
+func CreateNumber(str string) Expr {
 	return Number{
 		Literal: str,
 	}
@@ -32,7 +34,7 @@ type Unary struct {
 	Expr
 }
 
-func createUnary(ex Expr, op rune) Expr {
+func CreateUnary(ex Expr, op rune) Expr {
 	return Unary{
 		Op:   op,
 		Expr: ex,
@@ -45,17 +47,17 @@ func (u Unary) Eval(env Environment) (float64, error) {
 		return ret, err
 	}
 	switch u.Op {
-	case Not:
+	case token.Not:
 		if ret != 0 {
 			ret = 1
 		}
-	case Sub:
+	case token.Sub:
 		ret = -ret
-	case Inc:
+	case token.Inc:
 		ret = ret + 1
-	case Dec:
+	case token.Dec:
 		ret = ret - 1
-	case BitNot:
+	case token.BitNot:
 		x := ^int64(ret)
 		ret = float64(x)
 	default:
@@ -117,79 +119,79 @@ func (a Assignment) Eval(env Environment) (float64, error) {
 	return ret, env.Define(a.Ident, []string{str})
 }
 
-type bind int8
+type Bind int8
 
 const (
-	bindLowest bind = iota
-	bindAssign
-	bindBit
-	bindShift
-	bindTernary
-	bindLogical
-	bindEq
-	bindCmp
-	bindAdd
-	bindMul
-	bindPow
-	bindPrefix
+	BindLowest Bind = iota
+	BindAssign
+	BindBit
+	BindShift
+	BindTernary
+	BindLogical
+	BindEq
+	BindCmp
+	BindAdd
+	BindMul
+	BindPow
+	BindPrefix
 )
 
-var bindings = map[rune]bind{
-	BitAnd:     bindBit,
-	BitOr:      bindBit,
-	BitXor:     bindBit,
-	Add:        bindAdd,
-	Sub:        bindAdd,
-	Mul:        bindMul,
-	Div:        bindMul,
-	Mod:        bindMul,
-	Pow:        bindPow,
-	LeftShift:  bindShift,
-	RightShift: bindShift,
-	And:        bindLogical,
-	Or:         bindLogical,
-	Eq:         bindEq,
-	Ne:         bindEq,
-	Lt:         bindCmp,
-	Le:         bindCmp,
-	Gt:         bindCmp,
-	Ge:         bindCmp,
-	SameFile:   bindCmp,
-	NewerThan:  bindCmp,
-	OlderThan:  bindCmp,
-	Cond:       bindTernary,
-	Alt:        bindTernary,
-	Assign:     bindAssign,
+var bindings = map[rune]Bind{
+	token.BitAnd:     BindBit,
+	token.BitOr:      BindBit,
+	token.BitXor:     BindBit,
+	token.Add:        BindAdd,
+	token.Sub:        BindAdd,
+	token.Mul:        BindMul,
+	token.Div:        BindMul,
+	token.Mod:        BindMul,
+	token.Pow:        BindPow,
+	token.LeftShift:  BindShift,
+	token.RightShift: BindShift,
+	token.And:        BindLogical,
+	token.Or:         BindLogical,
+	token.Eq:         BindEq,
+	token.Ne:         BindEq,
+	token.Lt:         BindCmp,
+	token.Le:         BindCmp,
+	token.Gt:         BindCmp,
+	token.Ge:         BindCmp,
+	token.SameFile:   BindCmp,
+	token.NewerThan:  BindCmp,
+	token.OlderThan:  BindCmp,
+	token.Cond:       BindTernary,
+	token.Alt:        BindTernary,
+	token.Assign:     BindAssign,
 }
 
-func bindPower(tok Token) bind {
+func BindPower(tok token.Token) Bind {
 	pow, ok := bindings[tok.Type]
 	if !ok {
-		pow = bindLowest
+		pow = BindLowest
 	}
 	return pow
 }
 
 var binaries = map[rune]func(float64, float64) (float64, error){
-	Add:        doAdd,
-	Sub:        doSub,
-	Mul:        doMul,
-	Div:        doDiv,
-	Mod:        doMod,
-	Pow:        doPow,
-	LeftShift:  doLeft,
-	RightShift: doRight,
-	Eq:         doEq,
-	Ne:         doNe,
-	Lt:         doLt,
-	Le:         doLe,
-	Gt:         doGt,
-	Ge:         doGe,
-	And:        doAnd,
-	Or:         doOr,
-	BitAnd:     doBitAnd,
-	BitOr:      doBitOr,
-	BitXor:     doBitXor,
+	token.Add:        doAdd,
+	token.Sub:        doSub,
+	token.Mul:        doMul,
+	token.Div:        doDiv,
+	token.Mod:        doMod,
+	token.Pow:        doPow,
+	token.LeftShift:  doLeft,
+	token.RightShift: doRight,
+	token.Eq:         doEq,
+	token.Ne:         doNe,
+	token.Lt:         doLt,
+	token.Le:         doLe,
+	token.Gt:         doGt,
+	token.Ge:         doGe,
+	token.And:        doAnd,
+	token.Or:         doOr,
+	token.BitAnd:     doBitAnd,
+	token.BitOr:      doBitOr,
+	token.BitXor:     doBitXor,
 }
 
 func doAdd(left, right float64) (float64, error) {

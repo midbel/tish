@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/midbel/tish"
+	"github.com/midbel/tish/internal/parser"
+	"github.com/midbel/tish/internal/token"
 )
 
 func main() {
@@ -55,17 +57,17 @@ func main() {
 		return
 	}
 
-	options := []shell.ShellOption{
-		shell.WithCwd(*cwd),
-		shell.WithStdin(os.Stdin),
-		shell.WithStdout(os.Stdout),
-		shell.WithStderr(os.Stderr),
+	options := []tish.ShellOption{
+		tish.WithCwd(*cwd),
+		tish.WithStdin(os.Stdin),
+		tish.WithStdout(os.Stdout),
+		tish.WithStderr(os.Stderr),
 	}
 	if *echo {
-		options = append(options, shell.WithEcho())
+		options = append(options, tish.WithEcho())
 	}
 
-	sh, err := shell.New(options...)
+	sh, err := tish.New(options...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -105,7 +107,7 @@ func parseScript(script string, inline bool) error {
 		defer f.Close()
 		r = f
 	}
-	p := shell.NewParser(r)
+	p := parser.NewParser(r)
 	for {
 		ex, err := p.Parse()
 		if err != nil {
@@ -131,12 +133,12 @@ func scanScript(script string, inline bool) error {
 		defer f.Close()
 		r = f
 	}
-	scan := shell.Scan(r)
+	scan := parser.Scan(r)
 	for i := 1; ; i++ {
 		tok := scan.Scan()
 		fmt.Fprintf(os.Stdout, "%3d: %s", i, tok)
 		fmt.Fprintln(os.Stdout)
-		if tok.Type == shell.EOF || tok.Type == shell.Invalid {
+		if tok.Type == token.EOF || tok.Type == token.Invalid {
 			break
 		}
 	}
