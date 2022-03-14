@@ -1,0 +1,6 @@
+github.com/midbel/rw v0.3.0 h1:E0OlRjYTXN1jnB5O5EZQbSWCbGcXzk922VMVj2j6jgg=
+github.com/midbel/rw v0.3.0/go.mod h1:iIwUqmsls/PSDEPVHLqkcLp2D8xxuwVpBce6pNwf0nI=
+github.com/midbel/shlex v0.1.0 h1:8DarUa4vZ+N8t22vcqXLTD9qLa0DUlri76/vv8c4oxA=
+github.com/midbel/shlex v0.1.0/go.mod h1:AN3Oxs3u28J06GaDWOGYu+OX/hLTyWg9C8gj9cHy18w=
+golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
+golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
