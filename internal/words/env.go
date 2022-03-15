@@ -12,6 +12,7 @@ type Environment interface {
 
 type ShellEnv interface {
 	Environment
-	SetOut(io.Writer)
-	Execute(context.Context, Executer) error
+	// SetOut(io.Writer)
+	// SetErr(io.Writer)
+	Execute(context.Context, Executer, io.Writer, io.Writer) error
 }

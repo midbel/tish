@@ -18,6 +18,12 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: nil,
 	},
+	"echo": {
+		Usage:   "echo",
+		Short:   "echo the string(s) to standard output",
+		Help:    "",
+		Execute: runEcho,
+	},
 	"help": {
 		Usage:   "help <builtin>",
 		Short:   "display information about a builtin command",
@@ -250,6 +256,24 @@ func (b *Builtin) Run() error {
 		return err
 	}
 	return b.Wait()
+}
+
+func runEcho(b Builtin) error {
+	var (
+		set   flag.FlagSet
+		delim = set.String("d", " ", "strings delimiter")
+	)
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	for i, a := range set.Args() {
+		if i > 0 {
+			fmt.Fprint(b.stdout, *delim)
+		}
+		fmt.Fprint(b.stdout, a)
+	}
+	fmt.Fprintln(b.stdout)
+	return nil
 }
 
 func runTrue(_ Builtin) error {

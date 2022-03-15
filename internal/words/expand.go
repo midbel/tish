@@ -38,10 +38,8 @@ func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
 		err error
 		buf bytes.Buffer
 	)
-	sh.SetOut(&buf)
-
 	for i := range e.List {
-		if err = sh.Execute(context.TODO(), e.List[i]); err != nil {
+		if err = sh.Execute(context.TODO(), e.List[i], &buf, &buf); err != nil {
 			return nil, err
 		}
 	}
