@@ -1,15 +1,15 @@
 package words
 
 import (
-	// "bytes"
-	// "context"
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	// "github.com/midbel/shlex"
+	"github.com/midbel/shlex"
 	"github.com/midbel/tish/internal/token"
 )
 
@@ -30,24 +30,22 @@ func (e ExpandSub) IsQuoted() bool {
 }
 
 func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
-	// sh, ok := env.(*Shell)
-	// if !ok {
-	// 	return nil, fmt.Errorf("substitution can not expanded")
-	// }
-	// var (
-	// 	err error
-	// 	buf bytes.Buffer
-	// )
-	// sh, _ = sh.Subshell()
-	// sh.SetOut(&buf)
-	//
-	// for i := range e.List {
-	// 	if err = sh.execute(context.TODO(), e.List[i]); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-	// return shlex.Split(&buf)
-	return nil, fmt.Errorf("to be implemented")
+	sh, ok := env.(ShellEnv)
+	if !ok {
+		return nil, fmt.Errorf("substitution can not be expanded")
+	}
+	var (
+		err error
+		buf bytes.Buffer
+	)
+	sh.SetOut(&buf)
+
+	for i := range e.List {
+		if err = sh.Execute(context.TODO(), e.List[i]); err != nil {
+			return nil, err
+		}
+	}
+	return shlex.Split(&buf)
 }
 
 type ExpandList struct {

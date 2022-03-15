@@ -216,6 +216,7 @@ func (s *Shell) Popd(dir string) error {
 	return err
 }
 
+// implements CommandFinder.Find
 func (s *Shell) Find(ctx context.Context, name string) (Command, error) {
 	if s.find != nil {
 		c, err := s.find.Find(ctx, name)
@@ -233,14 +234,17 @@ func (s *Shell) SetEcho(echo bool) {
 	s.echo = echo
 }
 
+// Rxport defines an environment variable from the shell
 func (s *Shell) Export(ident, value string) {
 	s.env[ident] = value
 }
 
+// Unexport removes an environment variable from the shell
 func (s *Shell) Unexport(ident string) {
 	delete(s.env, ident)
 }
 
+// Alias define a shell alias to the Shell
 func (s *Shell) Alias(ident, script string) error {
 	alias, err := shlex.Split(strings.NewReader(script))
 	if err != nil {
@@ -250,6 +254,7 @@ func (s *Shell) Alias(ident, script string) error {
 	return nil
 }
 
+// Unalias remove a shell alias from the Shell
 func (s *Shell) Unalias(ident string) {
 	delete(s.alias, ident)
 }
@@ -275,6 +280,7 @@ func (s *Shell) Subshell() (*Shell, error) {
 	return sub, nil
 }
 
+// implements Environment.Resolve
 func (s *Shell) Resolve(ident string) ([]string, error) {
 	str, err := s.locals.Resolve(ident)
 	if err == nil && len(str) > 0 {
@@ -289,6 +295,7 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 	return nil, err
 }
 
+// implements Environment.Define
 func (s *Shell) Define(ident string, values []string) error {
 	if _, ok := specials[ident]; ok {
 		return ErrReadOnly
@@ -296,6 +303,7 @@ func (s *Shell) Define(ident string, values []string) error {
 	return s.locals.Define(ident, values)
 }
 
+// implements Environment.Delete
 func (s *Shell) Delete(ident string) error {
 	if _, ok := specials[ident]; ok {
 		return ErrReadOnly
@@ -304,7 +312,8 @@ func (s *Shell) Delete(ident string) error {
 }
 
 func (s *Shell) Expand(str string, args []string) ([]string, error) {
-	return parser.Expand(str, args, s)
+	env := getEnvShell(s)
+	return parser.Expand(str, args, env)
 }
 
 func (s *Shell) Dry(str, cmd string, args []string) error {
@@ -411,7 +420,10 @@ func (s *Shell) executeSubshell(ctx context.Context, ex words.ExecSubshell) erro
 }
 
 func (s *Shell) executeCase(ctx context.Context, ex words.ExecCase) error {
-	word, err := ex.Word.Expand(s, false)
+	var (
+		env       = getEnvShell(s)
+		word, err = ex.Word.Expand(env, false)
+	)
 	if err != nil {
 		return err
 	}
@@ -421,7 +433,7 @@ func (s *Shell) executeCase(ctx context.Context, ex words.ExecCase) error {
 	for _, i := range ex.List {
 		var found bool
 		for j := range i.List {
-			vs, err := i.List[j].Expand(s, false)
+			vs, err := i.List[j].Expand(env, false)
 			if err != nil {
 				return err
 			}
@@ -453,7 +465,10 @@ func (s *Shell) executeTest(_ context.Context, ex words.ExecTest) error {
 }
 
 func (s *Shell) executeFor(ctx context.Context, ex words.ExecFor) error {
-	list, err := ex.Expand(s, false)
+	var (
+		env       = getEnvShell(s)
+		list, err = ex.Expand(env, false)
+	)
 	if err != nil || len(list) == 0 {
 		return s.execute(ctx, ex.Alt)
 	}
@@ -616,7 +631,10 @@ func (s *Shell) executePipe(ctx context.Context, ex words.ExecPipe) error {
 }
 
 func (s *Shell) executeAssign(ex words.ExecAssign) error {
-	str, err := ex.Expand(s, true)
+	var (
+		env      = getEnvShell(s)
+		str, err = ex.Expand(env, true)
+	)
 	if err != nil {
 		return err
 	}
@@ -624,7 +642,10 @@ func (s *Shell) executeAssign(ex words.ExecAssign) error {
 }
 
 func (s *Shell) expand(ex words.Expander) ([]string, error) {
-	str, err := ex.Expand(s, true)
+	var (
+		env      = getEnvShell(s)
+		str, err = ex.Expand(env, true)
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -791,9 +812,10 @@ func (s *Shell) setupRedirect(rs []words.ExpandRedirect, pipe bool) (redirect, e
 		stdout *os.File
 		stderr *os.File
 		rd     redirect
+		env    = getEnvShell(s)
 	)
 	for _, r := range rs {
-		str, err := r.Expand(s, true)
+		str, err := r.Expand(env, true)
 		if err != nil {
 			return rd, err
 		}
@@ -864,4 +886,20 @@ func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
 		return rw.NopReadCloser(r)
 	}
 	return f
+}
+
+type execEnv struct {
+	*Shell
+}
+
+func getEnvShell(sh *Shell) Environment {
+	return execEnv{Shell: sh}
+}
+
+func (e execEnv) Execute(ctx context.Context, ex words.Executer) error {
+	sh, err := e.Subshell()
+	if err != nil {
+		return err
+	}
+	return sh.execute(ctx, ex)
 }
