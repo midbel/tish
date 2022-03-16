@@ -1,7 +1,11 @@
 package tish
 
 import (
+	"context"
 	"fmt"
+	"io"
+
+	"github.com/midbel/tish/internal/words"
 )
 
 type Environment interface {
@@ -46,4 +50,22 @@ func (e *Env) Define(ident string, vs []string) error {
 func (e *Env) Delete(ident string) error {
 	delete(e.values, ident)
 	return nil
+}
+
+type execEnv struct {
+	*Shell
+}
+
+func getEnvShell(sh *Shell) Environment {
+	return execEnv{Shell: sh}
+}
+
+func (e execEnv) Execute(ctx context.Context, ex words.Executer, stdout, stderr io.Writer) error {
+	sh, err := e.Subshell()
+	if err != nil {
+		return err
+	}
+	sh.SetOut(stdout)
+	sh.SetErr(stderr)
+	return sh.execute(ctx, ex)
 }

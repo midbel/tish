@@ -887,21 +887,3 @@ func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
 	}
 	return f
 }
-
-type execEnv struct {
-	*Shell
-}
-
-func getEnvShell(sh *Shell) Environment {
-	return execEnv{Shell: sh}
-}
-
-func (e execEnv) Execute(ctx context.Context, ex words.Executer, stdout, stderr io.Writer) error {
-	sh, err := e.Subshell()
-	if err != nil {
-		return err
-	}
-	sh.SetOut(stdout)
-	sh.SetErr(stderr)
-	return sh.execute(ctx, ex)
-}
