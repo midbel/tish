@@ -4,11 +4,13 @@ import (
 	"testing"
 
 	"github.com/midbel/tish"
+	"github.com/midbel/tish/internal/token"
+	"github.com/midbel/tish/internal/words"
 )
 
 func TestExpr(t *testing.T) {
 	data := []struct {
-		tish.Expr
+		words.Expr
 		Want float64
 	}{
 		{
@@ -16,23 +18,23 @@ func TestExpr(t *testing.T) {
 			Want: 1,
 		},
 		{
-			Expr: createUnary(createNumber("1"), tish.Sub),
+			Expr: createUnary(createNumber("1"), token.Sub),
 			Want: -1,
 		},
 		{
-			Expr: createUnary(createNumber("0"), tish.Inc),
+			Expr: createUnary(createNumber("0"), token.Inc),
 			Want: 1,
 		},
 		{
-			Expr: createUnary(createNumber("0"), tish.Dec),
+			Expr: createUnary(createNumber("0"), token.Dec),
 			Want: -1,
 		},
 		{
-			Expr: createBinary(createNumber("1"), createNumber("1"), tish.Mul),
+			Expr: createBinary(createNumber("1"), createNumber("1"), token.Mul),
 			Want: 1,
 		},
 		{
-			Expr: createBinary(createVariable("sum1"), createVariable("sum2"), tish.Add),
+			Expr: createBinary(createVariable("sum1"), createVariable("sum2"), token.Add),
 			Want: 2,
 		},
 	}
@@ -51,29 +53,29 @@ func TestExpr(t *testing.T) {
 	}
 }
 
-func createNumber(str string) tish.Expr {
-	return tish.Number{
+func createNumber(str string) words.Expr {
+	return words.Number{
 		Literal: str,
 	}
 }
 
-func createUnary(ex tish.Expr, op rune) tish.Expr {
-	return tish.Unary{
+func createUnary(ex words.Expr, op rune) words.Expr {
+	return words.Unary{
 		Op:   op,
 		Expr: ex,
 	}
 }
 
-func createBinary(left, right tish.Expr, op rune) tish.Expr {
-	return tish.Binary{
+func createBinary(left, right words.Expr, op rune) words.Expr {
+	return words.Binary{
 		Left:  left,
 		Right: right,
 		Op:    op,
 	}
 }
 
-func createVariable(ident string) tish.Expr {
-	return tish.ExpandVar{
+func createVariable(ident string) words.Expr {
+	return words.ExpandVar{
 		Ident: ident,
 	}
 }

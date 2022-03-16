@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/midbel/tish"
+	"github.com/midbel/tish/internal/words"
 )
 
 func TestExpander(t *testing.T) {
 	data := []struct {
 		Name string
-		tish.Expander
+		words.Expander
 		Want []string
 	}{
 		{
@@ -98,11 +99,11 @@ func TestExpander(t *testing.T) {
 	}
 }
 
-func createRangeBrace(from, to, step int, prefix, suffix string) tish.Expander {
+func createRangeBrace(from, to, step int, prefix, suffix string) words.Expander {
 	if step == 0 {
 		step = 1
 	}
-	b := tish.ExpandRangeBrace{
+	b := words.ExpandRangeBrace{
 		From: from,
 		To:   to,
 		Step: step,
@@ -116,10 +117,10 @@ func createRangeBrace(from, to, step int, prefix, suffix string) tish.Expander {
 	return b
 }
 
-func createListBrace(prefix, suffix string, words ...string) tish.Expander {
-	var b tish.ExpandListBrace
-	for i := range words {
-		b.Words = append(b.Words, createWord(words[i]))
+func createListBrace(prefix, suffix string, list ...string) words.Expander {
+	var b words.ExpandListBrace
+	for i := range list {
+		b.Words = append(b.Words, createWord(list[i]))
 	}
 	if prefix != "" {
 		b.Prefix = createWord(prefix)
@@ -130,15 +131,15 @@ func createListBrace(prefix, suffix string, words ...string) tish.Expander {
 	return b
 }
 
-func createWord(word string) tish.Expander {
-	w := tish.ExpandWord{
+func createWord(word string) words.Expander {
+	w := words.ExpandWord{
 		Literal: word,
 	}
 	return w
 }
 
-func createSlice(ident string, off, siz int) tish.Expander {
-	return tish.ExpandSlice{
+func createSlice(ident string, off, siz int) words.Expander {
+	return words.ExpandSlice{
 		Ident:  ident,
 		Offset: off,
 		Size:   siz,

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/midbel/tish"
+	"github.com/midbel/tish/internal/parser"
+	"github.com/midbel/tish/internal/words"
 )
 
 func TestTester(t *testing.T) {
@@ -93,11 +95,11 @@ func TestTester(t *testing.T) {
 	env.Define("bar", []string{"bar"})
 	for _, d := range data {
 		t.Run(d.Name, func(t *testing.T) {
-			ex, err := tish.Parse(d.Input)
+			ex, err := parser.Parse(d.Input)
 			if err != nil {
 				t.Fatalf("%s: fail to parse: %s", d.Input, err)
 			}
-			tester, ok := ex.(tish.Tester)
+			tester, ok := ex.(words.Tester)
 			if !ok {
 				t.Fatalf("%s: parsing give unexpected type %T", d.Input, ex)
 			}
