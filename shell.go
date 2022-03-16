@@ -678,42 +678,6 @@ func (s *Shell) environ() []string {
 	return str
 }
 
-const (
-	flagRead   = os.O_CREATE | os.O_RDONLY
-	flagWrite  = os.O_CREATE | os.O_WRONLY
-	flagAppend = os.O_CREATE | os.O_WRONLY | os.O_APPEND
-)
-
-func replaceFile(file string, flag int, list ...*os.File) (*os.File, error) {
-	fd, err := os.OpenFile(file, flag, 0644)
-	if err != nil {
-		return nil, err
-	}
-	for i := range list {
-		if list[i] == nil {
-			continue
-		}
-		list[i].Close()
-	}
-	return fd, nil
-}
-
-type redirect struct {
-	in  io.ReadCloser
-	out io.WriteCloser
-	err io.WriteCloser
-}
-
-func (r redirect) Close() error {
-	for _, c := range []io.Closer{r.in, r.out, r.err} {
-		if c == nil {
-			continue
-		}
-		c.Close()
-	}
-	return nil
-}
-
 func (s *Shell) setupRedirect(rs []words.ExpandRedirect, pipe bool) (redirect, error) {
 	var (
 		stdin  *os.File
@@ -773,6 +737,26 @@ func (s *Shell) setupRedirect(rs []words.ExpandRedirect, pipe bool) (redirect, e
 	return rd, nil
 }
 
+const (
+	flagRead   = os.O_CREATE | os.O_RDONLY
+	flagWrite  = os.O_CREATE | os.O_WRONLY
+	flagAppend = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+)
+
+func replaceFile(file string, flag int, list ...*os.File) (*os.File, error) {
+	fd, err := os.OpenFile(file, flag, 0644)
+	if err != nil {
+		return nil, err
+	}
+	for i := range list {
+		if list[i] == nil {
+			continue
+		}
+		list[i].Close()
+	}
+	return fd, nil
+}
+
 func fileOrWriter(f *os.File, w io.Writer, pipe bool) io.WriteCloser {
 	if f == nil {
 		if pipe {
@@ -794,4 +778,20 @@ func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
 		return rw.NopReadCloser(r)
 	}
 	return f
+}
+
+type redirect struct {
+	in  io.ReadCloser
+	out io.WriteCloser
+	err io.WriteCloser
+}
+
+func (r redirect) Close() error {
+	for _, c := range []io.Closer{r.in, r.out, r.err} {
+		if c == nil {
+			continue
+		}
+		c.Close()
+	}
+	return nil
 }
