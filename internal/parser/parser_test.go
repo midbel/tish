@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/midbel/tish"
+	"github.com/midbel/tish/internal/parser"
 )
 
 var list = []struct {
@@ -156,7 +156,7 @@ func TestParse(t *testing.T) {
 func parse(t *testing.T, in string, invalid bool) int {
 	t.Helper()
 	var (
-		p = tish.NewParser(strings.NewReader(in))
+		p = parser.NewParser(strings.NewReader(in))
 		c int
 	)
 	for {

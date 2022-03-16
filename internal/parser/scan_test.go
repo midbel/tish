@@ -4,7 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/midbel/tish"
+	"github.com/midbel/tish/internal/parser"
+	"github.com/midbel/tish/internal/token"
 )
 
 var tokens = []struct {
@@ -13,73 +14,73 @@ var tokens = []struct {
 }{
 	{
 		Input:  `echo 'foobar' # a comment`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.Comment},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.Comment},
 	},
 	{
 		Input:  `echo "$foobar" # a comment`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Quote, tish.Variable, tish.Quote, tish.Comment},
+		Tokens: []rune{token.Literal, token.Blank, token.Quote, token.Variable, token.Quote, token.Comment},
 	},
 	{
 		Input:  `echo err 2> err.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.RedirectErr, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.RedirectErr, token.Literal},
 	},
 	{
 		Input:  `echo err 2>> err.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.AppendErr, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.AppendErr, token.Literal},
 	},
 	{
 		Input:  `echo out1 1> out.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.RedirectOut, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.RedirectOut, token.Literal},
 	},
 	{
 		Input:  `echo out1 1>> out.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.AppendOut, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.AppendOut, token.Literal},
 	},
 	{
 		Input:  `echo out > out.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.RedirectOut, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.RedirectOut, token.Literal},
 	},
 	{
 		Input:  `echo out >> out.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.AppendOut, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.AppendOut, token.Literal},
 	},
 	{
 		Input:  `echo both &> both.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.RedirectBoth, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.RedirectBoth, token.Literal},
 	},
 	{
 		Input:  `echo both &>> both.txt`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.AppendBoth, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.AppendBoth, token.Literal},
 	},
 	{
 		Input:  `echo $etc/$plug/files/*`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Variable, tish.Literal, tish.Variable, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Variable, token.Literal, token.Variable, token.Literal},
 	},
 	{
 		Input:  `echo -F'/'`,
-		Tokens: []rune{tish.Literal, tish.Blank, tish.Literal, tish.Literal},
+		Tokens: []rune{token.Literal, token.Blank, token.Literal, token.Literal},
 	},
 	{
 		Input:  `[[test]]`,
-		Tokens: []rune{tish.BegTest, tish.Literal, tish.EndTest},
+		Tokens: []rune{token.BegTest, token.Literal, token.EndTest},
 	},
 	{
 		Input:  `[[$test]]`,
-		Tokens: []rune{tish.BegTest, tish.Variable, tish.EndTest},
+		Tokens: []rune{token.BegTest, token.Variable, token.EndTest},
 	},
 	{
 		Input:  `if [[-s testdata/foobar.txt]]; then echo ok fi`,
-		Tokens: []rune{tish.Keyword, tish.BegTest, tish.FileSize, tish.Literal, tish.EndTest, tish.List, tish.Keyword, tish.Literal, tish.Blank, tish.Literal, tish.Blank, tish.Keyword},
+		Tokens: []rune{token.Keyword, token.BegTest, token.FileSize, token.Literal, token.EndTest, token.List, token.Keyword, token.Literal, token.Blank, token.Literal, token.Blank, token.Keyword},
 	},
 }
 
 func TestScan(t *testing.T) {
 	for _, in := range tokens {
 		t.Run(in.Input, func(t *testing.T) {
-			scan := tish.Scan(strings.NewReader(in.Input))
+			scan := parser.Scan(strings.NewReader(in.Input))
 			for i := 0; ; i++ {
 				tok := scan.Scan()
-				if tok.Type == tish.EOF {
+				if tok.Type == token.EOF {
 					break
 				}
 				if i >= len(in.Tokens) {
