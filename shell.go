@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -16,19 +15,12 @@ import (
 	"github.com/midbel/rw"
 	"github.com/midbel/shlex"
 	"github.com/midbel/tish/internal/parser"
-	"github.com/midbel/tish/internal/stack"
 	"github.com/midbel/tish/internal/token"
 	"github.com/midbel/tish/internal/words"
 	"golang.org/x/sync/errgroup"
 )
 
 const shell = "tish"
-
-const (
-	dirCurr   = "."
-	dirParent = ".."
-	dirOld    = "-"
-)
 
 var (
 	ErrExit     = errors.New("exit")
@@ -80,7 +72,7 @@ type Shell struct {
 
 	env map[string]string
 
-	dirs stack.Stack[string]
+	Stack
 	now  time.Time
 	rand *rand.Rand
 
@@ -101,7 +93,7 @@ type Shell struct {
 func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
 		now:      time.Now(),
-		dirs:     stack.New[string](),
+		Stack:    DirectoryStack(),
 		alias:    make(map[string][]string),
 		commands: make(map[string]Command),
 		env:      make(map[string]string),
@@ -109,7 +101,7 @@ func New(options ...ShellOption) (*Shell, error) {
 	}
 	s.rand = rand.New(rand.NewSource(s.now.Unix()))
 	cwd, _ := os.Getwd()
-	s.dirs.Push(cwd)
+	s.Stack.Chdir(cwd)
 	for i := range options {
 		if err := options[i](&s); err != nil {
 			return nil, err
@@ -135,85 +127,6 @@ func (s *Shell) SetOut(w io.Writer) {
 
 func (s *Shell) SetErr(w io.Writer) {
 	s.stderr = w
-}
-
-func (s *Shell) Chdir(dir string) error {
-	switch dir {
-	case dirCurr:
-	case dirParent:
-		dir = s.dirs.Curr()
-		s.dirs.Push(filepath.Dir(dir))
-	case dirOld:
-		s.dirs.Pop()
-	case "":
-		// back to home dir
-	default:
-		i, err := os.Stat(dir)
-		if err != nil {
-			return err
-		}
-		if !i.IsDir() {
-			return fmt.Errorf("%s: not a directory", dir)
-		}
-		s.dirs.Push(dir)
-	}
-	return nil
-}
-
-func (s *Shell) Cwd() string {
-	return s.dirs.Curr()
-}
-
-func (s *Shell) Dirs() []string {
-	var list []string
-	for i := s.dirs.Len() - 1; i >= 0; i-- {
-		list = append(list, s.dirs.At(i))
-	}
-	return list
-}
-
-func (s *Shell) Pushd(dir string) error {
-	var (
-		off int
-		err error
-	)
-	switch {
-	case strings.HasPrefix(dir, "+"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			s.dirs.RotateLeft(off)
-		}
-	case strings.HasPrefix(dir, "-"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			s.dirs.RotateRight(-off)
-		}
-	default:
-		err = s.Chdir(dir)
-	}
-	return err
-}
-
-func (s *Shell) Popd(dir string) error {
-	var (
-		off int
-		err error
-	)
-	switch {
-	case strings.HasPrefix(dir, "+"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			s.dirs.RemoveLeft(off)
-		}
-	case strings.HasPrefix(dir, "-"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			s.dirs.RemoveRight(off)
-		}
-	default:
-		s.dirs.Pop()
-	}
-	return err
 }
 
 // implements CommandFinder.Find
