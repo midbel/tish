@@ -56,6 +56,7 @@ var specials = map[string]struct{}{
 	"PPID":    {},
 	"RANDOM":  {},
 	"SHELL":   {},
+	"SUBSHELL": {},
 	"?":       {},
 	"#":       {},
 	"0":       {},
@@ -68,6 +69,7 @@ type Shell struct {
 	alias    map[string][]string
 	commands map[string]Command
 	find     CommandFinder
+	depth    int
 	echo     bool
 
 	env map[string]string
@@ -81,9 +83,13 @@ type Shell struct {
 	stderr io.Writer
 
 	context struct {
-		pid  int
+		// PID of last executed command
+		pid int
+		// exit code of last executed command
 		code int
+		// name of last executed command
 		name string
+		// arguments of last executed command
 		args []string
 	}
 
@@ -187,6 +193,7 @@ func (s *Shell) Subshell() (*Shell, error) {
 	if err != nil {
 		return nil, err
 	}
+	sub.depth = s.depth+1
 	for n, str := range s.alias {
 		sub.alias[n] = str
 	}
@@ -621,6 +628,8 @@ func (s *Shell) resolveSpecials(ident string) []string {
 	switch ident {
 	case "SHELL":
 		ret = append(ret, shell)
+	case "SUBSHELL":
+		ret = append(ret, strconv.Itoa(s.depth))
 	case "HOME":
 		u, err := user.Current()
 		if err == nil {
