@@ -47,23 +47,6 @@ func (e ExitCode) Error() string {
 	return fmt.Sprintf("%d", e)
 }
 
-var specials = map[string]struct{}{
-	"HOME":    {},
-	"SECONDS": {},
-	"PWD":     {},
-	"OLDPWD":  {},
-	"PID":     {},
-	"PPID":    {},
-	"RANDOM":  {},
-	"SHELL":   {},
-	"SUBSHELL": {},
-	"?":       {},
-	"#":       {},
-	"0":       {},
-	"$":       {},
-	"@":       {},
-}
-
 type Shell struct {
 	locals   Environment
 	alias    map[string][]string
@@ -75,6 +58,7 @@ type Shell struct {
 	env map[string]string
 
 	Stack
+	History
 	now  time.Time
 	rand *rand.Rand
 
@@ -97,26 +81,27 @@ type Shell struct {
 }
 
 func New(options ...ShellOption) (*Shell, error) {
-	s := Shell{
+	sh := Shell{
 		now:      time.Now(),
 		Stack:    DirectoryStack(),
+		History:  HistoryStack(),
 		alias:    make(map[string][]string),
 		commands: make(map[string]Command),
 		env:      make(map[string]string),
 		builtins: builtins,
 	}
-	s.rand = rand.New(rand.NewSource(s.now.Unix()))
+	sh.rand = rand.New(rand.NewSource(sh.now.Unix()))
 	cwd, _ := os.Getwd()
-	s.Stack.Chdir(cwd)
+	sh.Stack.Chdir(cwd)
 	for i := range options {
-		if err := options[i](&s); err != nil {
+		if err := options[i](&sh); err != nil {
 			return nil, err
 		}
 	}
-	if s.locals == nil {
-		s.locals = EmptyEnv()
+	if sh.locals == nil {
+		sh.locals = EmptyEnv()
 	}
-	return &s, nil
+	return &sh, nil
 }
 
 func (s *Shell) Exit() {
@@ -193,7 +178,7 @@ func (s *Shell) Subshell() (*Shell, error) {
 	if err != nil {
 		return nil, err
 	}
-	sub.depth = s.depth+1
+	sub.depth = s.depth + 1
 	for n, str := range s.alias {
 		sub.alias[n] = str
 	}
@@ -240,7 +225,8 @@ func (s *Shell) Dry(str, cmd string, args []string) error {
 	s.setContext(cmd, args)
 	defer s.clearContext()
 
-	return parser.ExpandWith(str, args, s, func(str [][]string) {
+	env := getEnvShell(s)
+	return parser.ExpandWith(str, args, env, func(str [][]string) {
 		for i := range str {
 			io.WriteString(s.stdout, strings.Join(str[i], " "))
 			io.WriteString(s.stdout, "\n")
@@ -375,7 +361,7 @@ func (s *Shell) executeCase(ctx context.Context, ex words.ExecCase) error {
 }
 
 func (s *Shell) executeTest(_ context.Context, ex words.ExecTest) error {
-	ok, err := ex.Test(s)
+	ok, err := ex.Test(getEnvShell(s))
 	if err != nil || !ok {
 		s.context.code = 1
 	} else {
@@ -626,42 +612,42 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 func (s *Shell) resolveSpecials(ident string) []string {
 	var ret []string
 	switch ident {
-	case "SHELL":
+	case varShell:
 		ret = append(ret, shell)
-	case "SUBSHELL":
+	case varSub:
 		ret = append(ret, strconv.Itoa(s.depth))
-	case "HOME":
+	case varHome:
 		u, err := user.Current()
 		if err == nil {
 			ret = append(ret, u.HomeDir)
 		}
-	case "SECONDS":
+	case varSeconds:
 		sec := time.Since(s.now).Seconds()
 		ret = append(ret, strconv.FormatInt(int64(sec), 10))
-	case "PWD":
+	case varPwd:
 		ret = append(ret, s.Cwd())
-	case "OLDPWD":
+	case varOld:
 		// ret = append(ret, s.old)
-	case "PID", "$":
+	case varPid, varShellPid:
 		str := strconv.Itoa(os.Getpid())
 		ret = append(ret, str)
-	case "PPID":
+	case varPpid:
 		str := strconv.Itoa(os.Getppid())
 		ret = append(ret, str)
-	case "RANDOM":
+	case varRand:
 		str := strconv.Itoa(s.rand.Int())
 		ret = append(ret, str)
-	case "0":
+	case varScript:
 		ret = append(ret, s.context.name)
-	case "#":
+	case varNarg:
 		ret = append(ret, strconv.Itoa(len(s.context.args)))
-	case "?":
+	case varExit:
 		ret = append(ret, strconv.Itoa(s.context.code))
-	case "!":
+	case varLastPid:
 		ret = append(ret, strconv.Itoa(s.context.pid))
-	case "*":
+	case varArgsStr:
 		ret = append(ret, strings.Join(s.context.args, " "))
-	case "@":
+	case varArgsArr:
 		ret = s.context.args
 	default:
 		n, err := strconv.Atoi(ident)

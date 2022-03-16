@@ -8,6 +8,44 @@ import (
 	"github.com/midbel/tish/internal/words"
 )
 
+const (
+	varHome     = "HOME"
+	varSeconds  = "SECONDS"
+	varPwd      = "PWD"
+	varOld      = "OLDPWD"
+	varPid      = "PID"
+	varPpid     = "PPID"
+	varRand     = "RANDOM"
+	varShell    = "SHELL"
+	varSub      = "SUBSHELL"
+	varExit     = "?"
+	varNarg     = "#"
+	varShellPid = "$"
+	varScript   = "0"
+	varLastPid  = "!"
+	varArgsStr  = "*"
+	varArgsArr  = "@"
+)
+
+var specials = map[string]struct{}{
+	varHome:     {},
+	varSeconds:  {},
+	varPwd:      {},
+	varOld:      {},
+	varPid:      {},
+	varPpid:     {},
+	varRand:     {},
+	varShell:    {},
+	varSub:      {},
+	varExit:     {},
+	varNarg:     {},
+	varScript:   {},
+	varShellPid: {},
+	varArgsArr:  {},
+	varArgsStr:  {},
+	varLastPid:  {},
+}
+
 type Environment interface {
 	Resolve(string) ([]string, error)
 	Define(string, []string) error

@@ -24,6 +24,12 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: runEcho,
 	},
+	"history": {
+		Usage:   "history [-n] [-c]",
+		Short:   "show history",
+		Help:    "",
+		Execute: nil,
+	},
 	"help": {
 		Usage:   "help <builtin>",
 		Short:   "display information about a builtin command",

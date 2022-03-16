@@ -25,21 +25,21 @@ const (
 	dirOld    = "-"
 )
 
-type Dirs struct {
+type dirsstack struct {
 	list stack.Stack[string]
 }
 
 func DirectoryStack() Stack {
-	return &Dirs{
+	return &dirsstack{
 		list: stack.New[string](),
 	}
 }
 
-func (d *Dirs) Cwd() string {
+func (d *dirsstack) Cwd() string {
 	return d.list.Curr()
 }
 
-func (d *Dirs) Dirs() []string {
+func (d *dirsstack) Dirs() []string {
 	var list []string
 	for i := d.list.Len() - 1; i >= 0; i-- {
 		list = append(list, d.list.At(i))
@@ -47,7 +47,7 @@ func (d *Dirs) Dirs() []string {
 	return list
 }
 
-func (d *Dirs) Chdir(dir string) error {
+func (d *dirsstack) Chdir(dir string) error {
 	switch dir {
 	case dirCurr:
 	case dirParent:
@@ -70,7 +70,7 @@ func (d *Dirs) Chdir(dir string) error {
 	return nil
 }
 
-func (d *Dirs) Pushd(dir string) error {
+func (d *dirsstack) Pushd(dir string) error {
 	var (
 		off int
 		err error
@@ -92,7 +92,7 @@ func (d *Dirs) Pushd(dir string) error {
 	return err
 }
 
-func (d *Dirs) Popd(dir string) error {
+func (d *dirsstack) Popd(dir string) error {
 	var (
 		off int
 		err error
