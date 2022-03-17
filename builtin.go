@@ -171,7 +171,7 @@ type Builtin struct {
 	code     int
 	done     chan error
 
-	StdPipe
+	Pipe
 	errch chan error
 }
 

@@ -102,7 +102,7 @@ func (c *command) SetEnv(env []string) {
 	c.Cmd.Env = append(c.Cmd.Env[:0], env...)
 }
 
-type StdPipe struct {
+type Pipe struct {
 	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
@@ -111,91 +111,91 @@ type StdPipe struct {
 	copies []func() error
 }
 
-func (s *StdPipe) SetupFd() []func() (*os.File, error) {
+func (p *Pipe) SetupFd() []func() (*os.File, error) {
 	return []func() (*os.File, error){
-		s.setStdin,
-		s.setStdout,
-		s.setStderr,
+		p.setStdin,
+		p.setStdout,
+		p.setStderr,
 	}
 }
 
-func (s *StdPipe) Clear() {
-	s.stdin = nil
-	s.stdout = nil
-	s.stderr = nil
-	s.Reset()
+func (p *Pipe) Clear() {
+	p.stdin = nil
+	p.stdout = nil
+	p.stderr = nil
+	p.Reset()
 }
 
-func (s *StdPipe) Reset() {
-	s.closes = s.closes[:0]
-	s.copies = s.copies[:0]
+func (p *Pipe) Reset() {
+	p.closes = p.closes[:0]
+	p.copies = p.copies[:0]
 }
 
-func (s *StdPipe) Copies() []func() error {
-	return s.copies
+func (p *Pipe) Copies() []func() error {
+	return p.copies
 }
 
-func (s *StdPipe) SetIn(r io.Reader) {
-	s.stdin = r
+func (p *Pipe) SetIn(r io.Reader) {
+	p.stdin = r
 }
 
-func (s *StdPipe) SetOut(w io.Writer) {
-	s.stdout = w
+func (p *Pipe) SetOut(w io.Writer) {
+	p.stdout = w
 }
 
-func (s *StdPipe) SetErr(w io.Writer) {
-	s.stderr = w
+func (p *Pipe) SetErr(w io.Writer) {
+	p.stderr = w
 }
 
-func (s *StdPipe) StdoutPipe() (io.ReadCloser, error) {
-	if s.stdout != nil {
+func (p *Pipe) StdoutPipe() (io.ReadCloser, error) {
+	if p.stdout != nil {
 		return nil, fmt.Errorf("stdout already set")
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	s.closes = append(s.closes, pr, pw)
-	s.stdout = pw
+	p.closes = append(p.closes, pr, pw)
+	p.stdout = pw
 	return pr, nil
 }
 
-func (s *StdPipe) StderrPipe() (io.ReadCloser, error) {
-	if s.stderr != nil {
+func (p *Pipe) StderrPipe() (io.ReadCloser, error) {
+	if p.stderr != nil {
 		return nil, fmt.Errorf("stderr already set")
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	s.closes = append(s.closes, pr, pw)
-	s.stderr = pw
+	p.closes = append(p.closes, pr, pw)
+	p.stderr = pw
 	return pr, nil
 }
 
-func (s *StdPipe) StdinPipe() (io.WriteCloser, error) {
-	if s.stdin != nil {
+func (p *Pipe) StdinPipe() (io.WriteCloser, error) {
+	if p.stdin != nil {
 		return nil, fmt.Errorf("stdin already set")
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	s.closes = append(s.closes, pr, pw)
-	s.stdin = pr
+	p.closes = append(p.closes, pr, pw)
+	p.stdin = pr
 	return pw, nil
 }
 
-func (s *StdPipe) setStdin() (*os.File, error) {
-	if s.stdin == nil {
+func (p *Pipe) setStdin() (*os.File, error) {
+	if p.stdin == nil {
 		f, err := os.Open(os.DevNull)
 		if err != nil {
 			return nil, err
 		}
-		s.closes = append(s.closes, f)
+		p.closes = append(p.closes, f)
 		return f, nil
 	}
-	switch r := s.stdin.(type) {
+	switch r := p.stdin.(type) {
 	case *os.File:
 		return r, nil
 	default:
@@ -208,30 +208,30 @@ func (s *StdPipe) setStdin() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.closes = append(s.closes, pw)
-	s.copies = append(s.copies, func() error {
+	p.closes = append(p.closes, pw)
+	p.copies = append(p.copies, func() error {
 		defer pw.Close()
-		_, err := io.Copy(pw, s.stdin)
+		_, err := io.Copy(pw, p.stdin)
 		return err
 	})
 	return pr, nil
 }
 
-func (s *StdPipe) setStdout() (*os.File, error) {
-	return s.openFile(s.stdout)
+func (p *Pipe) setStdout() (*os.File, error) {
+	return p.openFile(p.stdout)
 }
 
-func (s *StdPipe) setStderr() (*os.File, error) {
-	return s.openFile(s.stderr)
+func (p *Pipe) setStderr() (*os.File, error) {
+	return p.openFile(p.stderr)
 }
 
-func (s *StdPipe) openFile(w io.Writer) (*os.File, error) {
+func (p *Pipe) openFile(w io.Writer) (*os.File, error) {
 	if w == nil {
 		f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 		if err != nil {
 			return nil, err
 		}
-		s.closes = append(s.closes, f)
+		p.closes = append(p.closes, f)
 		return f, nil
 	}
 	switch w := w.(type) {
@@ -247,8 +247,8 @@ func (s *StdPipe) openFile(w io.Writer) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.closes = append(s.closes, pw)
-	s.copies = append(s.copies, func() error {
+	p.closes = append(p.closes, pw)
+	p.copies = append(p.copies, func() error {
 		defer pr.Close()
 		_, err := io.Copy(w, pr)
 		return err
@@ -256,11 +256,11 @@ func (s *StdPipe) openFile(w io.Writer) (*os.File, error) {
 	return pw, nil
 }
 
-func (s *StdPipe) Close() error {
-	for _, c := range s.closes {
+func (p *Pipe) Close() error {
+	for _, c := range p.closes {
 		c.Close()
 	}
-	s.closes = s.closes[:0]
+	p.closes = p.closes[:0]
 	return nil
 }
 

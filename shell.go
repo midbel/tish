@@ -15,6 +15,7 @@ import (
 	"github.com/midbel/rw"
 	"github.com/midbel/shlex"
 	"github.com/midbel/tish/internal/parser"
+	"github.com/midbel/tish/internal/stdio"
 	"github.com/midbel/tish/internal/token"
 	"github.com/midbel/tish/internal/words"
 	"golang.org/x/sync/errgroup"
@@ -470,15 +471,23 @@ func (s *Shell) executeSingle(ctx context.Context, ex words.Expander, redirect [
 	s.trace(str)
 	cmd := s.resolveCommand(ctx, str)
 
-	rd, err := s.setupRedirect(redirect, false)
-	if err != nil {
-		return err
-	}
-	defer rd.Close()
+	pow := stdio.Pipe(s.stdout)
+	defer pow.Close()
+	pew := stdio.Pipe(s.stderr)
+	defer pew.Close()
 
-	cmd.SetOut(rd.out)
-	cmd.SetErr(rd.err)
-	cmd.SetIn(rd.in)
+	cmd.SetOut(pow)
+	cmd.SetErr(pew)
+
+	// rd, err := s.setupRedirect(redirect, false)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer rd.Close()
+	//
+	// cmd.SetOut(rd.out)
+	// cmd.SetErr(rd.err)
+	// cmd.SetIn(rd.in)
 
 	err = cmd.Run()
 	s.updateContext(cmd)
