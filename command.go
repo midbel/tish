@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/midbel/rw"
+	"github.com/midbel/tish/internal/stdio"
 )
 
 type CommandFinder interface {
@@ -64,26 +64,14 @@ func (_ *command) Type() CommandType {
 }
 
 func (c *command) SetIn(r io.Reader) {
-	if r, ok := unwrapFileFromReader(r); ok {
-		c.Stdin = r
-		return
-	}
 	c.Stdin = r
 }
 
 func (c *command) SetOut(w io.Writer) {
-	if w, ok := unwrapFileFromWriter(w); ok {
-		c.Stdout = w
-		return
-	}
 	c.Stdout = w
 }
 
 func (c *command) SetErr(w io.Writer) {
-	if w, ok := unwrapFileFromWriter(w); ok {
-		c.Stderr = w
-		return
-	}
 	c.Stderr = w
 }
 
@@ -108,15 +96,22 @@ type Pipe struct {
 	stderr io.Writer
 
 	closes []io.Closer
-	copies []func() error
 }
 
-func (p *Pipe) SetupFd() []func() (*os.File, error) {
-	return []func() (*os.File, error){
+func (p *Pipe) Setup() error {
+	fset := []func() error {
 		p.setStdin,
 		p.setStdout,
 		p.setStderr,
 	}
+	for _, f := range fset {
+		err := f()
+		if err != nil {
+			p.Close()
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *Pipe) Clear() {
@@ -128,11 +123,6 @@ func (p *Pipe) Clear() {
 
 func (p *Pipe) Reset() {
 	p.closes = p.closes[:0]
-	p.copies = p.copies[:0]
-}
-
-func (p *Pipe) Copies() []func() error {
-	return p.copies
 }
 
 func (p *Pipe) SetIn(r io.Reader) {
@@ -186,74 +176,47 @@ func (p *Pipe) StdinPipe() (io.WriteCloser, error) {
 	return pw, nil
 }
 
-func (p *Pipe) setStdin() (*os.File, error) {
+func (p *Pipe) setStdin() error {
 	if p.stdin == nil {
 		f, err := os.Open(os.DevNull)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		p.closes = append(p.closes, f)
-		return f, nil
+		p.stdin = f
 	}
-	switch r := p.stdin.(type) {
-	case *os.File:
-		return r, nil
-	default:
-		f, ok := unwrapFileFromReader(r)
-		if ok {
-			return f, nil
-		}
-	}
-	pr, pw, err := os.Pipe()
-	if err != nil {
-		return nil, err
-	}
-	p.closes = append(p.closes, pw)
-	p.copies = append(p.copies, func() error {
-		defer pw.Close()
-		_, err := io.Copy(pw, p.stdin)
-		return err
-	})
-	return pr, nil
+	rc := stdio.Reader(p.stdin)
+	p.closes = append(p.closes, rc)
+	p.stdin = rc
+	return nil
 }
 
-func (p *Pipe) setStdout() (*os.File, error) {
-	return p.openFile(p.stdout)
+func (p *Pipe) setStdout() error {
+	wc, err := p.openFile(p.stdout)
+	if err == nil {
+		p.stdout = wc
+	}
+	return err
 }
 
-func (p *Pipe) setStderr() (*os.File, error) {
-	return p.openFile(p.stderr)
+func (p *Pipe) setStderr() error {
+	wc, err := p.openFile(p.stderr)
+	if err == nil {
+		p.stderr = wc
+	}
+	return err
 }
 
-func (p *Pipe) openFile(w io.Writer) (*os.File, error) {
+func (p *Pipe) openFile(w io.Writer) (io.WriteCloser, error) {
 	if w == nil {
 		f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 		if err != nil {
 			return nil, err
 		}
-		p.closes = append(p.closes, f)
-		return f, nil
+		w = f
 	}
-	switch w := w.(type) {
-	case *os.File:
-		return w, nil
-	default:
-		f, ok := unwrapFileFromWriter(w)
-		if ok {
-			return f, nil
-		}
-	}
-	pr, pw, err := os.Pipe()
-	if err != nil {
-		return nil, err
-	}
-	p.closes = append(p.closes, pw)
-	p.copies = append(p.copies, func() error {
-		defer pr.Close()
-		_, err := io.Copy(w, pr)
-		return err
-	})
-	return pw, nil
+	wc := stdio.Writer(w)
+	p.closes = append(p.closes, wc)
+	return wc, nil
 }
 
 func (p *Pipe) Close() error {
@@ -262,22 +225,4 @@ func (p *Pipe) Close() error {
 	}
 	p.closes = p.closes[:0]
 	return nil
-}
-
-func unwrapFileFromReader(r io.Reader) (*os.File, bool) {
-	u, ok := r.(rw.UnwrapReader)
-	if !ok {
-		return nil, ok
-	}
-	f, ok := u.Unwrap().(*os.File)
-	return f, ok
-}
-
-func unwrapFileFromWriter(w io.Writer) (*os.File, bool) {
-	u, ok := w.(rw.UnwrapWriter)
-	if !ok {
-		return nil, ok
-	}
-	f, ok := u.Unwrap().(*os.File)
-	return f, ok
 }

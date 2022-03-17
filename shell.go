@@ -471,23 +471,15 @@ func (s *Shell) executeSingle(ctx context.Context, ex words.Expander, redirect [
 	s.trace(str)
 	cmd := s.resolveCommand(ctx, str)
 
-	pow := stdio.Pipe(s.stdout)
-	defer pow.Close()
-	pew := stdio.Pipe(s.stderr)
-	defer pew.Close()
+	rd, err := s.setupRedirect(redirect, false)
+	if err != nil {
+		return err
+	}
+	defer rd.Close()
 
-	cmd.SetOut(pow)
-	cmd.SetErr(pew)
-
-	// rd, err := s.setupRedirect(redirect, false)
-	// if err != nil {
-	// 	return err
-	// }
-	// defer rd.Close()
-	//
-	// cmd.SetOut(rd.out)
-	// cmd.SetErr(rd.err)
-	// cmd.SetIn(rd.in)
+	cmd.SetOut(rd.out)
+	cmd.SetErr(rd.err)
+	cmd.SetIn(rd.in)
 
 	err = cmd.Run()
 	s.updateContext(cmd)
@@ -766,14 +758,14 @@ func replaceFile(file string, flag int, list ...*os.File) (*os.File, error) {
 	return fd, nil
 }
 
-func fileOrWriter(f *os.File, w io.Writer, pipe bool) io.WriteCloser {
+func fileOrWriter(f *os.File, w io.Writer, pipe bool) io.Writer {
 	if f == nil {
 		if pipe {
 			return nil
 		}
-		return rw.NopWriteCloser(w)
+		return stdio.Writer(w)
 	}
-	return f
+	return stdio.Writer(w)
 }
 
 func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
@@ -784,23 +776,25 @@ func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
 		if r == nil {
 			r = rw.Empty()
 		}
-		return rw.NopReadCloser(r)
+		return stdio.Reader(r)
 	}
-	return f
+	return stdio.Reader(f)
 }
 
 type redirect struct {
-	in  io.ReadCloser
-	out io.WriteCloser
-	err io.WriteCloser
+	in  io.Reader
+	out io.Writer
+	err io.Writer
 }
 
 func (r redirect) Close() error {
-	for _, c := range []io.Closer{r.in, r.out, r.err} {
+	for _, c := range []interface{}{r.in, r.out, r.err} {
 		if c == nil {
 			continue
 		}
-		c.Close()
+		if c, ok := c.(io.Closer); ok {
+			c.Close()
+		}
 	}
 	return nil
 }

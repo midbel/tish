@@ -10,11 +10,29 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/midbel/tish"
 	"github.com/midbel/tish/internal/parser"
 	"github.com/midbel/tish/internal/token"
 )
+
+type lockWriter struct {
+	mu sync.Mutex
+	io.Writer
+}
+
+func Lock(w io.Writer) io.Writer {
+	return &lockWriter{
+		Writer: w,
+	}
+}
+
+func (w *lockWriter) Write(b []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.Writer.Write(b)
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -60,8 +78,8 @@ func main() {
 	options := []tish.ShellOption{
 		tish.WithCwd(*cwd),
 		tish.WithStdin(os.Stdin),
-		tish.WithStdout(os.Stdout),
-		tish.WithStderr(os.Stderr),
+		tish.WithStdout(Lock(os.Stdout)),
+		tish.WithStderr(Lock(os.Stderr)),
 	}
 	if *echo {
 		options = append(options, tish.WithEcho())

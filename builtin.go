@@ -206,20 +206,8 @@ func (b *Builtin) Start() error {
 	if b.finished {
 		return fmt.Errorf("builtin already executed")
 	}
-	for _, set := range b.SetupFd() {
-		_, err := set()
-		if err != nil {
-			b.Close()
-			return err
-		}
-	}
-	if copies := b.Copies(); len(copies) > 0 {
-		b.errch = make(chan error, 3)
-		for _, fn := range copies {
-			go func(fn func() error) {
-				b.errch <- fn()
-			}(fn)
-		}
+	if err := b.Setup(); err != nil {
+		return err
 	}
 	b.done = make(chan error, 1)
 	go func() {
@@ -237,24 +225,15 @@ func (b *Builtin) Wait() error {
 	}
 	b.finished = true
 
-	var (
-		errex = <-b.done
-		errcp error
-	)
+	err := <-b.done
 	defer close(b.done)
 	b.Close()
-	for range b.Copies() {
-		e := <-b.errch
-		if errcp == nil && e != nil {
-			b.code = 2
-			errcp = e
-		}
-	}
-	if errex != nil {
+
+	if err != nil {
 		b.code = 1
-		return errex
+		return err
 	}
-	return errcp
+	return nil
 }
 
 func (b *Builtin) Run() error {
