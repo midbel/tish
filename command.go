@@ -41,7 +41,7 @@ type Command interface {
 	Exit() (int, int)
 }
 
-type command struct {
+type stdCommand struct {
 	*exec.Cmd
 	name string
 }
@@ -49,33 +49,33 @@ type command struct {
 func StandardContext(ctx context.Context, name, cwd string, args []string) Command {
 	c := exec.CommandContext(ctx, name, args...)
 	c.Dir = cwd
-	return &command{
+	return &stdCommand{
 		Cmd:  c,
 		name: name,
 	}
 }
 
-func (c *command) Command() string {
+func (c *stdCommand) Command() string {
 	return c.name
 }
 
-func (_ *command) Type() CommandType {
+func (_ *stdCommand) Type() CommandType {
 	return TypeRegular
 }
 
-func (c *command) SetIn(r io.Reader) {
+func (c *stdCommand) SetIn(r io.Reader) {
 	c.Stdin = r
 }
 
-func (c *command) SetOut(w io.Writer) {
+func (c *stdCommand) SetOut(w io.Writer) {
 	c.Stdout = w
 }
 
-func (c *command) SetErr(w io.Writer) {
+func (c *stdCommand) SetErr(w io.Writer) {
 	c.Stderr = w
 }
 
-func (c *command) Exit() (int, int) {
+func (c *stdCommand) Exit() (int, int) {
 	if c == nil || c.Cmd == nil || c.Cmd.ProcessState == nil {
 		return 0, 255
 	}
@@ -86,7 +86,7 @@ func (c *command) Exit() (int, int) {
 	return pid, code
 }
 
-func (c *command) SetEnv(env []string) {
+func (c *stdCommand) SetEnv(env []string) {
 	c.Cmd.Env = append(c.Cmd.Env[:0], env...)
 }
 

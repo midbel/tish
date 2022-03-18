@@ -99,10 +99,25 @@ func New(options ...ShellOption) (*Shell, error) {
 			return nil, err
 		}
 	}
+	if sh.stdin == nil {
+		sh.stdin = rw.Empty()
+	}
 	if sh.locals == nil {
 		sh.locals = EmptyEnv()
 	}
 	return &sh, nil
+}
+
+func (s *Shell) Close() error {
+	for _, c := range []interface{} {s.stdin, s.stdout, s.stderr} {
+		if c == nil {
+			continue
+		}
+		if c, ok := c.(io.Closer); ok {
+			c.Close()
+		}
+	}
+	return nil
 }
 
 func (s *Shell) Exit() {
@@ -598,6 +613,9 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 	var cmd Command
 	if c, err := s.Find(ctx, str[0]); err == nil {
 		cmd = c
+		cmd.SetOut(s.stdout)
+		cmd.SetErr(s.stderr)
+		cmd.SetIn(s.stdin)
 	} else {
 		cmd = StandardContext(ctx, str[0], s.Cwd(), str[1:])
 	}
@@ -761,7 +779,7 @@ func replaceFile(file string, flag int, list ...*os.File) (*os.File, error) {
 func fileOrWriter(f *os.File, w io.Writer, pipe bool) io.Writer {
 	if f == nil {
 		if pipe {
-			return nil
+			return nil // w
 		}
 		return stdio.Writer(w)
 	}
@@ -771,7 +789,7 @@ func fileOrWriter(f *os.File, w io.Writer, pipe bool) io.Writer {
 func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
 	if f == nil {
 		if pipe {
-			return nil
+			return nil // stdio.Reader(r)
 		}
 		if r == nil {
 			r = rw.Empty()
