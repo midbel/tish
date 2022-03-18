@@ -10,7 +10,7 @@ func Writer(w io.Writer) io.WriteCloser {
 		return c
 	}
 	pr, pw, _ := os.Pipe()
-	drainReader(w, pr)
+	drain(pr, w, pr)
 
 	return &writer{
 		inner:       w,
@@ -23,7 +23,7 @@ func Reader(r io.Reader) io.ReadCloser {
 		return c
 	}
 	pr, pw, _ := os.Pipe()
-	drainWriter(r, pw)
+	drain(r, pw, pw)
 
 	return &reader{
 		inner:      r,
@@ -36,26 +36,15 @@ type writer struct {
 	io.WriteCloser
 }
 
-func drainReader(w io.Writer, r io.ReadCloser) {
-	q := make(chan struct{}, 1)
-	go func() {
-		defer r.Close()
-		q <- struct{}{}
-		io.Copy(w, r)
-	}()
-	<-q
-	close(q)
-}
-
 type reader struct {
 	inner io.Reader
 	io.ReadCloser
 }
 
-func drainWriter(r io.Reader, w io.WriteCloser) {
+func drain(r io.Reader, w io.Writer, c io.Closer) {
 	q := make(chan struct{}, 1)
 	go func() {
-		defer w.Close()
+		defer c.Close()
 		q <- struct{}{}
 		io.Copy(w, r)
 	}()
