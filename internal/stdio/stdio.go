@@ -9,6 +9,7 @@ func Writer(w io.Writer) io.WriteCloser {
 	if c, ok := w.(*writer); ok {
 		return c
 	}
+	// pr, pw := io.Pipe()
 	pr, pw, _ := os.Pipe()
 	drain(pr, w, pr)
 
@@ -22,6 +23,7 @@ func Reader(r io.Reader) io.ReadCloser {
 	if c, ok := r.(*reader); ok {
 		return c
 	}
+	// pr, pw := io.Pipe()
 	pr, pw, _ := os.Pipe()
 	drain(r, pw, pw)
 
