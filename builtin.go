@@ -158,91 +158,6 @@ var builtins = map[string]Builtin{
 	},
 }
 
-type Builtin struct {
-	Usage    string
-	Short    string
-	Help     string
-	Disabled bool
-	Execute  func(Builtin) error
-
-	args     []string
-	shell    *Shell
-	finished bool
-	code     int
-	done     chan error
-
-	Pipe
-	errch chan error
-}
-
-func (b *Builtin) Name() string {
-	i := strings.Index(b.Usage, " ")
-	if i <= 0 {
-		return b.Usage
-	}
-	return b.Usage[:i]
-}
-
-func (b *Builtin) Command() string {
-	return b.Name()
-}
-
-func (b *Builtin) IsEnabled() bool {
-	return !b.Disabled && b.Execute != nil
-}
-
-func (b *Builtin) Exit() (int, int) {
-	return 0, b.code
-}
-
-func (b *Builtin) Type() CommandType {
-	return TypeBuiltin
-}
-
-func (b *Builtin) Start() error {
-	if !b.IsEnabled() {
-		return fmt.Errorf("builtin is disabled")
-	}
-	if b.finished {
-		return fmt.Errorf("builtin already executed")
-	}
-	if err := b.Setup(); err != nil {
-		return err
-	}
-	b.done = make(chan error, 1)
-	go func() {
-		b.done <- b.Execute(*b)
-	}()
-	return nil
-}
-
-func (b *Builtin) Wait() error {
-	if !b.IsEnabled() {
-		return fmt.Errorf("builtin is disabled")
-	}
-	if b.finished {
-		return fmt.Errorf("builtin already finished")
-	}
-	b.finished = true
-
-	err := <-b.done
-	defer close(b.done)
-	b.Close()
-
-	if err != nil {
-		b.code = 1
-		return err
-	}
-	return nil
-}
-
-func (b *Builtin) Run() error {
-	if err := b.Start(); err != nil {
-		return err
-	}
-	return b.Wait()
-}
-
 func runEcho(b Builtin) error {
 	var (
 		set   flag.FlagSet
@@ -253,11 +168,11 @@ func runEcho(b Builtin) error {
 	}
 	for i, a := range set.Args() {
 		if i > 0 {
-			fmt.Fprint(b.stdout, *delim)
+			fmt.Fprint(b.Stdout, *delim)
 		}
-		fmt.Fprint(b.stdout, a)
+		fmt.Fprint(b.Stdout, a)
 	}
-	fmt.Fprintln(b.stdout)
+	fmt.Fprintln(b.Stdout)
 	return nil
 }
 
@@ -278,8 +193,8 @@ func runBuiltins(b Builtin) error {
 		if i.Name() != "" {
 			n = i.Name()
 		}
-		fmt.Fprintf(b.stdout, "%-12s: %s", n, i.Short)
-		fmt.Fprintln(b.stdout)
+		fmt.Fprintf(b.Stdout, "%-12s: %s", n, i.Short)
+		fmt.Fprintln(b.Stdout)
 	}
 	return nil
 }
@@ -291,17 +206,17 @@ func runHelp(b Builtin) error {
 	}
 	other, ok := b.shell.builtins[set.Arg(0)]
 	if !ok {
-		fmt.Fprintf(b.stderr, "no help match %s! try builtins to get the list of available builtins", set.Arg(0))
-		fmt.Fprintln(b.stderr)
+		fmt.Fprintf(b.Stderr, "no help match %s! try builtins to get the list of available builtins", set.Arg(0))
+		fmt.Fprintln(b.Stderr)
 		return nil
 	}
-	fmt.Fprintln(b.stdout, other.Name())
-	fmt.Fprintln(b.stdout, other.Short)
-	fmt.Fprintln(b.stdout)
+	fmt.Fprintln(b.Stdout, other.Name())
+	fmt.Fprintln(b.Stdout, other.Short)
+	fmt.Fprintln(b.Stdout)
 	if len(other.Help) > 0 {
-		fmt.Fprintln(b.stdout, other.Help)
+		fmt.Fprintln(b.Stdout, other.Help)
 	}
-	fmt.Fprintln(b.stdout)
+	fmt.Fprintln(b.Stdout)
 	return nil
 }
 
@@ -311,22 +226,22 @@ func runBuiltin(b Builtin) error {
 		return err
 	}
 	if set.NArg() == 0 {
-		fmt.Fprintln(b.stderr, "not enough argument supplied")
+		fmt.Fprintln(b.Stderr, "not enough argument supplied")
 		return nil
 	}
 	other, ok := b.shell.builtins[set.Arg(0)]
 	if !ok {
-		fmt.Fprintf(b.stderr, "%s: unknown builtin", set.Arg(0))
-		fmt.Fprintln(b.stderr)
+		fmt.Fprintf(b.Stderr, "%s: unknown builtin", set.Arg(0))
+		fmt.Fprintln(b.Stderr)
 		return nil
 	}
 	for i := 1; i < set.NArg(); i++ {
 		other.args = append(other.args, set.Arg(i))
 	}
 	other.shell = b.shell
-	other.stdout = b.stdout
-	other.stderr = b.stderr
-	other.stdin = b.stdin
+	other.Stdout = b.Stdout
+	other.Stderr = b.Stderr
+	other.Stdin = b.Stdin
 
 	return other.Run()
 }
@@ -357,8 +272,8 @@ func runType(b Builtin) error {
 		} else {
 			kind = "command"
 		}
-		fmt.Fprintf(b.stdout, "%s is %s", a, kind)
-		fmt.Fprintln(b.stdout)
+		fmt.Fprintf(b.Stdout, "%s is %s", a, kind)
+		fmt.Fprintln(b.Stdout)
 	}
 	return nil
 }
@@ -378,39 +293,39 @@ func runSeq(b Builtin) error {
 	switch set.NArg() {
 	case 1:
 		if lst, err = strconv.Atoi(set.Arg(0)); err != nil {
-			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(0))
-			fmt.Fprintln(b.stderr)
+			fmt.Fprintf(b.Stderr, "%s: invalid number", flag.Arg(0))
+			fmt.Fprintln(b.Stderr)
 		}
 	case 2:
 		if fst, err = strconv.Atoi(set.Arg(0)); err != nil {
-			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(0))
-			fmt.Fprintln(b.stderr)
+			fmt.Fprintf(b.Stderr, "%s: invalid number", flag.Arg(0))
+			fmt.Fprintln(b.Stderr)
 			break
 		}
 		if lst, err = strconv.Atoi(set.Arg(1)); err != nil {
-			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(1))
-			fmt.Fprintln(b.stderr)
+			fmt.Fprintf(b.Stderr, "%s: invalid number", flag.Arg(1))
+			fmt.Fprintln(b.Stderr)
 			break
 		}
 	case 3:
 		if fst, err = strconv.Atoi(set.Arg(0)); err != nil {
-			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(0))
-			fmt.Fprintln(b.stderr)
+			fmt.Fprintf(b.Stderr, "%s: invalid number", flag.Arg(0))
+			fmt.Fprintln(b.Stderr)
 			break
 		}
 		if inc, err = strconv.Atoi(set.Arg(1)); err != nil {
-			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(1))
-			fmt.Fprintln(b.stderr)
+			fmt.Fprintf(b.Stderr, "%s: invalid number", flag.Arg(1))
+			fmt.Fprintln(b.Stderr)
 			break
 		}
 		if lst, err = strconv.Atoi(set.Arg(2)); err != nil {
-			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(2))
-			fmt.Fprintln(b.stderr)
+			fmt.Fprintf(b.Stderr, "%s: invalid number", flag.Arg(2))
+			fmt.Fprintln(b.Stderr)
 			break
 		}
 	default:
-		fmt.Fprintf(b.stderr, "seq: missing operand")
-		fmt.Fprintln(b.stderr)
+		fmt.Fprintf(b.Stderr, "seq: missing operand")
+		fmt.Fprintln(b.Stderr)
 		return nil
 	}
 	if err != nil {
@@ -428,12 +343,12 @@ func runSeq(b Builtin) error {
 	}
 	for i := 0; cmp(fst, lst); i++ {
 		if i > 0 {
-			fmt.Fprint(b.stdout, *sep)
+			fmt.Fprint(b.Stdout, *sep)
 		}
-		fmt.Fprintf(b.stdout, strconv.Itoa(fst))
+		fmt.Fprintf(b.Stdout, strconv.Itoa(fst))
 		fst += inc
 	}
-	fmt.Fprintln(b.stdout)
+	fmt.Fprintln(b.Stdout)
 	return nil
 }
 
@@ -457,8 +372,8 @@ func runEnable(b Builtin) error {
 	for _, n := range set.Args() {
 		other, ok := b.shell.builtins[n]
 		if !ok {
-			fmt.Fprintf(b.stderr, "builtin %s not found", n)
-			fmt.Fprintln(b.stderr)
+			fmt.Fprintf(b.Stderr, "builtin %s not found", n)
+			fmt.Fprintln(b.Stderr)
 			continue
 		}
 		other.Disabled = *disable
@@ -493,8 +408,8 @@ func printEnableBuiltins(b Builtin) {
 		if x.Disabled {
 			state = "disabled"
 		}
-		fmt.Fprintf(b.stdout, "%-12s: %s", x.Name(), state)
-		fmt.Fprintln(b.stdout)
+		fmt.Fprintf(b.Stdout, "%-12s: %s", x.Name(), state)
+		fmt.Fprintln(b.Stdout)
 	}
 }
 
@@ -508,8 +423,8 @@ func runReadOnly(b Builtin) error {
 
 func runEnv(b Builtin) error {
 	for n, v := range b.shell.env {
-		fmt.Fprintf(b.stdout, "%-10s = %s", n, v)
-		fmt.Fprintln(b.stdout)
+		fmt.Fprintf(b.Stdout, "%-10s = %s", n, v)
+		fmt.Fprintln(b.Stdout)
 	}
 	return nil
 }
@@ -557,14 +472,14 @@ func runChdir(b Builtin) error {
 		return err
 	}
 	if err := b.shell.Chdir(set.Arg(0)); err != nil {
-		fmt.Fprintf(b.stderr, err.Error())
-		fmt.Fprintln(b.stderr)
+		fmt.Fprintf(b.Stderr, err.Error())
+		fmt.Fprintln(b.Stderr)
 	}
 	return nil
 }
 
 func runPwd(b Builtin) error {
-	fmt.Fprintln(b.stdout, b.shell.Cwd())
+	fmt.Fprintln(b.Stdout, b.shell.Cwd())
 	return nil
 }
 
@@ -603,14 +518,14 @@ func runDirs(b Builtin) error {
 	}
 	for i, d := range b.shell.Dirs() {
 		if i > 0 {
-			fmt.Fprint(b.stdout, eol)
+			fmt.Fprint(b.Stdout, eol)
 		}
 		if *prefix {
-			fmt.Fprintf(b.stdout, "%d ", i+1)
+			fmt.Fprintf(b.Stdout, "%d ", i+1)
 		}
-		fmt.Fprint(b.stdout, d)
+		fmt.Fprint(b.Stdout, d)
 	}
-	fmt.Fprintln(b.stdout)
+	fmt.Fprintln(b.Stdout)
 	return nil
 }
 
@@ -621,8 +536,8 @@ func runAlias(b Builtin) error {
 	}
 	if set.NArg() == 0 {
 		for k, a := range b.shell.alias {
-			fmt.Fprintf(b.stdout, "%s: %s", k, strings.Join(a, " "))
-			fmt.Fprintln(b.stdout)
+			fmt.Fprintf(b.Stdout, "%s: %s", k, strings.Join(a, " "))
+			fmt.Fprintln(b.Stdout)
 		}
 	}
 	for _, k := range set.Args() {
