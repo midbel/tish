@@ -109,7 +109,7 @@ func New(options ...ShellOption) (*Shell, error) {
 }
 
 func (s *Shell) Close() error {
-	for _, c := range []interface{} {s.stdin, s.stdout, s.stderr} {
+	for _, c := range []interface{}{s.stdin, s.stdout, s.stderr} {
 		if c == nil {
 			continue
 		}
@@ -485,16 +485,19 @@ func (s *Shell) executeSingle(ctx context.Context, ex words.Expander, redirect [
 	}
 	s.trace(str)
 	cmd := s.resolveCommand(ctx, str)
+	cmd.SetOut(s.stdout)
+	cmd.SetErr(s.stderr)
+	cmd.SetIn(s.stdin)
 
-	rd, err := s.setupRedirect(redirect, false)
-	if err != nil {
-		return err
-	}
-	defer rd.Close()
-
-	cmd.SetOut(rd.out)
-	cmd.SetErr(rd.err)
-	cmd.SetIn(rd.in)
+	// rd, err := s.setupRedirect(redirect, false)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer rd.Close()
+	//
+	// cmd.SetOut(rd.out)
+	// cmd.SetErr(rd.err)
+	// cmd.SetIn(rd.in)
 
 	err = cmd.Run()
 	s.updateContext(cmd)
@@ -502,53 +505,55 @@ func (s *Shell) executeSingle(ctx context.Context, ex words.Expander, redirect [
 }
 
 func (s *Shell) executePipe(ctx context.Context, ex words.ExecPipe) error {
-	var cs []Command
-	for i := range ex.List {
-		sex, ok := ex.List[i].Executer.(words.ExecSimple)
+	get := func(ex words.Executer) (Command, error) {
+		sex, ok := ex.(words.ExecSimple)
 		if !ok {
-			return fmt.Errorf("single command expected")
+			return nil, fmt.Errorf("single command expected")
 		}
 		str, err := s.expand(sex.Expander)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		cmd := s.resolveCommand(ctx, str)
-		rd, err := s.setupRedirect(sex.Redirect, true)
+		cmd.SetErr(s.stderr)
+		cmd.SetIn(s.stdin)
+		return cmd, nil
+	}
+	run := func(cmd Command, update bool) func() error {
+		return func() error {
+			err := cmd.Run()
+			if update {
+				s.updateContext(cmd)
+			}
+			return err
+		}
+	}
+	var (
+		last = len(ex.List) - 1
+		grp  errgroup.Group
+	)
+	cmd, err := get(ex.List[last].Executer)
+	if err != nil {
+		return err
+	}
+	cmd.SetOut(s.stdout)
+	cmd.SetErr(s.stderr)
+	for i := last - 1; i >= 0; i-- {
+		curr, err := get(ex.List[i].Executer)
 		if err != nil {
 			return err
 		}
-		defer rd.Close()
-
-		cmd.SetIn(rd.in)
-		cmd.SetOut(rd.out)
-		cmd.SetErr(rd.err)
-
-		cs = append(cs, cmd)
-	}
-	var (
-		err error
-		grp errgroup.Group
-	)
-	for i := 0; i < len(cs)-1; i++ {
-		var (
-			curr = cs[i]
-			next = cs[i+1]
-			in   io.ReadCloser
-		)
-		if in, err = curr.StdoutPipe(); err != nil {
+		in, err := curr.StdoutPipe()
+		if err != nil {
 			return err
 		}
-		next.SetIn(in)
-		grp.Go(curr.Start)
+		defer in.Close()
+		cmd.SetIn(in)
+		grp.Go(run(cmd, i == last-1))
+		cmd = curr
 	}
-	cmd := cs[len(cs)-1]
-	cmd.SetOut(s.stdout)
-	cmd.SetErr(s.stderr)
-	grp.Go(func() error {
-		err := cmd.Run()
-		s.updateContext(cmd)
-		return err
-	})
+	cmd.SetIn(s.stdin)
+	grp.Go(run(cmd, false))
 	return grp.Wait()
 }
 
@@ -613,12 +618,10 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 	var cmd Command
 	if c, err := s.Find(ctx, str[0]); err == nil {
 		cmd = c
-		cmd.SetOut(s.stdout)
-		cmd.SetErr(s.stderr)
-		cmd.SetIn(s.stdin)
 	} else {
 		cmd = StandardContext(ctx, str[0], s.Cwd(), str[1:])
 	}
+
 	if a, ok := cmd.(interface{ SetArgs([]string) }); ok {
 		a.SetArgs(str[1:])
 	}
