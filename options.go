@@ -2,9 +2,25 @@ package tish
 
 import (
 	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
 )
 
 type ShellOption func(*Shell) error
+
+func WithBuiltin(dir string) ShellOption {
+	return func(s *Shell) error {
+		list, err := fs.Glob(os.DirFS(dir), "*.so")
+		if err != nil {
+			return err
+		}
+		for i := range list {
+			list[i] = filepath.Join(dir, list[i])
+		}
+		return loadExternalBuiltins(s, list)
+	}
+}
 
 func WithFinder(find CommandFinder) ShellOption {
 	return func(s *Shell) error {

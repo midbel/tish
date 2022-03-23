@@ -44,12 +44,13 @@ func main() {
 		close(sig)
 	}()
 	var (
-		cwd    = flag.String("c", ".", "set working directory")
-		name   = flag.String("n", "tish", "script name")
-		echo   = flag.Bool("e", false, "echo each command before executing")
-		scan   = flag.Bool("s", false, "scan script")
-		parse  = flag.Bool("p", false, "parse script")
-		inline = flag.Bool("i", false, "read script from arguments")
+		cwd      = flag.String("c", ".", "set working directory")
+		name     = flag.String("n", "tish", "script name")
+		echo     = flag.Bool("e", false, "echo each command before executing")
+		scan     = flag.Bool("s", false, "scan script")
+		parse    = flag.Bool("p", false, "parse script")
+		inline   = flag.Bool("i", false, "read script from arguments")
+		builddir = flag.String("b", "", "directory where additional builtin can be found")
 	)
 	flag.Parse()
 	if flag.NArg() == 0 {
@@ -80,6 +81,7 @@ func main() {
 		tish.WithStdin(os.Stdin),
 		tish.WithStdout(Lock(os.Stdout)),
 		tish.WithStderr(Lock(os.Stderr)),
+		tish.WithBuiltin(*builddir),
 	}
 	if *echo {
 		options = append(options, tish.WithEcho())

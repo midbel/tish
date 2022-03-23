@@ -612,7 +612,7 @@ func (s *Shell) clearContext() {
 func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 	if b, ok := s.builtins[str[0]]; ok && b.IsEnabled() {
 		b.shell = s
-		b.args = str[1:]
+		b.Args = str[1:]
 		return &b
 	}
 	var cmd Command

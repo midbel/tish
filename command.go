@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	// "github.com/midbel/tish/internal/stdio"
 )
 
 type CommandFinder interface {
@@ -97,7 +96,7 @@ type Builtin struct {
 	Disabled bool
 	Execute  func(Builtin) error
 
-	args     []string
+	Args     []string
 	shell    *Shell
 	finished bool
 	code     int

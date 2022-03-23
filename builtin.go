@@ -163,7 +163,7 @@ func runEcho(b Builtin) error {
 		set   flag.FlagSet
 		delim = set.String("d", " ", "strings delimiter")
 	)
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	for i, a := range set.Args() {
@@ -186,7 +186,7 @@ func runFalse(_ Builtin) error {
 
 func runBuiltins(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	for n, i := range b.shell.builtins {
@@ -201,7 +201,7 @@ func runBuiltins(b Builtin) error {
 
 func runHelp(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	other, ok := b.shell.builtins[set.Arg(0)]
@@ -222,7 +222,7 @@ func runHelp(b Builtin) error {
 
 func runBuiltin(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if set.NArg() == 0 {
@@ -236,7 +236,7 @@ func runBuiltin(b Builtin) error {
 		return nil
 	}
 	for i := 1; i < set.NArg(); i++ {
-		other.args = append(other.args, set.Arg(i))
+		other.Args = append(other.Args, set.Arg(i))
 	}
 	other.shell = b.shell
 	other.Stdout = b.Stdout
@@ -248,7 +248,7 @@ func runBuiltin(b Builtin) error {
 
 func runCommand(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	return nil
@@ -256,7 +256,7 @@ func runCommand(b Builtin) error {
 
 func runType(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	for _, a := range set.Args() {
@@ -287,7 +287,7 @@ func runSeq(b Builtin) error {
 		inc = 1
 		err error
 	)
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	switch set.NArg() {
@@ -359,11 +359,11 @@ func runEnable(b Builtin) error {
 		load    = set.Bool("f", false, "load new builtin(s) from list of given object file(s)")
 		disable = set.Bool("d", false, "disable builtin(s) given in the list")
 	)
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *load {
-		return loadExternalBuiltins(b, set.Args())
+		return loadExternalBuiltins(b.shell, set.Args())
 	}
 	if *print {
 		printEnableBuiltins(b)
@@ -382,7 +382,7 @@ func runEnable(b Builtin) error {
 	return nil
 }
 
-func loadExternalBuiltins(b Builtin, files []string) error {
+func loadExternalBuiltins(sh *Shell, files []string) error {
 	for _, f := range files {
 		plug, err := plugin.Open(f)
 		if err != nil {
@@ -397,7 +397,7 @@ func loadExternalBuiltins(b Builtin, files []string) error {
 			return fmt.Errorf("invalid signature")
 		}
 		e := load()
-		b.shell.builtins[b.Name()] = e
+		sh.builtins[e.Name()] = e
 	}
 	return nil
 }
@@ -415,7 +415,7 @@ func printEnableBuiltins(b Builtin) {
 
 func runReadOnly(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	return nil
@@ -434,7 +434,7 @@ func runExport(b Builtin) error {
 		set flag.FlagSet
 		del = set.Bool("d", false, "delete")
 	)
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	for _, k := range set.Args() {
@@ -453,7 +453,7 @@ func runExport(b Builtin) error {
 
 func runExit(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	code := ExitCode(b.shell.context.code)
@@ -468,7 +468,7 @@ func runExit(b Builtin) error {
 
 func runChdir(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if err := b.shell.Chdir(set.Arg(0)); err != nil {
@@ -485,7 +485,7 @@ func runPwd(b Builtin) error {
 
 func runPopd(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	return b.shell.Popd(set.Arg(0))
@@ -493,7 +493,7 @@ func runPopd(b Builtin) error {
 
 func runPushd(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	return b.shell.Pushd(set.Arg(0))
@@ -506,7 +506,7 @@ func runDirs(b Builtin) error {
 		line   = set.Bool("p", false, "print one entry per line")
 		prefix = set.Bool("v", false, "print prefix")
 	)
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if *clear {
@@ -531,7 +531,7 @@ func runDirs(b Builtin) error {
 
 func runAlias(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	if set.NArg() == 0 {
@@ -552,7 +552,7 @@ func runAlias(b Builtin) error {
 
 func runUnalias(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
+	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
 	for _, a := range set.Args() {
