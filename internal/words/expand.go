@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -35,13 +36,27 @@ func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
 		return nil, fmt.Errorf("substitution can not be expanded")
 	}
 	var (
-		err error
-		buf bytes.Buffer
+		pr, pw = io.Pipe()
+		buf    bytes.Buffer
+		err    error
+		wait = make(chan struct{})
 	)
+	go func() {
+		io.Copy(&buf, pr)
+		wait <- struct{}{}
+	}()
+
 	for i := range e.List {
-		if err = sh.Execute(context.TODO(), e.List[i], &buf, &buf); err != nil {
-			return nil, err
+		if err = sh.Execute(context.TODO(), e.List[i], pw, pw); err != nil {
+			break
 		}
+	}
+	pw.Close()
+	pr.Close()
+	<-wait
+	close(wait)
+	if err != nil {
+		return nil, err
 	}
 	return shlex.Split(&buf)
 }

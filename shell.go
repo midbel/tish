@@ -530,6 +530,7 @@ func (s *Shell) executePipe(ctx context.Context, ex words.ExecPipe) error {
 	}
 	var (
 		last = len(ex.List) - 1
+		in   io.ReadCloser
 		grp  errgroup.Group
 	)
 	cmd, err := get(ex.List[last].Executer)
@@ -543,18 +544,21 @@ func (s *Shell) executePipe(ctx context.Context, ex words.ExecPipe) error {
 		if err != nil {
 			return err
 		}
-		in, err := curr.StdoutPipe()
-		if err != nil {
+		if in, err = curr.StdoutPipe(); err != nil {
 			return err
 		}
 		defer in.Close()
+
 		cmd.SetIn(in)
 		grp.Go(run(cmd, i == last-1))
 		cmd = curr
 	}
 	cmd.SetIn(s.stdin)
-	grp.Go(run(cmd, false))
-	return grp.Wait()
+	err = cmd.Run()
+	if err1 := grp.Wait(); err1 != nil && err == nil {
+		err = err1
+	}
+	return err
 }
 
 func (s *Shell) executeAssign(ex words.ExecAssign) error {

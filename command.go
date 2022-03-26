@@ -62,6 +62,10 @@ func (_ *stdCommand) Type() CommandType {
 	return TypeRegular
 }
 
+func (c *stdCommand) SetEnv(env []string) {
+	c.Cmd.Env = append(c.Cmd.Env[:0], env...)
+}
+
 func (c *stdCommand) SetIn(r io.Reader) {
 	c.Cmd.Stdin = r
 }
@@ -83,10 +87,6 @@ func (c *stdCommand) Exit() (int, int) {
 		code = c.ProcessState.ExitCode()
 	)
 	return pid, code
-}
-
-func (c *stdCommand) SetEnv(env []string) {
-	c.Cmd.Env = append(c.Cmd.Env[:0], env...)
 }
 
 type Builtin struct {
