@@ -216,6 +216,10 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 	return nil, err
 }
 
+func (s *Shell) SetEnv(env Environment) {
+	s.locals = env
+}
+
 // implements Environment.Define
 func (s *Shell) Define(ident string, values []string) error {
 	if _, ok := specials[ident]; ok {
@@ -271,6 +275,9 @@ func (s *Shell) Run(ctx context.Context, r io.Reader, cmd string, args []string)
 			}
 			return err
 		}
+		// if ex == nil {
+		// 	continue
+		// }
 		ret = s.execute(ctx, ex)
 	}
 }
@@ -499,9 +506,10 @@ func (s *Shell) executeSingle(ctx context.Context, ex words.Expander, redirect [
 	// cmd.SetErr(rd.err)
 	// cmd.SetIn(rd.in)
 
-	err = cmd.Run()
+	// err = cmd.Run()
+	cmd.Run()
 	s.updateContext(cmd)
-	return err
+	return nil
 }
 
 func (s *Shell) executePipe(ctx context.Context, ex words.ExecPipe) error {
