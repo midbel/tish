@@ -201,6 +201,10 @@ func (s *Shell) Subshell() (*Shell, error) {
 	return sub, nil
 }
 
+func (s *Shell) SetEnv(env Environment) {
+	s.locals = env
+}
+
 // implements Environment.Resolve
 func (s *Shell) Resolve(ident string) ([]string, error) {
 	str, err := s.locals.Resolve(ident)
@@ -214,10 +218,6 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 		return str, nil
 	}
 	return nil, err
-}
-
-func (s *Shell) SetEnv(env Environment) {
-	s.locals = env
 }
 
 // implements Environment.Define
@@ -275,9 +275,6 @@ func (s *Shell) Run(ctx context.Context, r io.Reader, cmd string, args []string)
 			}
 			return err
 		}
-		// if ex == nil {
-		// 	continue
-		// }
 		ret = s.execute(ctx, ex)
 	}
 }
@@ -682,7 +679,7 @@ func (s *Shell) resolveSpecials(ident string) []string {
 	case varArgsStr:
 		ret = append(ret, strings.Join(s.context.args, " "))
 	case varArgsArr:
-		ret = s.context.args
+		ret = append(ret, s.context.args...)
 	default:
 		n, err := strconv.Atoi(ident)
 		if err != nil {
