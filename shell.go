@@ -59,7 +59,6 @@ type Shell struct {
 	env map[string]string
 
 	Stack
-	History
 	now  time.Time
 	rand *rand.Rand
 
@@ -85,7 +84,6 @@ func New(options ...ShellOption) (*Shell, error) {
 	sh := Shell{
 		now:      time.Now(),
 		Stack:    DirectoryStack(),
-		History:  HistoryStack(),
 		alias:    make(map[string][]string),
 		commands: make(map[string]Command),
 		env:      make(map[string]string),
