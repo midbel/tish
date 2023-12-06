@@ -1,5 +1,11 @@
 package tish
 
+import (
+	"fmt"
+	"io"
+	"strconv"
+)
+
 type Parser struct {
 	scan *Scanner
 	curr Token

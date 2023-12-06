@@ -3,6 +3,7 @@ package tish
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var ErrDefined = errors.New("variable not defined")

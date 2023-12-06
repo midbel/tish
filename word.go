@@ -1,10 +1,14 @@
 package tish
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 var (

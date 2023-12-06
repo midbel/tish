@@ -1,5 +1,12 @@
 package tish
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"unicode/utf8"
+)
+
 const (
 	EOF rune = -(iota + 1)
 	EOL

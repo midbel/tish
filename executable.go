@@ -1,6 +1,7 @@
 package tish
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
