@@ -20,36 +20,6 @@ const (
 	maxSubshell = 255
 )
 
-// func main2() {
-// 	var (
-// 		scan  = flag.Bool("s", false, "scan only")
-// 		parse = flag.Bool("p", false, "parse only")
-// 		dirs  = flag.String("d", "", "directories")
-// 		err   error
-// 	)
-// 	flag.Parse()
-
-// 	var r io.Reader
-// 	if f, err := os.Open(flag.Arg(0)); err == nil {
-// 		defer f.Close()
-// 		r = f
-// 	} else {
-// 		r = strings.NewReader(flag.Arg(0))
-// 	}
-// 	switch {
-// 	case *scan:
-// 		err = scanFile(r)
-// 	case *parse:
-// 		err = parseFile(r)
-// 	default:
-// 		err = execFile(r, *dirs)
-// 	}
-// 	if err != nil {
-// 		fmt.Fprintln(os.Stderr, err)
-// 		os.Exit(2)
-// 	}
-// }
-
 func execFile(r io.Reader, dir string) error {
 	sh, err := NewShellWithEnv(r, EmptyEnv())
 	if err != nil {
@@ -58,24 +28,6 @@ func execFile(r io.Reader, dir string) error {
 	sh.SetDirs(filepath.SplitList(dir))
 	sh.SetExts(".exe", ".sh")
 	return sh.Run()
-}
-
-func parseFile(r io.Reader) error {
-	p, err := New(r)
-	if err != nil {
-		return err
-	}
-	for {
-		cmd, err := p.Parse()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stdout, "%#v\n", cmd)
-	}
-	return nil
 }
 
 type Shell struct {
