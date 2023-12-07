@@ -26,7 +26,7 @@ var builtins = map[string]builtin{
 	},
 	"printf": {
 		Usage: "printf",
-		Call, runPrintf,
+		Call: runPrintf,
 	},
 	"echo": {
 		Usage: "echo [arg...]",
