@@ -2,6 +2,7 @@ package tish
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 )
 
@@ -98,6 +99,44 @@ func runCommand(b *builtin) error {
 }
 
 func runEnable(b *builtin) error {
+	set := flag.NewFlagSet("enable", flag.ContinueOnError)
+	var (
+		disabled = set.Bool("n", false, "disable shell builtin")
+		print    = set.Bool("p", false, "print list of enable builtin")
+		all      = set.Bool("a", false, "print all builtins with an indicator of their status")
+		load     = set.String("f", "", "filename")
+	)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	if *load != "" {
+		return notImplemented("enable -f")
+	}
+	switch {
+	case *load != "":
+	case *print:
+		for n, x := range b.Shell.builtins {
+			if *all {
+				if !x.Disabled {
+					fmt.Fprint(b.Stdout, "* ")
+				}
+			} else {
+				if x.Disabled {
+					continue
+				}
+			}
+			fmt.Fprintln(b.Stdout, n)
+		}
+	default:
+		for _, n := range set.Args() {
+			x, ok := b.Shell.builtins[n]
+			if !ok {
+				continue
+			}
+			x.Disabled = *disabled
+			b.Shell.builtins[n] = x
+		}
+	}
 	return nil
 }
 
@@ -107,4 +146,8 @@ func runTrue(b *builtin) error {
 
 func runFalse(b *builtin) error {
 	return ErrFalse
+}
+
+func notImplemented(ident string) error {
+	return fmt.Errorf("%s not yet implemented", ident)
 }
