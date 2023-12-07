@@ -846,6 +846,11 @@ func (s *Scanner) skipBlankIfPossible() {
 	case lparen:
 	case rparen:
 	case semicolon:
+	case '2', '1':
+		if s.peek() == rangle {
+			break
+		}
+		s.restore()
 	default:
 		s.restore()
 	}
