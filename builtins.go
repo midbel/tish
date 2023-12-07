@@ -12,6 +12,22 @@ var (
 )
 
 var builtins = map[string]builtin{
+	"alias": {
+		Usage: "alias [name[=value]...] ",
+		Call:  runAlias,
+	},
+	"unalias": {
+		Usage: "unalias [name...]",
+		Call:  runUnalias,
+	},
+	"type": {
+		Usage: "type name",
+		Call:  runType,
+	},
+	"printf": {
+		Usage: "printf",
+		Call, runPrintf,
+	},
 	"echo": {
 		Usage: "echo [arg...]",
 		Call:  runEcho,
@@ -27,6 +43,14 @@ var builtins = map[string]builtin{
 	"cd": {
 		Usage: "cd",
 		Call:  runCd,
+	},
+	"pushd": {
+		Usage: "pushd",
+		Call:  runPushd,
+	},
+	"popd": {
+		Usage: "popd",
+		Call:  runPopd,
 	},
 	"pwd": {
 		Usage: "pwd",
@@ -52,6 +76,22 @@ var builtins = map[string]builtin{
 		Usage: "false",
 		Call:  runFalse,
 	},
+}
+
+func runAlias(b *builtin) error {
+	return nil
+}
+
+func runUnalias(b *builtin) error {
+	return nil
+}
+
+func runType(b *builtin) error {
+	return nil
+}
+
+func runPrintf(b *builtin) error {
+	return nil
 }
 
 func runExit(b *builtin) error {
@@ -81,6 +121,14 @@ func runEcho(b *builtin) error {
 }
 
 func runCd(b *builtin) error {
+	return nil
+}
+
+func runPushd(b *builtin) error {
+	return nil
+}
+
+func runPopd(b *builtin) error {
 	return nil
 }
 
