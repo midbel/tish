@@ -58,7 +58,7 @@ func runExit(b *builtin) error {
 }
 
 func runExport(b *builtin) error {
-	for i := 0; i < len(b.Args); i+=2 {
+	for i := 0; i < len(b.Args); i += 2 {
 		var (
 			id = b.Args[i]
 			vl = b.Args[i+1]
@@ -90,11 +90,11 @@ func runPwd(b *builtin) error {
 }
 
 func runBuiltin(b *builtin) error {
-	return nil
+	return b.runBuiltin(b.Args)
 }
 
 func runCommand(b *builtin) error {
-	return nil
+	return b.runCommand(b.Args)
 }
 
 func runEnable(b *builtin) error {

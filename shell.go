@@ -29,6 +29,8 @@ type Shell struct {
 	Stdout io.Writer
 	Stderr io.Writer
 
+	builtins map[string]builtin
+
 	level int
 	when  time.Time
 	dirs  []string
@@ -55,14 +57,15 @@ func NewShellWithEnv(r io.Reader, locals Environment) (*Shell, error) {
 		locals = EmptyEnv()
 	}
 	s := Shell{
-		parser: p,
-		env:    EmptyEnv(),
-		locals: locals,
-		level:  1,
-		Stdout: NopCloser(os.Stdout),
-		Stderr: NopCloser(os.Stderr),
-		when:   time.Now(),
-		path:   filepath.SplitList(os.Getenv("PATH")),
+		parser:   p,
+		env:      EmptyEnv(),
+		locals:   locals,
+		builtins: builtins,
+		level:    1,
+		Stdout:   NopCloser(os.Stdout),
+		Stderr:   NopCloser(os.Stderr),
+		when:     time.Now(),
+		path:     filepath.SplitList(os.Getenv("PATH")),
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		s.dirs = append(s.dirs, cwd)
@@ -431,6 +434,28 @@ func (s *Shell) executeFor(cmd cmdFor) error {
 	return e.Wait()
 }
 
+func (s *Shell) runCommand(words []string) error {
+	e, err := s.lookupCommand(words[0], words[1:])
+	if err != nil {
+		return err
+	}
+	e.replaceIn(s.Stdin)
+	e.replaceErr(s.Stderr)
+	e.replaceOut(s.Stdout)
+	return e.Run()
+}
+
+func (s *Shell) runBuiltin(words []string) error {
+	e, err := s.lookupBuiltin(words[0], words[1:])
+	if err != nil {
+		return err
+	}
+	e.replaceIn(s.Stdin)
+	e.replaceErr(s.Stderr)
+	e.replaceOut(s.Stdout)
+	return e.Run()
+}
+
 func (s *Shell) prepare(c Command) (Executable, error) {
 	words, err := c.Expand(s)
 	if err != nil {
@@ -451,13 +476,20 @@ func (s *Shell) prepare(c Command) (Executable, error) {
 	return cmd, nil
 }
 
-func (s *Shell) lookup(cmd string, args []string) (Executable, error) {
-	if b, ok := builtins[cmd]; ok {
+func (s *Shell) lookupBuiltin(cmd string, args []string) (Executable, error) {
+	if b, ok := s.builtins[cmd]; ok {
+		if b.Disabled {
+			return nil, fmt.Errorf("%s is disabled", cmd)
+		}
 		e := b
 		e.Shell = s
 		e.Args = append(e.Args[:0], args...)
 		return &e, nil
 	}
+	return nil, fmt.Errorf("%s builtin not found", cmd)
+}
+
+func (s *Shell) lookupCommand(cmd string, args []string) (Executable, error) {
 	exists := func(path string) bool {
 		s, err := os.Stat(path)
 		return err == nil && s.Mode().IsRegular()
@@ -483,6 +515,13 @@ func (s *Shell) lookup(cmd string, args []string) (Executable, error) {
 		}
 	}
 	return External(cmd, args, env, s.WorkDir()), nil
+}
+
+func (s *Shell) lookup(cmd string, args []string) (Executable, error) {
+	if e, err := s.lookupBuiltin(cmd, args); err == nil {
+		return e, err
+	}
+	return s.lookupCommand(cmd, args)
 }
 
 func (s *Shell) Define(ident string, values []string) {
