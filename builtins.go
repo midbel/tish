@@ -11,10 +11,10 @@ var (
 )
 
 var builtins = map[string]builtin{
-	// "echo": {
-	// 	Usage: "echo [arg...]",
-	// 	Call:  runEcho,
-	// },
+	"echo": {
+		Usage: "echo [arg...]",
+		Call:  runEcho,
+	},
 	"export": {
 		Usage: "export",
 		Call:  runExport,
@@ -58,6 +58,13 @@ func runExit(b *builtin) error {
 }
 
 func runExport(b *builtin) error {
+	for i := 0; i < len(b.Args); i+=2 {
+		var (
+			id = b.Args[i]
+			vl = b.Args[i+1]
+		)
+		b.Define(id, []string{vl})
+	}
 	return nil
 }
 

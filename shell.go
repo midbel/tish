@@ -20,16 +20,6 @@ const (
 	maxSubshell = 255
 )
 
-func execFile(r io.Reader, dir string) error {
-	sh, err := NewShellWithEnv(r, EmptyEnv())
-	if err != nil {
-		return err
-	}
-	sh.SetDirs(filepath.SplitList(dir))
-	sh.SetExts(".exe", ".sh")
-	return sh.Run()
-}
-
 type Shell struct {
 	parser *Parser
 	locals Environment
