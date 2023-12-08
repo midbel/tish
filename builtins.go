@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"plugin"
 )
 
 var (
@@ -157,11 +158,18 @@ func runEnable(b *builtin) error {
 	if err := set.Parse(b.Args); err != nil {
 		return err
 	}
-	if *load != "" {
-		return notImplemented("enable -f")
-	}
 	switch {
 	case *load != "":
+		p, err := plugin.Open(*load)
+		if err != nil {
+			return err
+		}
+		s, err := p.Lookup("")
+		if err != nil {
+			return err
+		}
+		_ = s
+		return notImplemented("enable -f")
 	case *print:
 		for n, x := range b.Shell.builtins {
 			if *all {

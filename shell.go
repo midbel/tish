@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"maps"
 	"strconv"
 	"time"
 )
@@ -30,6 +31,7 @@ type Shell struct {
 	Stderr io.Writer
 
 	builtins map[string]builtin
+	alias map[string][]string
 
 	level int
 	when  time.Time
@@ -61,6 +63,7 @@ func NewShellWithEnv(r io.Reader, locals Environment) (*Shell, error) {
 		env:      EmptyEnv(),
 		locals:   locals,
 		builtins: builtins,
+		alias: make(map[string][]string),
 		level:    1,
 		Stdout:   NopCloser(os.Stdout),
 		Stderr:   NopCloser(os.Stderr),
@@ -91,6 +94,7 @@ func (s *Shell) Sub() (*Shell, error) {
 	sub.level++
 	sub.env = EnclosedEnv(s.env)
 	sub.locals = EnclosedEnv(s.locals)
+	sub.alias = maps.Clone(s.alias)
 	sub.dirs = slices.Clone(s.dirs)
 	sub.path = slices.Clone(s.path)
 	sub.exec.code = 0
@@ -521,7 +525,13 @@ func (s *Shell) lookup(cmd string, args []string) (Executable, error) {
 	if e, err := s.lookupBuiltin(cmd, args); err == nil {
 		return e, err
 	}
-	return s.lookupCommand(cmd, args)
+	if e, err := s.lookupCommand(cmd, args); err == nil {
+		return e, err
+	}
+	if words, ok := s.alias[cmd]; ok {
+		return s.lookup(words[0], append(words[1:], args...))
+	}
+	return nil, fmt.Errorf("%s command not found", cmd)
 }
 
 func (s *Shell) Define(ident string, values []string) {

@@ -1,6 +1,8 @@
 export FOO=BAR
 echo $FOO
 
+alias ll = ls -l -a
+
 command echo.exe "from command foobar"
 
 enable -n echo
