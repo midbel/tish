@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"slices"
 	"plugin"
 )
 
@@ -80,6 +81,17 @@ var builtins = map[string]builtin{
 }
 
 func runAlias(b *builtin) error {
+	var (
+		set = flag.NewFlagSet("alias", flag.ExitOnError)
+		print = flag.Bool("p", false, "print registered alias")
+	)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	if *print {
+		return nil
+	}
+	b.Shell.alias[set.Arg(0)] = slices.Clone(set.Args()[1:])
 	return nil
 }
 
