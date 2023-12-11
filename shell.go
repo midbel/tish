@@ -74,6 +74,7 @@ func NewShellWithEnv(r io.Reader, locals Environment) (*Shell, error) {
 		s.dirs = append(s.dirs, cwd)
 	}
 	rand.Seed(s.when.Unix())
+	s.setup()
 	return &s, nil
 }
 
@@ -588,4 +589,32 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 		list, err = s.env.Resolve(ident)
 	}
 	return list, err
+}
+
+func (s *Shell) setup() {
+	prepare := func(file string) {
+		fmt.Println("prepare file", file)
+		r, err := os.Open(file)
+		if err != nil {
+			return
+		}
+		defer r.Close()
+		p, err := New(r)
+		if err != nil {
+			return
+		}
+		for {
+			cmd, err := p.Parse()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err == nil {
+				s.execute(cmd)
+			}
+		}
+	}
+	dirs := []string{"."}
+	for _, d := range dirs {
+		prepare(filepath.Join(d, ".tishrc"))
+	}
 }
