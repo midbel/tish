@@ -4,8 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"slices"
 	"plugin"
+	"slices"
 )
 
 var (
@@ -28,7 +28,7 @@ var builtins = map[string]builtin{
 	},
 	"printf": {
 		Usage: "printf",
-		Call: runPrintf,
+		Call:  runPrintf,
 	},
 	"echo": {
 		Usage: "echo [arg...]",
@@ -82,7 +82,7 @@ var builtins = map[string]builtin{
 
 func runAlias(b *builtin) error {
 	var (
-		set = flag.NewFlagSet("alias", flag.ExitOnError)
+		set   = flag.NewFlagSet("alias", flag.ExitOnError)
 		print = flag.Bool("p", false, "print registered alias")
 	)
 	if err := set.Parse(b.Args); err != nil {

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"maps"
 	"strconv"
 	"time"
 )
@@ -31,7 +31,7 @@ type Shell struct {
 	Stderr io.Writer
 
 	builtins map[string]builtin
-	alias map[string][]string
+	alias    map[string][]string
 
 	level int
 	when  time.Time
@@ -63,7 +63,7 @@ func NewShellWithEnv(r io.Reader, locals Environment) (*Shell, error) {
 		env:      EmptyEnv(),
 		locals:   locals,
 		builtins: builtins,
-		alias: make(map[string][]string),
+		alias:    make(map[string][]string),
 		level:    1,
 		Stdout:   NopCloser(os.Stdout),
 		Stderr:   NopCloser(os.Stderr),

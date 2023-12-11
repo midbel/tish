@@ -1,14 +1,16 @@
 package main
 
 import (
-	"os"
 	"flag"
+	"fmt"
+	"os"
 )
 
 func main() {
 	var (
-		list  = flag.Bool("l", false, "print list")
+		list     = flag.Bool("l", false, "print list")
 		colorize = flag.Bool("c", false, "print colors")
+		print    = printName
 	)
 	flag.Parse()
 
@@ -17,16 +19,26 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-}
-
-func printList(files []os.DirEntry, colorize bool) {
-	for _, f := range files {
-		fmt.Println(f.Name())
+	if *list {
+		print = printList
 	}
+	print(dirs, *colorize)
 }
 
-func printName(files []os.DirEntry, colorize bool) {
+func printList(files []os.DirEntry, colorize bool) error {
+	for _, f := range files {
+		i, err := f.Info()
+		if err != nil {
+			return err
+		}
+		w := i.ModTime().Format("2006-01-02 15:04")
+		fmt.Printf("%s  %12d  %s  %s", f.Type(), i.Size(), w, f.Name())
+		fmt.Println()
+	}
+	return nil
+}
+
+func printName(files []os.DirEntry, colorize bool) error {
 	for i, f := range files {
 		if i > 0 {
 			fmt.Print(" ")
@@ -34,4 +46,5 @@ func printName(files []os.DirEntry, colorize bool) {
 		fmt.Print(f.Name())
 	}
 	fmt.Println()
+	return nil
 }
