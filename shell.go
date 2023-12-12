@@ -21,6 +21,21 @@ const (
 	maxSubshell = 255
 )
 
+const (
+	PathEnv    = "PATH"
+	ExtEnv     = "CMDEXT"
+	HomeEnv    = "HOME"
+	CdpathEnv  = "CDPATH"
+	PidEnv     = "PID"
+	PpidEnv    = "PPID"
+	ShellEnv   = "SHELL"
+	VersionEnv = "VERSION"
+	PwdEnv     = "PWD"
+	OldpwdEnv  = "OLDPWD"
+	RandEnv    = "RANDOM"
+	SecondsEnv = "SECONDS"
+)
+
 type Shell struct {
 	parser *Parser
 	locals Environment
@@ -36,8 +51,6 @@ type Shell struct {
 	level int
 	when  time.Time
 	dirs  []string
-	path  []string
-	exext []string
 
 	exec struct {
 		code int
@@ -68,7 +81,6 @@ func NewShellWithEnv(r io.Reader, locals Environment) (*Shell, error) {
 		Stdout:   NopCloser(os.Stdout),
 		Stderr:   NopCloser(os.Stderr),
 		when:     time.Now(),
-		path:     filepath.SplitList(os.Getenv("PATH")),
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		s.dirs = append(s.dirs, cwd)
@@ -79,11 +91,11 @@ func NewShellWithEnv(r io.Reader, locals Environment) (*Shell, error) {
 }
 
 func (s *Shell) SetDirs(dirs []string) {
-	s.path = append(s.path, dirs...)
+	s.setEnv(PathEnv, dirs)
 }
 
-func (s *Shell) SetExts(exts ...string) {
-	s.exext = append(s.exext, exts...)
+func (s *Shell) SetExts(exts []string) {
+	s.setEnv(ExtEnv, exts)
 }
 
 func (s *Shell) Sub() (*Shell, error) {
@@ -97,7 +109,6 @@ func (s *Shell) Sub() (*Shell, error) {
 	sub.locals = EnclosedEnv(s.locals)
 	sub.alias = maps.Clone(s.alias)
 	sub.dirs = slices.Clone(s.dirs)
-	sub.path = slices.Clone(s.path)
 	sub.exec.code = 0
 	sub.exec.cmd = ""
 	sub.exec.args = []string{}
@@ -506,12 +517,12 @@ func (s *Shell) lookupCommand(cmd string, args []string) (Executable, error) {
 	if exists(cmd) {
 		return External(cmd, args, env, s.WorkDir()), nil
 	}
-	for _, d := range s.path {
+	for _, d := range s.getPath() {
 		d = filepath.Join(d, cmd)
 		if exists(d) {
 			return External(d, args, env, s.WorkDir()), nil
 		}
-		for _, e := range s.exext {
+		for _, e := range s.getExt() {
 			if filepath.Ext(d) != e {
 				if exists(d + e) {
 					return External(d+e, args, env, s.WorkDir()), nil
@@ -549,30 +560,17 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 		return strArray(n), nil
 	case "@":
 		return slices.Clone(s.exec.args), nil
-	case "HOME":
-		return strArray(""), nil
-	case "PWD":
+	case PwdEnv:
 		return strArray(s.WorkDir()), nil
-	case "OLDPWD":
+	case OldpwdEnv:
 		return strArray(s.OldWorkDir()), nil
-	case "PID":
-		n := os.Getpid()
-		return strArray(strconv.Itoa(n)), nil
-	case "PPID":
-		n := os.Getppid()
-		return strArray(strconv.Itoa(n)), nil
-	case "PATH":
-		return slices.Clone(s.path), nil
-	case "RANDOM":
+	case RandEnv:
 		n := rand.Int()
 		return strArray(strconv.Itoa(n)), nil
-	case "SECONDS":
-		n := s.when.Unix()
-		return strArray(strconv.Itoa(int(n))), nil
-	case "SHELL":
-		return strArray(tishName), nil
-	case "VERSION":
-		return strArray(tishVersion), nil
+	case SecondsEnv:
+		n := time.Since(s.when)
+		s := n.Seconds()
+		return strArray(strconv.Itoa(int(s))), nil
 	default:
 	}
 	if n, err := strconv.Atoi(ident); err == nil && n >= 0 {
@@ -586,35 +584,71 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 	}
 	list, err := s.locals.Resolve(ident)
 	if err != nil {
-		list, err = s.env.Resolve(ident)
+		list, err = s.getEnv(ident)
 	}
 	return list, err
 }
 
+func (s *Shell) setEnv(ident string, values []string) {
+	s.env.Define(ident, values)
+}
+
+func (s *Shell) getEnv(ident string) ([]string, error) {
+	return s.env.Resolve(ident)
+}
+
+func (s *Shell) getPath() []string {
+	vs, _ := s.getEnv(PathEnv)
+	return vs
+}
+
+func (s *Shell) getExt() []string {
+	vs, _ := s.getEnv(ExtEnv)
+	return vs
+}
+
 func (s *Shell) setup() {
-	prepare := func(file string) {
-		fmt.Println("prepare file", file)
-		r, err := os.Open(file)
-		if err != nil {
-			return
-		}
-		defer r.Close()
-		p, err := New(r)
-		if err != nil {
-			return
-		}
-		for {
-			cmd, err := p.Parse()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err == nil {
-				s.execute(cmd)
-			}
-		}
-	}
+	s.setupEnv()
+
 	dirs := []string{"."}
 	for _, d := range dirs {
-		prepare(filepath.Join(d, ".tishrc"))
+		s.setupFromFile(filepath.Join(d, ".tishrc"))
+	}
+}
+
+func (s *Shell) setupEnv() {
+	s.setEnv(HomeEnv, []string{})
+	s.setEnv(PathEnv, []string{})
+	s.setEnv(CdpathEnv, []string{})
+	s.setEnv(ExtEnv, []string{})
+
+	n := os.Getpid()
+	s.setEnv(PidEnv, strArray(strconv.Itoa(n)))
+
+	n = os.Getppid()
+	s.setEnv(PpidEnv, strArray(strconv.Itoa(n)))
+
+	s.setEnv(ShellEnv, strArray(tishName))
+	s.setEnv(VersionEnv, strArray(tishVersion))
+}
+
+func (s *Shell) setupFromFile(file string) {
+	r, err := os.Open(file)
+	if err != nil {
+		return
+	}
+	defer r.Close()
+	p, err := New(r)
+	if err != nil {
+		return
+	}
+	for {
+		cmd, err := p.Parse()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err == nil {
+			s.execute(cmd)
+		}
 	}
 }

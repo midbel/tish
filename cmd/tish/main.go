@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/midbel/tish"
 )
 
 func main() {
-	path := flag.String("d", os.Getenv("PATH"), "base path")
 	flag.Parse()
 
 	var r io.Reader
@@ -25,18 +23,17 @@ func main() {
 			r = os.Stdin
 		}
 	}
-	if err := execFile(r, *path); err != nil {
+	if err := execFile(r); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func execFile(r io.Reader, dir string) error {
+func execFile(r io.Reader) error {
 	sh, err := tish.NewShellWithEnv(r, tish.EmptyEnv())
 	if err != nil {
 		return err
 	}
-	sh.SetDirs(filepath.SplitList(dir))
-	sh.SetExts(".exe", ".sh")
+	sh.SetExts([]string{".exe", ".sh"})
 	return sh.Run()
 }

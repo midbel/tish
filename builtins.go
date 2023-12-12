@@ -117,7 +117,7 @@ func runExport(b *builtin) error {
 			id = b.Args[i]
 			vl = b.Args[i+1]
 		)
-		b.Shell.env.Define(id, []string{vl})
+		b.Shell.setEnv(id, []string{vl})
 	}
 	return nil
 }
