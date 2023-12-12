@@ -597,6 +597,11 @@ func (s *Shell) getEnv(ident string) ([]string, error) {
 	return s.env.Resolve(ident)
 }
 
+func (s *Shell) getPathCD() []string {
+	vs, _ := s.getEnv(CdpathEnv)
+	return vs
+}
+
 func (s *Shell) getPath() []string {
 	vs, _ := s.getEnv(PathEnv)
 	return vs

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
 	"plugin"
 	"slices"
 )
@@ -134,7 +136,36 @@ func runEcho(b *builtin) error {
 }
 
 func runCd(b *builtin) error {
-	return nil
+	set := flag.NewFlagSet("cd", flag.ContinueOnError)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	if set.NArg() == 0 {
+		home, err := b.getEnv(HomeEnv)
+		if err != nil {
+			return err
+		}
+		if err = os.Chdir(home[0]); err == nil {
+			b.Shell.dirs = append(b.Shell.dirs, home...)
+		}
+		return err
+	}
+	var (
+		path = filepath.Join(b.Shell.WorkDir(), set.Arg(0))
+		err  = os.Chdir(path)
+	)
+	if err == nil {
+		b.Shell.dirs = append(b.Shell.dirs, path)
+		return nil
+	}
+	for _, d := range b.Shell.getPathCD() {
+		path = filepath.Join(d, set.Arg(0))
+		if err = os.Chdir(path); err == nil {
+			b.Shell.dirs = append(b.Shell.dirs, path)
+			break
+		}
+	}
+	return err
 }
 
 func runPushd(b *builtin) error {

@@ -11,7 +11,7 @@ import (
 
 func main() {
 	var (
-		limit = flag.Int64("c", 0, "number of bytes")
+		limit  = flag.Int64("c", 0, "number of bytes")
 		number = flag.Bool("n", false, "print line number")
 	)
 	flag.Parse()
