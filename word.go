@@ -146,8 +146,8 @@ func (s substitution) Expand(env Environment) ([]string, error) {
 		err error
 	)
 	r := strings.NewReader(string(s))
-	if sub, ok := env.(interface{ Sub(io.Reader) (*Shell, error) }); ok {
-		sh, err = sub.Sub(r)
+	if sub, ok := env.(interface{ SubShell(io.Reader) (*Shell, error) }); ok {
+		sh, err = sub.SubShell(r)
 	} else {
 		sh, err = NewShellWithEnv(r, env)
 	}
@@ -163,7 +163,8 @@ func (s substitution) Expand(env Environment) ([]string, error) {
 	if err := sh.Run(); err != nil {
 		return nil, fmt.Errorf("%s: %s", err, stderr.String())
 	}
-	return strArray(stdout.String()), nil
+	str := strings.TrimSpace(stdout.String())
+	return strArray(str), nil
 }
 
 type expr struct {

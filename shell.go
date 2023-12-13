@@ -98,7 +98,16 @@ func (s *Shell) SetExts(exts []string) {
 	s.setEnv(ExtEnv, exts)
 }
 
-func (s *Shell) Sub(r io.Reader) (*Shell, error) {
+func (s *Shell) SubShell(r io.Reader) (*Shell, error) {
+	sub, err := s.Sub()
+	if err != nil {
+		return nil, err
+	}
+	sub.parser, err = New(r)
+	return sub, err
+}
+
+func (s *Shell) Sub() (*Shell, error) {
 	if s.level == maxSubshell {
 		return nil, fmt.Errorf("too many subshell created")
 	}
@@ -106,10 +115,6 @@ func (s *Shell) Sub(r io.Reader) (*Shell, error) {
 		sub = *s
 		err error
 	)
-	sub.parser, err = New(r)
-	if err != nil {
-		return nil, err
-	}
 
 	sub.level++
 	sub.env = EnclosedEnv(s.env)
@@ -120,7 +125,7 @@ func (s *Shell) Sub(r io.Reader) (*Shell, error) {
 	sub.exec.cmd = ""
 	sub.exec.args = []string{}
 
-	return &sub, nil
+	return &sub, err
 }
 
 func (s *Shell) Run() error {
