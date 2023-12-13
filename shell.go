@@ -98,11 +98,18 @@ func (s *Shell) SetExts(exts []string) {
 	s.setEnv(ExtEnv, exts)
 }
 
-func (s *Shell) Sub() (*Shell, error) {
+func (s *Shell) Sub(r io.Reader) (*Shell, error) {
 	if s.level == maxSubshell {
 		return nil, fmt.Errorf("too many subshell created")
 	}
-	sub := *s
+	var (
+		sub = *s
+		err error
+	)
+	sub.parser, err = New(r)
+	if err != nil {
+		return nil, err
+	}
 
 	sub.level++
 	sub.env = EnclosedEnv(s.env)
@@ -133,10 +140,11 @@ func (s *Shell) Run() error {
 }
 
 func (s *Shell) WorkDir() string {
-	if n := len(s.dirs); n >= 1 {
-		return s.dirs[n-1]
+	dir := s.getCwd()
+	if dir == "" {
+		return "."
 	}
-	return "."
+	return dir
 }
 
 func (s *Shell) OldWorkDir() string {
@@ -533,6 +541,13 @@ func (s *Shell) lookupCommand(cmd string, args []string) (Executable, error) {
 	return External(cmd, args, env, s.WorkDir()), nil
 }
 
+func (s *Shell) lookupAlias(cmd string, args []string) (Executable, error) {
+	if words, ok := s.alias[cmd]; ok {
+		return s.lookup(words[0], append(words[1:], args...))
+	}
+	return nil, fmt.Errorf("%s command not found", cmd)
+}
+
 func (s *Shell) lookup(cmd string, args []string) (Executable, error) {
 	if e, err := s.lookupBuiltin(cmd, args); err == nil {
 		return e, err
@@ -540,10 +555,7 @@ func (s *Shell) lookup(cmd string, args []string) (Executable, error) {
 	if e, err := s.lookupCommand(cmd, args); err == nil {
 		return e, err
 	}
-	if words, ok := s.alias[cmd]; ok {
-		return s.lookup(words[0], append(words[1:], args...))
-	}
-	return nil, fmt.Errorf("%s command not found", cmd)
+	return s.lookupAlias(cmd, args)
 }
 
 func (s *Shell) Define(ident string, values []string) {
@@ -589,6 +601,19 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 	return list, err
 }
 
+func (s *Shell) setCwd(dir string) {
+	s.setEnv(OldpwdEnv, strArray(s.getCwd()))
+	s.setEnv(PwdEnv, strArray(dir))
+}
+
+func (s *Shell) getCwd() string {
+	dir, err := s.env.Resolve(PwdEnv)
+	if errors.Is(err, ErrDefined) {
+		return "."
+	}
+	return dir[0]
+}
+
 func (s *Shell) setEnv(ident string, values []string) {
 	s.env.Define(ident, values)
 }
@@ -623,7 +648,7 @@ func (s *Shell) setup() {
 
 func (s *Shell) setupEnv() {
 	s.setEnv(HomeEnv, []string{})
-	s.setEnv(PathEnv, []string{})
+	s.setEnv(PathEnv, []string{"."})
 	s.setEnv(CdpathEnv, []string{})
 	s.setEnv(ExtEnv, []string{})
 

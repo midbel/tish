@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strconv"
@@ -140,7 +141,16 @@ func createSubstitution(str string) Word {
 }
 
 func (s substitution) Expand(env Environment) ([]string, error) {
-	sh, err := NewShellWithEnv(strings.NewReader(string(s)), env)
+	var (
+		sh *Shell
+		err error
+	)
+	r := strings.NewReader(string(s))
+	if sub, ok := env.(interface{ Sub(io.Reader) (*Shell, error) }); ok {
+		sh, err = sub.Sub(r)
+	} else {
+		sh, err = NewShellWithEnv(r, env)
+	}
 	if err != nil {
 		return nil, err
 	}

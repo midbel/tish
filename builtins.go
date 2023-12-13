@@ -102,6 +102,23 @@ func runUnalias(b *builtin) error {
 }
 
 func runType(b *builtin) error {
+	set := flag.NewFlagSet("type", flag.ExitOnError)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	for _, a := range set.Args() {
+		if _, err := b.Shell.lookupBuiltin(a, nil); err == nil {
+			fmt.Fprintln(b.Stdout, "builtin")
+		} else if _, err := b.Shell.lookupCommand(a, nil); err == nil {
+			fmt.Fprintln(b.Stdout, "command")
+		} else if _, err := b.Shell.lookupAlias(a, nil); err == nil {
+			fmt.Fprintln(b.Stdout, "alias")
+		} else if _, err := os.Stat(a); err == nil {
+			fmt.Fprintln(b.Stdout, "file")
+		} else {
+
+		}
+	}
 	return nil
 }
 
@@ -146,7 +163,14 @@ func runCd(b *builtin) error {
 			return err
 		}
 		if err = os.Chdir(home[0]); err == nil {
-			b.Shell.dirs = append(b.Shell.dirs, home...)
+			b.Shell.setCwd(home[0])
+		}
+		return err
+	}
+	if filepath.IsAbs(set.Arg(0)) {
+		err := os.Chdir(set.Arg(0))
+		if err == nil {
+			b.Shell.setCwd(set.Arg(0))
 		}
 		return err
 	}
@@ -155,13 +179,13 @@ func runCd(b *builtin) error {
 		err  = os.Chdir(path)
 	)
 	if err == nil {
-		b.Shell.dirs = append(b.Shell.dirs, path)
+		b.Shell.setCwd(path)
 		return nil
 	}
 	for _, d := range b.Shell.getPathCD() {
 		path = filepath.Join(d, set.Arg(0))
 		if err = os.Chdir(path); err == nil {
-			b.Shell.dirs = append(b.Shell.dirs, path)
+			b.Shell.setCwd(path)
 			break
 		}
 	}
