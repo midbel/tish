@@ -142,11 +142,13 @@ func createSubstitution(str string) Word {
 
 func (s substitution) Expand(env Environment) ([]string, error) {
 	var (
-		sh *Shell
+		sh  *Shell
 		err error
 	)
 	r := strings.NewReader(string(s))
-	if sub, ok := env.(interface{ SubShell(io.Reader) (*Shell, error) }); ok {
+	if sub, ok := env.(interface {
+		SubShell(io.Reader) (*Shell, error)
+	}); ok {
 		sh, err = sub.SubShell(r)
 	} else {
 		sh, err = NewShellWithEnv(r, env)

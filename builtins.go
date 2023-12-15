@@ -80,6 +80,24 @@ var builtins = map[string]builtin{
 		Usage: "false",
 		Call:  runFalse,
 	},
+	"readonly": {
+		Usage: "readonly",
+		Call:  runReadOnly,
+	},
+}
+
+func runReadOnly(b *builtin) error {
+	var (
+		set   = flag.NewFlagSet("alias", flag.ExitOnError)
+		print = flag.Bool("p", false, "print registered alias")
+	)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	if *print {
+		return nil
+	}
+	return nil
 }
 
 func runAlias(b *builtin) error {
@@ -116,7 +134,7 @@ func runType(b *builtin) error {
 		} else if _, err := os.Stat(a); err == nil {
 			fmt.Fprintln(b.Stdout, "file")
 		} else {
-
+			fmt.Fprintln(b.Stderr, "unknown")
 		}
 	}
 	return nil

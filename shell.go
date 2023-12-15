@@ -563,8 +563,8 @@ func (s *Shell) lookup(cmd string, args []string) (Executable, error) {
 	return s.lookupAlias(cmd, args)
 }
 
-func (s *Shell) Define(ident string, values []string) {
-	s.locals.Define(ident, values)
+func (s *Shell) Define(ident string, values []string) error {
+	return s.locals.Define(ident, values)
 }
 
 func (s *Shell) Resolve(ident string) ([]string, error) {
