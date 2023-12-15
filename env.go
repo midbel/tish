@@ -8,13 +8,28 @@ import (
 )
 
 var (
-	ErrDefined  = errors.New("variable not defined")
-	ErrReadOnly = errors.New("read only variable")
+	ErrDefined   = errors.New("variable not defined")
+	ErrReadOnly  = errors.New("read only variable")
+	ErrImmutable = errors.New("immutable env")
 )
 
 type Environment interface {
 	Define(string, []string) error
 	Resolve(string) ([]string, error)
+}
+
+type ImmutableEnv struct {
+	Environment
+}
+
+func Immutable(env Environment) Environment {
+	return ImmutableEnv{
+		Environment: env,
+	}
+}
+
+func (e *ImmutableEnv) Define(_ string, _ []string) error {
+	return ErrImmutable
 }
 
 type Env struct {
