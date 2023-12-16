@@ -11,8 +11,10 @@ import (
 )
 
 var (
-	ErrExit  = errors.New("exit")
-	ErrFalse = errors.New("false")
+	ErrExit     = errors.New("exit")
+	ErrFalse    = errors.New("false")
+	ErrBreak    = errors.New("break")
+	ErrContinue = errors.New("continue")
 )
 
 var builtins = map[string]builtin{
@@ -23,6 +25,14 @@ var builtins = map[string]builtin{
 	"unalias": {
 		Usage: "unalias [name...]",
 		Call:  runUnalias,
+	},
+	"break": {
+		Usage: "break",
+		Call:  runBreak,
+	},
+	"continue": {
+		Usage: "continue",
+		Call:  runContinue,
 	},
 	"type": {
 		Usage: "type name",
@@ -84,6 +94,14 @@ var builtins = map[string]builtin{
 		Usage: "readonly",
 		Call:  runReadOnly,
 	},
+}
+
+func runBreak(_ *builtin) error {
+	return ErrBreak
+}
+
+func runContinue(_ *builtin) error {
+	return ErrContinue
 }
 
 func runReadOnly(b *builtin) error {

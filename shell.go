@@ -407,7 +407,12 @@ func (s *Shell) executeUntil(cmd cmdUntil) error {
 			break
 		}
 		if err := s.execute(cmd.body); err != nil {
-			return err
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if !errors.Is(err, ErrContinue) {
+				return err
+			}
 		}
 	}
 	return nil
@@ -425,7 +430,12 @@ func (s *Shell) executeWhile(cmd cmdWhile) error {
 			break
 		}
 		if err := s.execute(cmd.body); err != nil {
-			return err
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if !errors.Is(err, ErrContinue) {
+				return err
+			}
 		}
 	}
 	return nil
@@ -454,9 +464,16 @@ func (s *Shell) executeFor(cmd cmdFor) error {
 		}()
 	}
 	for scan.Scan() {
-		s.Define(cmd.ident, strArray(scan.Text()))
-		if err := s.execute(cmd.body); err != nil {
+		if err := s.Define(cmd.ident, strArray(scan.Text())); err != nil {
 			return err
+		}
+		if err := s.execute(cmd.body); err != nil {
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if !errors.Is(err, ErrContinue) {
+				return err
+			}
 		}
 	}
 	return e.Wait()
@@ -606,7 +623,7 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 }
 
 func (s *Shell) setReadOnly(ident string) {
-	ro, ok := s.locals.(interface { setReadOnly(string) error})
+	ro, ok := s.locals.(interface{ setReadOnly(string) error })
 	if !ok {
 		return
 	}
@@ -627,7 +644,7 @@ func (s *Shell) getCwd() string {
 }
 
 func (s *Shell) setEnv(ident string, values []string) {
-	e, ok := s.env.(interface { assign(string, []string) } )
+	e, ok := s.env.(interface{ assign(string, []string) })
 	if !ok {
 		return
 	}

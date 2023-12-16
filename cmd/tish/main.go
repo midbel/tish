@@ -11,6 +11,11 @@ import (
 )
 
 func main() {
+	// var (
+	// 	verbose  = flag.Bool("v", false, "verbose")
+	// 	restrict = flag.Bool("r", false, "restricted")
+	// 	skiprc   = flag.Bool("norc", false, "skip rc file")
+	// )
 	flag.Parse()
 
 	var r io.Reader
