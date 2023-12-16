@@ -320,8 +320,7 @@ func (s *Shell) executeAssign(cmd cmdAssign) error {
 	if err != nil {
 		return err
 	}
-	s.Define(cmd.ident, list)
-	return nil
+	return s.Define(cmd.ident, list)
 }
 
 func (s *Shell) executePipe(list []Command) error {
@@ -620,7 +619,7 @@ func (s *Shell) getCwd() string {
 }
 
 func (s *Shell) setEnv(ident string, values []string) {
-	s.env.Define(ident, values)
+	s.env.assign(ident, values)
 }
 
 func (s *Shell) getEnv(ident string) ([]string, error) {

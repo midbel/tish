@@ -16,6 +16,8 @@ var (
 type Environment interface {
 	Define(string, []string) error
 	Resolve(string) ([]string, error)
+
+	assign(string, []string)
 }
 
 type ImmutableEnv struct {
@@ -62,10 +64,7 @@ func (e *Env) Resolve(ident string) ([]string, error) {
 func (e *Env) Define(ident string, values []string) error {
 	vs, ok := e.values[ident]
 	if !ok {
-		e.values[ident] = variable{
-			ro:     false,
-			values: slices.Clone(values),
-		}
+		e.assign(ident, values)
 		return nil
 	}
 	if vs.ro {
@@ -74,6 +73,13 @@ func (e *Env) Define(ident string, values []string) error {
 	vs.values = slices.Clone(values)
 	e.values[ident] = vs
 	return nil
+}
+
+func (e *Env) assign(ident string, values []string) {
+	e.values[ident] = variable{
+		ro:     false,
+		values: slices.Clone(values),
+	}
 }
 
 func (e *Env) List() []string {
