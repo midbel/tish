@@ -83,7 +83,7 @@ func NewShellWithEnv(r io.Reader, locals Environment) (*Shell, error) {
 		when:     time.Now(),
 	}
 	if cwd, err := os.Getwd(); err == nil {
-		s.dirs = append(s.dirs, cwd)
+		s.setCwd(cwd)
 	}
 	rand.Seed(s.when.Unix())
 	s.setup()
@@ -509,9 +509,20 @@ func (s *Shell) prepare(c Command) (Executable, error) {
 	if len(words) == 0 {
 		return nil, fmt.Errorf("no command given")
 	}
+	var list []string
+	for i := 1; i < len(words); i++ {
+		ws, err := filepath.Glob(words[i])
+		if err != nil {
+			return nil, err
+		}
+		if len(ws) == 0 {
+			ws = append(ws, words[i])
+		}
+		list = append(list, ws...)
+	}
 	s.exec.cmd = words[0]
-	s.exec.args = words[1:]
-	cmd, err := s.lookup(words[0], words[1:])
+	s.exec.args = list
+	cmd, err := s.lookup(words[0], list)
 	if err != nil {
 		return nil, err
 	}

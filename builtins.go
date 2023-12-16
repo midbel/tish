@@ -168,10 +168,14 @@ func runExit(b *builtin) error {
 }
 
 func runExport(b *builtin) error {
-	for i := 0; i < len(b.Args); i += 2 {
+	set := flag.NewFlagSet("export", flag.ExitOnError)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	for i := 0; i < set.NArg(); i += 2 {
 		var (
-			id = b.Args[i]
-			vl = b.Args[i+1]
+			id = set.Args()[i]
+			vl = set.Args()[i+1]
 		)
 		b.Shell.setEnv(id, []string{vl})
 	}
@@ -179,11 +183,15 @@ func runExport(b *builtin) error {
 }
 
 func runEcho(b *builtin) error {
-	for i := range b.Args {
+	set := flag.NewFlagSet("echo", flag.ExitOnError)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	for i := range set.Args() {
 		if i > 0 {
 			fmt.Fprint(b.Stdout, " ")
 		}
-		fmt.Fprint(b.Stdout, b.Args[i])
+		fmt.Fprint(b.Stdout, set.Args()[i])
 	}
 	fmt.Fprintln(b.Stdout)
 	return nil
