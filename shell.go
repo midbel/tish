@@ -605,6 +605,14 @@ func (s *Shell) Resolve(ident string) ([]string, error) {
 	return list, err
 }
 
+func (s *Shell) setReadOnly(ident string) {
+	ro, ok := s.locals.(interface { setReadOnly(string) error})
+	if !ok {
+		return
+	}
+	ro.setReadOnly(ident)
+}
+
 func (s *Shell) setCwd(dir string) {
 	s.setEnv(OldpwdEnv, strArray(s.getCwd()))
 	s.setEnv(PwdEnv, strArray(dir))
@@ -619,7 +627,11 @@ func (s *Shell) getCwd() string {
 }
 
 func (s *Shell) setEnv(ident string, values []string) {
-	s.env.assign(ident, values)
+	e, ok := s.env.(interface { assign(string, []string) } )
+	if !ok {
+		return
+	}
+	e.assign(ident, values)
 }
 
 func (s *Shell) getEnv(ident string) ([]string, error) {

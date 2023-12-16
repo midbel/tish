@@ -97,6 +97,7 @@ func runReadOnly(b *builtin) error {
 	if *print {
 		return nil
 	}
+	b.Shell.setReadOnly(set.Arg(0))
 	return nil
 }
 

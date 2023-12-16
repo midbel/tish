@@ -16,8 +16,6 @@ var (
 type Environment interface {
 	Define(string, []string) error
 	Resolve(string) ([]string, error)
-
-	assign(string, []string)
 }
 
 type ImmutableEnv struct {
@@ -25,7 +23,7 @@ type ImmutableEnv struct {
 }
 
 func Immutable(env Environment) Environment {
-	return ImmutableEnv{
+	return &ImmutableEnv{
 		Environment: env,
 	}
 }
@@ -80,6 +78,16 @@ func (e *Env) assign(ident string, values []string) {
 		ro:     false,
 		values: slices.Clone(values),
 	}
+}
+
+func (e *Env) setReadOnly(ident string) error {
+	vs, ok := e.values[ident]
+	if !ok {
+		return undefined(ident)
+	}
+	vs.ro = !vs.ro
+	e.values[ident] = vs
+	return nil
 }
 
 func (e *Env) List() []string {
