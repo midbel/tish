@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"bufio"
-	"os"
+	"bytes"
 	"flag"
+	"fmt"
+	"os"
 )
 
 func main() {
@@ -41,7 +41,7 @@ func countLine(file string) (counter, error) {
 
 	var (
 		scan = bufio.NewScanner(r)
-		res counter
+		res  counter
 	)
 	for scan.Scan() {
 		res.Lines++

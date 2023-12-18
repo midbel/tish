@@ -1,11 +1,11 @@
 package main
 
 import (
-	"time"
 	"flag"
-	"strconv"
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 )
 
 func main() {
