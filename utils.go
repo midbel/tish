@@ -19,6 +19,13 @@ func (_ *nopCloser) Close() error {
 	return nil
 }
 
+func closeWriter(w io.Writer) error {
+	if c, ok := w.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
 func strArray(str string) []string {
 	return []string{str}
 }

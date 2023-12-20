@@ -38,11 +38,25 @@ func (e *external) replaceIn(r io.Reader) {
 }
 
 func (e *external) replaceOut(w io.Writer) {
+	if e.Cmd.Stdout != e.Cmd.Stderr {
+		closeWriter(e.Cmd.Stdout)
+	}
 	e.Cmd.Stdout = w
 }
 
 func (e *external) replaceErr(w io.Writer) {
+	if e.Cmd.Stdout != e.Cmd.Stderr {
+		closeWriter(e.Cmd.Stderr)
+	}
 	e.Cmd.Stderr = w
+}
+
+func (e *external) redirectErrOut() {
+	e.Cmd.Stdout = e.Cmd.Stderr
+}
+
+func (e *external) redirectOutErr() {
+	e.Cmd.Stderr = e.Cmd.Stdout
 }
 
 type builtin struct {

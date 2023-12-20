@@ -234,67 +234,72 @@ func (s *Shell) executeSingle(cmd cmdSingle) error {
 	if err != nil {
 		return err
 	}
-	if err := s.setFiles(c, cmd); err != nil {
+	if c, err = s.setFiles(c, cmd.redirect); err != nil {
 		return err
 	}
 	return c.Run()
 }
 
-func (s *Shell) setFiles(x Executable, cmd Command) error {
-	for _, r := range cmd.redirect {
+func (s *Shell) setFiles(x Executable, redirect []Word) (Executable, error) {
+	for _, r := range redirect {
 		r, ok := r.(stdRedirect)
 		if !ok {
-			return fmt.Errorf("not a redirection")
+			return nil, fmt.Errorf("not a redirection")
 		}
 		switch r.Kind {
 		case RedirectIn:
 		case RedirectOut:
 			w, err := writeFile(r.Word, s)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			x.replaceOut(w)
 		case RedirectErr:
 			w, err := writeFile(r.Word, s)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			defer w.Close()
 			x.replaceErr(w)
 		case RedirectBoth:
 			w, err := writeFile(r.Word, s)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			x.replaceOut(w)
 			x.replaceErr(w)
 		case RedirectErrOut:
+			if z, ok := x.(interface{ redirectErrOut() }); ok {
+				z.redirectErrOut()
+			}
 		case RedirectOutErr:
+			if z, ok := x.(interface{ redirectOutErr() }); ok {
+				z.redirectOutErr()
+			}
 		case AppendOut:
 			w, err := appendFile(r.Word, s)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			x.replaceOut(w)
 		case AppendErr:
 			w, err := appendFile(r.Word, s)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			x.replaceErr(w)
 		case AppendBoth:
 			w, err := appendFile(r.Word, s)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			defer w.Close()
 			x.replaceOut(w)
 			x.replaceErr(w)
 		default:
-			return fmt.Errorf("unsupported redirection type")
+			return nil, fmt.Errorf("unsupported redirection type")
 		}
 	}
-	return nil
+	return x, nil
 }
 
 func (s *Shell) executeAssign(cmd cmdAssign) error {

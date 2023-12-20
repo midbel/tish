@@ -252,16 +252,24 @@ func runPwd(b *builtin) error {
 }
 
 func runBuiltin(b *builtin) error {
-	return b.runBuiltin(b.Args)
+	set := flag.NewFlagSet("builtin", flag.ContinueOnError)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	return b.runBuiltin(set.Args())
 }
 
 func runCommand(b *builtin) error {
-	return b.runCommand(b.Args)
+	set := flag.NewFlagSet("command", flag.ContinueOnError)
+	if err := set.Parse(b.Args); err != nil {
+		return err
+	}
+	return b.runCommand(set.Args())
 }
 
 func runEnable(b *builtin) error {
-	set := flag.NewFlagSet("enable", flag.ContinueOnError)
 	var (
+		set      = flag.NewFlagSet("enable", flag.ContinueOnError)
 		disabled = set.Bool("n", false, "disable shell builtin")
 		print    = set.Bool("p", false, "print list of enable builtin")
 		all      = set.Bool("a", false, "print all builtins with an indicator of their status")

@@ -127,8 +127,7 @@ func (p *Parser) parseSingle() (Command, error) {
 		if p.is(Assign) {
 			p.curr.Literal = "="
 			p.curr.Type = Literal
-		}
-		if p.redirect() {
+		} else if p.redirect() {
 			w, err := p.parseRedirect()
 			if err != nil {
 				return nil, err
@@ -141,7 +140,7 @@ func (p *Parser) parseSingle() (Command, error) {
 			return nil, err
 		}
 		sgl.words = append(sgl.words, w)
-		if !p.eoc() {
+		if !p.eoc() && !p.redirect() {
 			p.next()
 		}
 	}
@@ -153,10 +152,11 @@ func (p *Parser) parseRedirect() (Word, error) {
 		w Word
 		t = p.curr.Type
 	)
-	p.next()
-	if t == RedirectOutErr || t == RedirectErrOut {
+	if p.is(RedirectOutErr) || p.is(RedirectErrOut) {
+		p.next()
 		return createRedirect(nil, t), nil
 	}
+	p.next()
 	w, err := p.parseWord()
 	if err == nil {
 		w = createRedirect(w, t)
