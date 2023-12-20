@@ -9,8 +9,9 @@ type Command interface {
 }
 
 type cmdSingle struct {
-	export []Command
-	words  []Word
+	export   []Command
+	words    []Word
+	redirect []Word
 }
 
 func single(words []Word, export []Command) Command {
@@ -30,11 +31,6 @@ func (c cmdSingle) Expand(env Environment) ([]string, error) {
 		list = append(list, str...)
 	}
 	return list, nil
-}
-
-type cmdRedirect struct {
-	Command
-	redirect []Word
 }
 
 type cmdAnd struct {

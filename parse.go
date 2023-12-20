@@ -108,10 +108,7 @@ func (p *Parser) parseAssign() (Command, error) {
 }
 
 func (p *Parser) parseSingle() (Command, error) {
-	var (
-		words  []Word
-		export []Command
-	)
+	var sgl cmdSingle
 	for !p.done() && !p.eol() {
 		if p.peek.Type != Assign {
 			break
@@ -120,65 +117,51 @@ func (p *Parser) parseSingle() (Command, error) {
 		if err != nil {
 			return nil, err
 		}
-		export = append(export, cmd)
+		sgl.export = append(sgl.export, cmd)
 		p.skipBlank()
 	}
 	if p.eoc() {
-		return listCommand(export), nil
+		return listCommand(sgl.export), nil
 	}
 	for !p.done() && !p.eoc() {
 		if p.is(Assign) {
 			p.curr.Literal = "="
 			p.curr.Type = Literal
 		}
+		if p.redirect() {
+			w, err := p.parseRedirect()
+			if err != nil {
+				return nil, err
+			}
+			sgl.redirect = append(sgl.redirect, w)
+			continue
+		}
 		w, err := p.parseWord()
 		if err != nil {
 			return nil, err
 		}
-		words = append(words, w)
-		if p.redirect() {
-			break
-		}
+		sgl.words = append(sgl.words, w)
 		if !p.eoc() {
 			p.next()
 		}
 	}
-	cmd := single(words, export)
-	if p.redirect() {
-		return p.parseRedirect(cmd)
-	}
-	return cmd, nil
+	return sgl, nil
 }
 
-func (p *Parser) parseRedirect(cmd Command) (Command, error) {
-	redirect := cmdRedirect{
-		Command: cmd,
+func (p *Parser) parseRedirect() (Word, error) {
+	var (
+		w Word
+		t = p.curr.Type
+	)
+	p.next()
+	if t == RedirectOutErr || t == RedirectErrOut {
+		return createRedirect(nil, t), nil
 	}
-	for !p.done() && p.redirect() {
-		kind := p.curr.Type
-		p.next()
-		if kind == RedirectErrOut || kind == RedirectOutErr {
-			word := redirectWriter(nil, kind)
-			redirect.redirect = append(redirect.redirect, word)
-			continue
-		}
-		word, err := p.parseWord()
-		if err != nil {
-			return nil, err
-		}
-		switch kind {
-		case RedirectIn:
-			word = redirectReader(word)
-		case RedirectOut, RedirectErr, RedirectBoth:
-			word = redirectWriter(word, kind)
-		case AppendOut, AppendErr, AppendBoth:
-			word = appendWriter(word, kind)
-		default:
-			return nil, fmt.Errorf("redirect: unsupported redirection type %s", p.curr)
-		}
-		redirect.redirect = append(redirect.redirect, word)
+	w, err := p.parseWord()
+	if err == nil {
+		w = createRedirect(w, t)
 	}
-	return redirect, nil
+	return w, err
 }
 
 func (p *Parser) parseCommand() (Command, error) {

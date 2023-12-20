@@ -193,21 +193,7 @@ type stdRedirect struct {
 	Kind rune
 }
 
-func redirectReader(w Word) Word {
-	return stdRedirect{
-		Word: w,
-		Kind: RedirectIn,
-	}
-}
-
-func redirectWriter(w Word, kind rune) Word {
-	return stdRedirect{
-		Word: w,
-		Kind: kind,
-	}
-}
-
-func appendWriter(w Word, kind rune) Word {
+func createRedirect(w Word, kind rune) Word {
 	return stdRedirect{
 		Word: w,
 		Kind: kind,

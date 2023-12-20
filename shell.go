@@ -163,9 +163,7 @@ func (s *Shell) execute(cmd Command) error {
 	var err error
 	switch c := cmd.(type) {
 	case cmdSingle:
-		err = s.executeSingle(cmd)
-	case cmdRedirect:
-		err = s.executeRedirect(c)
+		err = s.executeSingle(c)
 	case cmdAssign:
 		err = s.executeAssign(c)
 	case cmdPipe:
@@ -212,15 +210,15 @@ func (s *Shell) reset(err error) error {
 	return err
 }
 
-func (s *Shell) executeSingle(cmd Command) error {
-	if c, ok := cmd.(cmdSingle); ok && len(c.export) > 0 {
+func (s *Shell) executeSingle(cmd cmdSingle) error {
+	if len(cmd.export) > 0 {
 		s.env = EnclosedEnv(s.env)
 		if u, ok := s.env.(interface{ unwrap() Environment }); ok {
 			defer func() {
 				s.env = u.unwrap()
 			}()
 		}
-		for _, e := range c.export {
+		for _, e := range cmd.export {
 			a, ok := e.(cmdAssign)
 			if !ok {
 				return fmt.Errorf("unexpected command type %T", e)
@@ -236,83 +234,67 @@ func (s *Shell) executeSingle(cmd Command) error {
 	if err != nil {
 		return err
 	}
+	if err := s.setFiles(c, cmd); err != nil {
+		return err
+	}
 	return c.Run()
 }
 
-func (s *Shell) executeRedirect(cmd cmdRedirect) error {
-	c, err := s.prepare(cmd.Command)
-	if err != nil {
-		return err
-	}
-	var (
-		stdin  []io.ReadCloser
-		stdout []io.WriteCloser
-		stderr []io.WriteCloser
-	)
-	for _, w := range cmd.redirect {
-		r, ok := w.(stdRedirect)
+func (s *Shell) setFiles(x Executable, cmd Command) error {
+	for _, r := range cmd.redirect {
+		r, ok := r.(stdRedirect)
 		if !ok {
-			return fmt.Errorf("unsupported redirection word")
+			return fmt.Errorf("not a redirection")
 		}
 		switch r.Kind {
 		case RedirectIn:
-			r, err := openFile(r.Word, s)
-			if err != nil {
-				return err
-			}
-			stdin = append(stdin, r)
 		case RedirectOut:
 			w, err := writeFile(r.Word, s)
 			if err != nil {
 				return err
 			}
-			stdout = append(stdout, w)
+			x.replaceOut(w)
 		case RedirectErr:
 			w, err := writeFile(r.Word, s)
 			if err != nil {
 				return err
 			}
-			stderr = append(stderr, w)
+			defer w.Close()
+			x.replaceErr(w)
 		case RedirectBoth:
 			w, err := writeFile(r.Word, s)
 			if err != nil {
 				return err
 			}
-			stderr = append(stderr, w)
-			stdout = append(stdout, w)
+			x.replaceOut(w)
+			x.replaceErr(w)
+		case RedirectErrOut:
+		case RedirectOutErr:
 		case AppendOut:
 			w, err := appendFile(r.Word, s)
 			if err != nil {
 				return err
 			}
-			stdout = append(stdout, w)
+			x.replaceOut(w)
 		case AppendErr:
 			w, err := appendFile(r.Word, s)
 			if err != nil {
 				return err
 			}
-			stderr = append(stderr, w)
+			x.replaceErr(w)
 		case AppendBoth:
 			w, err := appendFile(r.Word, s)
 			if err != nil {
 				return err
 			}
-			stderr = append(stderr, w)
-			stdout = append(stdout, w)
-		case RedirectErrOut:
-		case RedirectOutErr:
+			defer w.Close()
+			x.replaceOut(w)
+			x.replaceErr(w)
 		default:
 			return fmt.Errorf("unsupported redirection type")
 		}
 	}
-	c.replaceIn(multiReader(stdin))
-	if len(stdout) > 0 {
-		c.replaceOut(multiWriter(stdout))
-	}
-	if len(stderr) > 0 {
-		c.replaceErr(multiWriter(stderr))
-	}
-	return c.Run()
+	return nil
 }
 
 func (s *Shell) executeAssign(cmd cmdAssign) error {
