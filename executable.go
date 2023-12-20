@@ -52,11 +52,11 @@ func (e *external) replaceErr(w io.Writer) {
 }
 
 func (e *external) redirectErrOut() {
-	e.Cmd.Stdout = e.Cmd.Stderr
+	e.Cmd.Stderr = e.Cmd.Stdout
 }
 
 func (e *external) redirectOutErr() {
-	e.Cmd.Stderr = e.Cmd.Stdout
+	e.Cmd.Stdout = e.Cmd.Stderr
 }
 
 type builtin struct {
