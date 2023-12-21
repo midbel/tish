@@ -159,11 +159,25 @@ func (b *builtin) replaceIn(r io.Reader) {
 }
 
 func (b *builtin) replaceOut(w io.Writer) {
+	if b.Stdout != b.Stderr {
+		closeWriter(b.Stdout)
+	}
 	b.Stdout = w
 }
 
 func (b *builtin) replaceErr(w io.Writer) {
+	if b.Stdout != b.Stderr {
+		closeWriter(b.Stderr)
+	}
 	b.Stderr = w
+}
+
+func (b *builtin) redirectErrOut() {
+	b.Stderr = b.Stdout
+}
+
+func (b *builtin) redirectOutErr() {
+	b.Stdout = b.Stderr
 }
 
 func (b *builtin) closeWriters() {
