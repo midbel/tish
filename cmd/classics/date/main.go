@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	unixDate = "%a %b %k %T %Z %Y" // Mon Jan _2 15:04:05 MST 2006
+	unixDate = "%a %b %e %H:%M:%S %Z %Y" // Mon Jan _2 15:04:05 MST 2006
 	isoDate  = "%Y-%m-%dT%T%z"
 )
 
